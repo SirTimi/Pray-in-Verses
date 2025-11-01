@@ -2,14 +2,19 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Bookmark } from "lucide-react";
+import { ArrowLeft, Bookmark, Check } from "lucide-react";
 import banner from "../assets/images/suggest/two-lovers-studying-the-bible-it-is-god-s-love-for-2022-06-18-20-18-08-utc.jpg";
 import { usePageLogger } from "../hooks/usePageLogger";
 import { logPrayer } from "../utils/historyLogger";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "";
-async function request(path, { method = "GET", body, headers = {} } = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
+function apiURL(path) {
+  if (!API_BASE) return path;
+  const base = API_BASE.replace(/\/$/, "");
+  return path.startsWith("/") ? base + path : base + "/" + path;
+}
+async function request(path, { method = "GET", body, headers = {}, allow401 = false } = {}) {
+  const res = await fetch(apiURL(path), {
     method,
     credentials: "include",
     headers: { "Content-Type": "application/json", ...headers },
@@ -17,10 +22,9 @@ async function request(path, { method = "GET", body, headers = {} } = {}) {
   });
   const text = await res.text().catch(() => "");
   let payload = {};
-  try {
-    payload = text ? JSON.parse(text) : {};
-  } catch {}
+  try { payload = text ? JSON.parse(text) : {}; } catch {}
   if (!res.ok) {
+    if (allow401 && res.status === 401) return null;
     const err = new Error(payload?.message || res.statusText || "Request failed");
     err.status = res.status;
     err.payload = payload;
@@ -41,20 +45,10 @@ const CANONICAL_BOOKS = [
   "Titus","Philemon","Hebrews","James","1 Peter","2 Peter","1 John","2 John","3 John","Jude","Revelation",
 ];
 
-const BOOK_ALIASES = {
-  "Song of Solomon": ["Song of Songs", "Canticles"],
-  Psalms: ["Psalm"],
-};
-
+const BOOK_ALIASES = { "Song of Solomon": ["Song of Songs", "Canticles"], Psalms: ["Psalm"] };
 function slugifyBook(name) {
-  return String(name)
-    .normalize("NFKD")
-    .replace(/[’']/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9-]/gi, "")
-    .toLowerCase();
+  return String(name).normalize("NFKD").replace(/[’']/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/gi, "").toLowerCase();
 }
-
 function resolveBookName(slugOrName) {
   if (!slugOrName) return "";
   const lower = slugOrName.toLowerCase();
@@ -63,14 +57,9 @@ function resolveBookName(slugOrName) {
   const bySlug = CANONICAL_BOOKS.find((b) => slugifyBook(b) === lower);
   if (bySlug) return bySlug;
   for (const [canon, aliases] of Object.entries(BOOK_ALIASES)) {
-    if (aliases.some((a) => a.toLowerCase() === lower || slugifyBook(a) === lower)) {
-      return canon;
-    }
+    if (aliases.some((a) => a.toLowerCase() === lower || slugifyBook(a) === lower)) return canon;
   }
-  return String(slugOrName)
-    .split("-")
-    .map((t) => (t.length ? t[0].toUpperCase() + t.slice(1).toLowerCase() : ""))
-    .join(" ");
+  return String(slugOrName).split("-").map((t) => (t.length ? t[0].toUpperCase() + t.slice(1).toLowerCase() : "")).join(" ");
 }
 
 const VerseDetails = () => {
@@ -80,83 +69,93 @@ const VerseDetails = () => {
   const [loading, setLoading] = useState(true);
   const [curated, setCurated] = useState(null);
   const [error, setError] = useState("");
-  const [needsAuth, setNeedsAuth] = useState(false); // NEW: soft auth gate
+  const [needsAuth, setNeedsAuth] = useState(false);
 
   const [isSaved, setIsSaved] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // per-point state
+  const [savedPointKeys, setSavedPointKeys] = useState(() => new Set());
+  const [busyPointKeys, setBusyPointKeys] = useState(() => new Set());
+
   const [toastMessage, setToastMessage] = useState("");
   const [toastVisible, setToastVisible] = useState(false);
-  const showToast = (msg) => {
-    setToastMessage(msg);
-    setToastVisible(true);
-    setTimeout(() => setToastVisible(false), 3000);
-  };
+  const showToast = (msg) => { setToastMessage(msg); setToastVisible(true); setTimeout(() => setToastVisible(false), 3000); };
 
   const bookNameFromRoute = useMemo(() => resolveBookName(bookSlug), [bookSlug]);
   const chapterFromRoute = useMemo(() => Number(chapterNumber), [chapterNumber]);
   const verseFromRoute   = useMemo(() => Number(verseNumber), [verseNumber]);
 
-  // IMPORTANT: use canonical name for API param
-  const apiBookParam = useMemo(
-    () => resolveBookName(bookSlug) || String(bookSlug || ""),
-    [bookSlug]
-  );
+  const apiBookParam = useMemo(() => resolveBookName(bookSlug) || String(bookSlug || ""), [bookSlug]);
 
   const displayBook    = bookNameFromRoute || curated?.book || "";
   const displayChapter = Number.isFinite(chapterFromRoute) ? chapterFromRoute : Number(curated?.chapter);
   const displayVerse   = Number.isFinite(verseFromRoute)   ? verseFromRoute   : Number(curated?.verse);
 
+  const pointKey = (text, index) => `${index}::${String(text || "").trim()}`;
+  const allPointKeysFrom = (entry) => {
+    const s = new Set();
+    if (entry?.prayerPoints && Array.isArray(entry.prayerPoints)) {
+      entry.prayerPoints.forEach((t, i) => { if (typeof t === "string") s.add(pointKey(t, i)); });
+    }
+    return s;
+  };
+
+  // Single source of truth: refresh saved state from backend
+  const refreshSavedState = async (entry) => {
+    try {
+      const savedRes = await request(`/saved-prayers`);
+      const list = savedRes?.data || savedRes || [];
+
+      // whole entry?
+      const wholeSaved = Array.isArray(list) &&
+        list.some((it) => it.curatedPrayerId === entry.id && (it.pointIndex === null || typeof it.pointIndex === "undefined"));
+      setIsSaved(wholeSaved);
+
+      if (wholeSaved) {
+        setSavedPointKeys(allPointKeysFrom(entry));
+      } else {
+        const keys = new Set();
+        if (Array.isArray(list) && Array.isArray(entry.prayerPoints)) {
+          for (const it of list) {
+            if (it.curatedPrayerId === entry.id) {
+              const idx = Number(it.pointIndex);
+              if (Number.isFinite(idx) && idx >= 0 && idx < entry.prayerPoints.length) {
+                const t = entry.prayerPoints[idx];
+                if (typeof t === "string") keys.add(pointKey(t, idx));
+              }
+            }
+          }
+        }
+        setSavedPointKeys(keys);
+      }
+    } catch (err) {
+      if (err?.status === 401) setNeedsAuth(true);
+    }
+  };
+
   useEffect(() => {
     let alive = true;
     (async () => {
-      setLoading(true);
-      setNeedsAuth(false);
-      setError("");
-      setCurated(null);
-      setIsSaved(false);
+      setLoading(true); setNeedsAuth(false); setError(""); setCurated(null); setIsSaved(false);
+      setSavedPointKeys(new Set());
 
       try {
         const chStr = String(chapterNumber || "").trim();
         const vsStr = String(verseNumber || "").trim();
-        if (!/^\d+$/.test(chStr) || !/^\d+$/.test(vsStr)) {
-          throw new Error("Invalid reference.");
-        }
+        if (!/^\d+$/.test(chStr) || !/^\d+$/.test(vsStr)) throw new Error("Invalid reference.");
 
-        // Use canonical name in the API route
-        const verseRes = await request(
-          `/browse/verse/${encodeURIComponent(apiBookParam)}/${chStr}/${vsStr}`
-        );
+        const verseRes = await request(`/browse/verse/${encodeURIComponent(apiBookParam)}/${chStr}/${vsStr}`);
         const data = verseRes?.data || verseRes;
         if (!alive) return;
-
         if (!data) throw new Error("No curated content for this verse yet.");
         setCurated(data);
 
-        // Try saved status; on 401 just ignore (don’t redirect)
-        try {
-          const savedRes = await request(`/saved-prayers`);
-          const list = savedRes?.data || savedRes || [];
-          const saved =
-            Array.isArray(list) &&
-            list.some((it) => it.curatedPrayerId === data.id);
-          if (!alive) return;
-          setIsSaved(saved);
-        } catch (err) {
-          if (err?.status === 401) {
-            // user not logged; keep the page visible
-            setNeedsAuth(true);
-          }
-        }
+        await refreshSavedState(data);
       } catch (err) {
         if (!alive) return;
-        // DO NOT hard-redirect on 401; show CTA instead
-        if (err?.status === 401) {
-          setNeedsAuth(true);
-          setError("");
-        } else {
-          setError(err?.message || "Could not load verse content.");
-        }
+        if (err?.status === 401) { setNeedsAuth(true); setError(""); }
+        else setError(err?.message || "Could not load verse content.");
       } finally {
         if (alive) setLoading(false);
       }
@@ -170,9 +169,7 @@ const VerseDetails = () => {
     return `${displayBook} ${ch}:${vs}`;
   }, [displayBook, displayChapter, displayVerse]);
 
-  useEffect(() => {
-    if (refLabel) document.title = refLabel;
-  }, [refLabel]);
+  useEffect(() => { if (refLabel) document.title = refLabel; }, [refLabel]);
 
   usePageLogger({
     title: refLabel,
@@ -182,43 +179,80 @@ const VerseDetails = () => {
     category: "Bible Study",
   });
 
-  async function onToggleSave(pointTextForLog) {
+  // WHOLE entry toggle
+  async function onToggleSaveWhole(pointTextForLog) {
     if (!curated?.id) return;
     setSaving(true);
     try {
       if (isSaved) {
         await request(`/saved-prayers/${curated.id}`, { method: "DELETE" });
         setIsSaved(false);
+        setSavedPointKeys(new Set());
         showToast("Removed from Saved ✅");
       } else {
         await request(`/saved-prayers/${curated.id}`, { method: "POST" });
         setIsSaved(true);
+        setSavedPointKeys(allPointKeysFrom(curated)); // instant UX
         showToast("Saved ✅");
-        if (pointTextForLog) {
-          logPrayer("Prayer Point Saved", pointTextForLog, refLabel);
-        } else if (Array.isArray(curated.prayerPoints) && curated.prayerPoints[0]) {
+        if (pointTextForLog) logPrayer("Prayer Point Saved", pointTextForLog, refLabel);
+        else if (Array.isArray(curated.prayerPoints) && curated.prayerPoints[0]) {
           logPrayer("Prayer Point Saved", curated.prayerPoints[0], refLabel);
         }
       }
+      // always re-pull server truth to survive refresh
+      await refreshSavedState(curated);
     } catch (err) {
-      if (err.status === 401) {
-        setNeedsAuth(true); // soft prompt
-        showToast("Please sign in to save.");
+      if (err.status === 401) { setNeedsAuth(true); showToast("Please sign in to save."); }
+      else showToast(err?.message || "Action failed");
+    } finally { setSaving(false); }
+  }
+
+  // Single point toggle
+  async function onToggleSavePoint(e, pointText, index) {
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
+    if (!curated?.id) return;
+
+    const key = pointKey(pointText, index);
+    const willSave = !savedPointKeys.has(key);
+
+    // optimistic
+    setSavedPointKeys((prev) => {
+      const next = new Set(prev);
+      if (willSave) next.add(key); else next.delete(key);
+      return next;
+    });
+    setBusyPointKeys((s) => new Set(s).add(key));
+
+    try {
+      const url = `/saved-prayers/${encodeURIComponent(curated.id)}/points/${encodeURIComponent(index)}`;
+      if (willSave) {
+        await request(url, { method: "POST", body: { text: pointText } });
+        logPrayer("Prayer Point Saved", pointText, refLabel);
       } else {
-        showToast(err?.message || "Action failed");
+        await request(url, { method: "DELETE" });
       }
+
+      // Re-sync from backend to ensure it survives refresh and shows all
+      await refreshSavedState(curated);
+    } catch (err) {
+      // revert on failure
+      setSavedPointKeys((prev) => {
+        const next = new Set(prev);
+        if (willSave) next.delete(key); else next.add(key);
+        return next;
+      });
+      if (err?.status === 401) { setNeedsAuth(true); showToast("Please sign in to save."); }
+      else showToast(err?.message || "Action failed");
     } finally {
-      setSaving(false);
+      setBusyPointKeys((s) => { const n = new Set(s); n.delete(key); return n; });
     }
   }
 
-  // Loading shell
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 pt-20 lg:pl-[224px] pb-12">
-        <div className="relative w-full h-48 md:h-64">
-          <div className="absolute inset-0 bg-gray-200 animate-pulse" />
-        </div>
+        <div className="relative w-full h-48 md:h-64"><div className="absolute inset-0 bg-gray-200 animate-pulse" /></div>
         <div className="max-w-3xl mx-auto px-6 -mt-12">
           <div className="bg-white rounded-lg shadow-lg p-8 border border-gray-100">
             <div className="h-6 w-1/2 bg-gray-200 rounded animate-pulse mb-4" />
@@ -230,24 +264,18 @@ const VerseDetails = () => {
     );
   }
 
-  // Error / empty
   if ((error && !needsAuth) || !curated) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 pt-20 lg:pl-[224px] pb-12">
         <div className="max-w-3xl mx-auto px-6">
           <div className="bg-white rounded-lg shadow-lg p-8 border border-gray-100">
-            <button
-              onClick={() => navigate(-1)}
-              className="flex items-center gap-2 mb-6 text-[#0C2E8A] hover:underline"
-            >
+            <button onClick={() => navigate(-1)} className="flex items-center gap-2 mb-6 text-[#0C2E8A] hover:underline">
               <ArrowLeft className="w-4 h-4" /> Back
             </button>
             {error ? (
               <>
                 <div className="text-red-600 mb-2">{error}</div>
-                <div className="text-sm text-gray-600">
-                  Try another verse or check back later after it’s curated.
-                </div>
+                <div className="text-sm text-gray-600">Try another verse or check back later after it’s curated.</div>
               </>
             ) : (
               <div className="text-sm text-gray-600">No content.</div>
@@ -264,7 +292,6 @@ const VerseDetails = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 pt-20 lg:pl-[224px] pb-12">
-      {/* Toast */}
       {toastVisible && (
         <div className="fixed top-24 right-6 bg-white shadow-lg rounded-lg px-4 py-3 border-l-4 border-green-500 z-50 animate-slide-in">
           <span className="text-gray-800 font-medium">{toastMessage}</span>
@@ -284,53 +311,33 @@ const VerseDetails = () => {
         <div className="bg-white rounded-lg shadow-lg p-8 border border-gray-100">
           {/* Back + breadcrumb */}
           <div className="flex items-center justify-between mb-6">
-            <button
-              onClick={() => navigate(-1)}
-              className="flex items-center gap-2 text-[#0C2E8A] hover:underline"
-            >
+            <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-[#0C2E8A] hover:underline">
               <ArrowLeft className="w-4 h-4" /> Back to Chapter
             </button>
             <div className="text-xs text-gray-500">
-              <Link to={`/book/${encodeURIComponent(bookSlug)}`} className="hover:underline">
-                {bannerBook}
-              </Link>
+              <Link to={`/book/${encodeURIComponent(bookSlug)}`} className="hover:underline">{bannerBook}</Link>
               <span className="mx-1">›</span>
-              <Link
-                to={`/book/${encodeURIComponent(bookSlug)}/chapter/${bannerChapter}`}
-                className="hover:underline"
-              >
-                Chapter {bannerChapter}
-              </Link>
+              <Link to={`/book/${encodeURIComponent(bookSlug)}/chapter/${bannerChapter}`} className="hover:underline">Chapter {bannerChapter}</Link>
               <span className="mx-1">›</span>
               <span>Verse {bannerVerse}</span>
             </div>
           </div>
 
-          {/* Auth prompt if needed (but keep content visible if we have it) */}
           {needsAuth && (
             <div className="mb-4 p-3 rounded border border-yellow-300 bg-yellow-50 text-sm text-yellow-900">
               You’re not signed in. <Link to="/login" className="underline">Sign in</Link> to save prayer points and see your saved list.
             </div>
           )}
 
-          {/* Theme */}
-          {curated.theme ? (
-            <h2 className="text-xl font-bold text-[#0C2E8A] mb-2">{curated.theme}</h2>
-          ) : null}
+          {curated.theme ? (<h2 className="text-xl font-bold text-[#0C2E8A] mb-2">{curated.theme}</h2>) : null}
 
-          {/* Scripture Text */}
           {curated.scriptureText ? (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }}>
-              <h3 className="text-sm font-semibold text-[#0C2E8A] mb-2 mt-9 uppercase tracking-wide">
-                Scripture Reference
-              </h3>
-              <p className="text-gray-700 leading-relaxed bg-gray-50 border rounded-md p-3">
-                {curated.scriptureText}
-              </p>
+              <h3 className="text-sm font-semibold text-[#0C2E8A] mb-2 mt-9 uppercase tracking-wide">Scripture Reference</h3>
+              <p className="text-gray-700 leading-relaxed bg-gray-50 border rounded-md p-3">{curated.scriptureText}</p>
             </motion.div>
           ) : null}
 
-          {/* Insight */}
           {curated.insight ? (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="mt-6">
               <h3 className="text-lg font-semibold text-[#0C2E8A] mb-2">Short Insight</h3>
@@ -338,33 +345,43 @@ const VerseDetails = () => {
             </motion.div>
           ) : null}
 
-          {/* Prayer Points */}
+          {/* PRAYER POINTS */}
           {Array.isArray(curated.prayerPoints) && curated.prayerPoints.length > 0 ? (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="mt-6">
-              <h3 className="text-lg font-semibold text-[#0C2E8A] mb-2 flex items-center gap-2">
-                Prayer Points
-              </h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-[#0C2E8A] mb-2 flex items-center gap-2">Prayer Points</h3>
+                <div className="text-xs text-gray-500">
+                  {Array.from(savedPointKeys).length}/{curated.prayerPoints.length} saved
+                </div>
+              </div>
               <ul className="list-disc pl-6 text-gray-700 space-y-2">
-                {curated.prayerPoints.map((point, i) => (
-                  <li key={i} className="flex justify-between items-center">
-                    <span>{point}</span>
-                    <button
-                      onClick={() => onToggleSave(point)}
-                      title={isSaved ? "Unsave entry" : "Save entry"}
-                    >
-                      <Bookmark
-                        className={`w-6 h-6 transition-transform ${
-                          isSaved ? "text-yellow-500 scale-110" : "text-gray-400 hover:text-yellow-500"
-                        }`}
-                      />
-                    </button>
-                  </li>
-                ))}
+                {curated.prayerPoints.map((point, i) => {
+                  const k = pointKey(point, i);
+                  const saved = savedPointKeys.has(k);
+                  const busy = busyPointKeys.has(k);
+                  return (
+                    <li key={i} className="flex justify-between items-start gap-3">
+                      <span className="pr-2">{point}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => onToggleSavePoint(e, point, i)}
+                        disabled={busy}
+                        className={`flex items-center gap-2 px-2 py-1 rounded-md border text-sm transition ${
+                          saved ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-yellow-50"
+                        } ${busy ? "opacity-60 cursor-not-allowed" : ""}`}
+                        title={saved ? "Unsave prayer point" : "Save prayer point"}
+                        aria-pressed={saved}
+                      >
+                        {saved ? <Check className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
+                        <span>{saved ? "Saved" : "Save"}</span>
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             </motion.div>
           ) : null}
 
-          {/* Closing */}
           {curated.closing ? (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mt-6">
               <h3 className="text-lg font-semibold text-[#0C2E8A] mb-2">Closing Prayer / Confession</h3>
@@ -372,22 +389,17 @@ const VerseDetails = () => {
             </motion.div>
           ) : null}
 
-          {/* Save/Unsave main action */}
+          {/* Whole-entry Save / Journal */}
           <div className="flex items-center gap-3 pt-6">
             <button
-              onClick={() => onToggleSave()}
+              onClick={() => onToggleSaveWhole()}
               disabled={!curated?.id || saving}
-              className={`px-3 py-2 rounded-md border ${
-                isSaved ? "bg-green-600 text-white border-green-600" : "bg-white text-gray-900"
-              }`}
+              className={`px-3 py-2 rounded-md border ${isSaved ? "bg-green-600 text-white border-green-600" : "bg-white text-gray-900"}`}
             >
               {saving ? "…" : isSaved ? "Unsave" : "Save"}
             </button>
 
-            <Link
-              to={`/journal?ref=${encodeURIComponent(refLabel)}&curatedId=${encodeURIComponent(curated.id)}`}
-              className="px-3 py-2 rounded-md border bg-white text-gray-900"
-            >
+            <Link to={`/journal?ref=${encodeURIComponent(refLabel)}&curatedId=${encodeURIComponent(curated.id)}`} className="px-3 py-2 rounded-md border bg-white text-gray-900">
               Open Journal
             </Link>
           </div>
@@ -395,10 +407,7 @@ const VerseDetails = () => {
       </div>
 
       <style>{`
-        @keyframes slide-in {
-          from { transform: translateX(100%); opacity: 0; }
-          to { transform: translateX(0); opacity: 1; }
-        }
+        @keyframes slide-in { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         .animate-slide-in { animation: slide-in 0.3s ease-out; }
       `}</style>
     </div>

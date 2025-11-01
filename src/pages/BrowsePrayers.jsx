@@ -5,8 +5,41 @@ import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import VERSE_COUNTS from "../constants/verse-counts.json";
 
-// Backend base (proxy or full URL)
-const API_BASE = import.meta.env.VITE_API_BASE || "";
+/**
+ * API base rules
+ * - Prefer VITE_API_BASE when defined (e.g., http://localhost:4000 or https://api.example.com)
+ * - Otherwise default to "/api" so a dev proxy or same-origin API works
+ * - Ensure no trailing slash, and join with a single slash
+ */
+const RAW_BASE = (import.meta.env.VITE_API_BASE ?? "/api").trim();
+const API_BASE = RAW_BASE.replace(/\/$/, "");
+const apiURL = (path) => `${API_BASE}${path.startsWith("/") ? path : "/" + path}`;
+
+/**
+ * Safe JSON helpers to prevent "Unexpected token '<'" when an HTML error page returns
+ */
+async function safeJson(res) {
+  const ct = res.headers.get("content-type") || "";
+  if (!ct.toLowerCase().includes("application/json")) {
+    const text = await res.text();
+    throw new Error(
+      `Expected JSON, got ${ct || "unknown"}\n` + text.slice(0, 400)
+    );
+  }
+  return res.json();
+}
+
+async function getJSON(input, init) {
+  const res = await fetch(input, init);
+  if (!res.ok) {
+    // Try to surface a meaningful body for debugging
+    const ct = res.headers.get("content-type") || "";
+    const body = ct.includes("application/json") ? await res.json().catch(() => ({})) : await res.text();
+    const detail = typeof body === "string" ? body.slice(0, 400) : JSON.stringify(body);
+    throw new Error(`HTTP ${res.status} ${res.statusText} at ${input}\n${detail}`);
+  }
+  return safeJson(res);
+}
 
 // --- Canonical 66-book list (ordering + fallback) ---
 const CANONICAL_BOOKS = [
@@ -98,21 +131,14 @@ export default function BrowsePrayers() {
     let alive = true;
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/browse/books`, {
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-        });
-        if (!res.ok) {
-          const body = await res.text();
-          console.error("GET /browse/books failed:", res.status, body);
-          if (res.status === 401) return nav("/login", { replace: true });
-          throw new Error(`HTTP ${res.status}`);
-        }
-        const data = await res.json();
+        const data = await getJSON(
+          apiURL("/browse/books"),
+          { credentials: "include", headers: { "Content-Type": "application/json" } }
+        );
         const normalized = normalizeBooksFromApi(data);
         if (alive) setBooks(normalized);
       } catch (e) {
-        console.error(e);
+        console.error("GET /browse/books failed:", e?.message || e);
         toast.error("Couldn’t load books; showing default list.");
         if (alive) setBooks(CANONICAL_BOOKS);
       } finally {
@@ -129,17 +155,14 @@ export default function BrowsePrayers() {
     let alive = true;
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/browse/published-count`, {
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const c = Number(data?.count ?? 0);
-          if (alive) setPublishedCount(Number.isFinite(c) ? c : 0);
-        }
+        const data = await getJSON(
+          apiURL("/browse/published-count"),
+          { credentials: "include", headers: { "Content-Type": "application/json" } }
+        );
+        const c = Number(data?.count ?? 0);
+        if (alive) setPublishedCount(Number.isFinite(c) ? c : 0);
       } catch (e) {
-        console.error(e);
+        console.warn("GET /browse/published-count failed:", e?.message || e);
       }
     })();
     return () => {
@@ -152,15 +175,14 @@ export default function BrowsePrayers() {
     let alive = true;
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/browse/prayer-points-count`, {
-          credentials: "include",
-          headers: { "Content-Type": "application/json"},
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (alive) setTotalPrayerPoints(Number(data?.count ?? 0) || 0);
-        }
-      } catch {}
+        const data = await getJSON(
+          apiURL("/browse/prayer-points-count"),
+          { credentials: "include", headers: { "Content-Type": "application/json" } }
+        );
+        if (alive) setTotalPrayerPoints(Number(data?.count ?? 0) || 0);
+      } catch (e) {
+        console.warn("GET /browse/prayer-points-count failed:", e?.message || e);
+      }
     })();
     return () => { alive = false; };
   }, []);
@@ -177,24 +199,18 @@ export default function BrowsePrayers() {
     const t = setTimeout(async () => {
       setSearching(true);
       try {
-        const res = await fetch(
-          `${API_BASE}/browse/search?` + new URLSearchParams({ q: term }),
-          { credentials: "include", headers: { "Content-Type": "application/json" } }
-        );
-        if (!res.ok) {
-          // IMPORTANT: Do not redirect on 401 here—just clear results.
-          if (res.status === 401) {
-            if (alive) setResults([]);
-            return;
-          }
-          throw new Error(`HTTP ${res.status}`);
-        }
-        const data = await res.json();
+        const url = apiURL(`/browse/search?` + new URLSearchParams({ q: term }).toString());
+        const data = await getJSON(url, { credentials: "include", headers: { "Content-Type": "application/json" } });
         const list = Array.isArray(data?.data) ? data.data : [];
         if (alive) setResults(list.slice(0, 10));
       } catch (e) {
-        console.error(e);
-        if (alive) setResults([]);
+        // If unauthorized, silently clear results; otherwise log
+        if (String(e?.message || "").startsWith("HTTP 401")) {
+          if (alive) setResults([]);
+        } else {
+          console.warn("GET /browse/search failed:", e?.message || e);
+          if (alive) setResults([]);
+        }
       } finally {
         if (alive) setSearching(false);
       }
@@ -269,10 +285,10 @@ export default function BrowsePrayers() {
                   const ref = `${r.book} ${r.chapter}:${r.verse}`;
                   const pointsCount = Array.isArray(r.prayerPoints) ? r.prayerPoints.length : 0;
                   const goto = () => {
-            // Clear the query first so the panel closes cleanly, then navigate
-                setQ("");
-            // IMPORTANT: use the CANONICAL book name (encoded), NOT the slug
-                nav(`/browse/verse/${slugifyBook(r.book)}/${r.chapter}/${r.verse}`);
+                    // Clear the query first so the panel closes cleanly, then navigate
+                    setQ("");
+                    // IMPORTANT: use the slug for routing
+                    nav(`/browse/verse/${slugifyBook(r.book)}/${r.chapter}/${r.verse}`);
                   };
 
                   const onKey = (e) => {

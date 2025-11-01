@@ -10,7 +10,7 @@ import { BibleModule } from './modules/bible/bible.module';
 import { PrayerWallModule } from './modules/prayer-wall/prayer-wall.module';
 import { MyPrayersModule } from './modules/my-prayers/my-prayers.module';
 import { StatsModule } from './modules/stats/stats.module';
-
+import { HealthModule } from './health/health.module';
 @Module({
   imports: [
     PrismaModule,
@@ -23,7 +23,8 @@ import { StatsModule } from './modules/stats/stats.module';
     BibleModule,
     PrayerWallModule,
     MyPrayersModule,
-    StatsModule
+    StatsModule,
+    HealthModule,
   ],
 })
 export class AppModule {}

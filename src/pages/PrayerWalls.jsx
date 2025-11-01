@@ -1,5 +1,5 @@
 // src/components/PrayerWalls.jsx
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   Plus,
   Heart,
@@ -12,49 +12,54 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-// --- tiny fetch helper (cookie-auth) ---
-const API_BASE = import.meta.env.VITE_API_BASE || "/api";
+/**
+ * API base rules
+ * - Prefer VITE_API_BASE when defined (e.g., http://localhost:4000 or https://api.example.com)
+ * - Otherwise default to "/api" so a dev proxy or same-origin API works
+ * - Ensure no trailing slash, and join with a single slash
+ */
+const RAW_BASE = (import.meta.env.VITE_API_BASE ?? "/api").trim();
+const API_BASE = RAW_BASE.replace(/\/$/, "");
+const apiURL = (path) => `${API_BASE}${path.startsWith("/") ? path : "/" + path}`;
 
-// ensure we don’t end up with double slashes
-function joinUrl(base, path) {
-  if (!base) return path;
-  if (base.endsWith("/") && path.startsWith("/")) return base + path.slice(1);
-  if (!base.endsWith("/") && !path.startsWith("/")) return base + "/" + path;
-  return base + path;
+// --- Safe JSON helpers to prevent HTML pages being parsed as JSON ---
+async function safeJson(res) {
+  const ct = res.headers.get("content-type") || "";
+  if (!ct.toLowerCase().includes("application/json")) {
+    const text = await res.text();
+    throw new Error(
+      `Expected JSON, got ${ct || "unknown"}\n` + text.slice(0, 400)
+    );
+  }
+  return res.json();
 }
 
-// build path with query only when params exist
-function withQuery(path, paramsObj) {
-  const usp = new URLSearchParams();
-  Object.entries(paramsObj || {}).forEach(([k, v]) => {
-    if (v !== undefined && v !== null && String(v).trim() !== "") {
-      usp.set(k, v);
-    }
-  });
-  const qs = usp.toString();
-  return qs ? `${path}?${qs}` : path;
-}
-
-async function request(path, { method = "GET", body, headers = {} } = {}) {
-  const url = joinUrl(API_BASE, path);
+async function request(path, { method = "GET", body, headers = {}, allow401 = false } = {}) {
+  const url = apiURL(path);
   const res = await fetch(url, {
     method,
     credentials: "include",
     headers: { "Content-Type": "application/json", ...headers },
     body: body ? JSON.stringify(body) : undefined,
   });
-  const text = await res.text().catch(() => "");
-  let payload = {};
-  try {
-    payload = text ? JSON.parse(text) : {};
-  } catch {}
+
   if (!res.ok) {
-    const err = new Error(payload?.message || res.statusText || "Request failed");
+    if (allow401 && res.status === 401) {
+      // caller wants to treat 401 as a soft-fail (e.g., public page without login)
+      return null;
+    }
+    // try to surface a meaningful error body
+    const ct = res.headers.get("content-type") || "";
+    const bodyText = ct.includes("application/json")
+      ? JSON.stringify(await res.json().catch(() => ({})))
+      : await res.text();
+    const err = new Error(`HTTP ${res.status} ${res.statusText} at ${url}
+${String(bodyText).slice(0, 400)}`);
     err.status = res.status;
-    err.payload = payload;
+    try { err.payload = JSON.parse(bodyText); } catch { err.payload = bodyText; }
     throw err;
   }
-  return payload;
+  return safeJson(res);
 }
 
 // Mock hooks (keep as-is)
@@ -140,7 +145,7 @@ const PrayerWalls = () => {
 
   // toast
   const [toastMessage, setToastMessage] = useState("");
-  const [stats, setStats] = useState({ users:0, requests: 0});
+  const [stats, setStats] = useState({ users: 0, requests: 0 });
   const showToast = (message) => {
     setToastMessage(message);
     setTimeout(() => setToastMessage(""), 3000);
@@ -159,10 +164,10 @@ const PrayerWalls = () => {
   const loadList = useCallback(async () => {
     setLoading(true);
     try {
-      const path = withQuery("/prayer-wall", {
-        q: searchTerm.trim(),
-        category: selectedCategory !== "All" ? selectedCategory : "",
-      });
+      const usp = new URLSearchParams();
+      if (searchTerm.trim()) usp.set("q", searchTerm.trim());
+      if (selectedCategory !== "All") usp.set("category", selectedCategory);
+      const path = "/prayer-wall" + (usp.toString() ? `?${usp.toString()}` : "");
 
       const res = await request(path);
       const rows = res?.data ?? res ?? [];
@@ -186,31 +191,65 @@ const PrayerWalls = () => {
     loadList();
   }, [loadList]);
 
-  useEffect(() =>{
+  // total users count (optional)
+  useEffect(() => {
     let alive = true;
     (async () => {
-      try { 
+      try {
         const res = await request("/stats/users-count");
         if (alive) setTotalUsers(Number(res?.count ?? 0));
-      } catch (e){
-
+      } catch (e) {
+        // silent
+        console.warn("GET /stats/users-count failed:", e?.message || e);
       }
     })();
-    return () => {alive = false};
+    return () => { alive = false; };
   }, []);
 
+  // prayer wall stats (users + requests). Keep it quiet: no probing of non-existent endpoints
+  const statsWarnedRef = useRef(false);
   useEffect(() => {
-    (async () => {
-      try { 
-        const res = await request("/prayer-wall/stats");
-        const users = Number(res?.users ?? 0);
-        const requests = Number(res?.requests ?? 0);
-        setStats({ users, requests });
-      } catch {
+    let alive = true;
 
+    (async () => {
+      try {
+        // 1) Users count (public). Soft-fail if protected/missing
+        let users = 0;
+        try {
+          const usersResp = await request("/stats/users-count", { allow401: true });
+          users = Number(usersResp?.count ?? 0) || 0;
+        } catch {}
+
+        // 2) Requests count via HEAD header if backend provides X-Total-Count
+        let requests = 0;
+        try {
+          const head = await fetch(apiURL("/prayer-wall"), { method: "HEAD", credentials: "include" });
+          if (head.ok) {
+            const hdr = head.headers.get("x-total-count");
+            const n = Number(hdr);
+            if (Number.isFinite(n) && n >= 0) requests = n;
+          }
+        } catch {}
+
+        // 3) Final fallback: visible list length (may be paginated)
+        if (!requests) requests = Array.isArray(prayerRequests) ? prayerRequests.length : 0;
+
+        if (alive) setStats({ users, requests });
+
+        if (!statsWarnedRef.current && requests === 0) {
+          console.warn("PrayerWalls: using list-length fallback for requests; add HEAD /prayer-wall with X-Total-Count for accuracy.");
+          statsWarnedRef.current = true;
+        }
+      } catch (e) {
+        if (!statsWarnedRef.current) {
+          console.warn("PrayerWalls: stats fetch failed (silent mode)", e?.message || e);
+          statsWarnedRef.current = true;
+        }
       }
     })();
-  }, []);
+
+    return () => { alive = false; };
+  }, [prayerRequests]);
 
   // Sort client-side for now
   const filteredSorted = (() => {

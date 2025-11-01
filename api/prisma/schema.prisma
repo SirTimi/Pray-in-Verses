@@ -57,7 +57,7 @@ model SavedPrayer {
   user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   curatedPrayer CuratedPrayer @relation(fields: [curatedPrayerId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, curatedPrayerId]) // a user can save a curated prayer only once
+  @@unique([userId, curatedPrayerId, pointIndex]) // a user can save a curated prayer only once
   @@index([userId, createdAt])
 }
 
