@@ -1,3 +1,4 @@
+// src/pages/Profile.jsx
 import React, { useEffect, useRef, useState } from "react";
 import {
   User, Mail, Edit2, Save, X, Camera, Shield, Bell, LogOut,
@@ -6,7 +7,7 @@ import {
 import toast, { Toaster } from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 
-// ---- API helpers (align with /api on prod; VITE_API_BASE or localhost in dev)
+/* ---------- API helpers (prod => /api; dev => VITE_API_BASE || localhost) ---------- */
 function detectApiBase() {
   const envBase = import.meta.env?.VITE_API_BASE;
   if (typeof window !== "undefined") {
@@ -18,17 +19,15 @@ function detectApiBase() {
 }
 const API_BASE = detectApiBase();
 
-async function req(path, { method = "GET", body, headers = {} } = {}) {
+async function req(path, { method = "GET", body, headers = {}, signal } = {}) {
   const isForm = typeof FormData !== "undefined" && body instanceof FormData;
-  const res = await fetch(
-    path.startsWith("http") ? path : `${API_BASE}${path}`,
-    {
-      method,
-      credentials: "include",
-      headers: isForm ? headers : { "Content-Type": "application/json", ...headers },
-      body: body ? (isForm ? body : JSON.stringify(body)) : undefined,
-    }
-  );
+  const res = await fetch(path.startsWith("http") ? path : `${API_BASE}${path}`, {
+    method,
+    credentials: "include",
+    headers: isForm ? headers : { "Content-Type": "application/json", ...headers },
+    body: body ? (isForm ? body : JSON.stringify(body)) : undefined,
+    signal,
+  });
   const raw = await res.text().catch(() => "");
   let data;
   try { data = raw ? JSON.parse(raw) : {}; } catch { data = { data: raw }; }
@@ -40,12 +39,12 @@ async function req(path, { method = "GET", body, headers = {} } = {}) {
   return data;
 }
 
-// (optional) tiny helper
 const authAPI = {
   me:    () => req("/auth/me"),
   logout:() => req("/auth/logout", { method: "POST" }),
 };
 
+/* -------------------------------- Component -------------------------------- */
 const Profile = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
@@ -54,13 +53,13 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
 
-  // Session user (authoritative from server)
+  // Session user (from server)
   const [user, setUser] = useState(null);
 
-  // Profile image (local-only for now)
+  // Local-only profile image
   const [profileImage, setProfileImage] = useState(null);
 
-  // Profile fields (editable)
+  // Editable profile fields
   const [isEditing, setIsEditing] = useState(false);
   const [profile, setProfile] = useState({
     name: "",
@@ -74,79 +73,104 @@ const Profile = () => {
   });
   const [editForm, setEditForm] = useState({ name: "", email: "" });
 
+  // ---- stats refresher (TOTAL & ANSWERED from /my-prayers/stats; SAVED from /saved-prayers) ----
+  async function refreshCountsFromServer() {
+    let total = 0, answered = 0, saved = 0;
+
+    // 1) my-prayers stats
+    try {
+      const stats = await req("/my-prayers/stats"); // { total, open, answered }
+      total    = Number(stats?.total ?? 0);
+      answered = Number(stats?.answered ?? 0);
+    } catch (e) {
+      console.warn("GET /my-prayers/stats failed:", e);
+    }
+
+    // 2) saved-prayers list length
+    try {
+      const resp = await req("/saved-prayers");
+      const list = Array.isArray(resp?.data) ? resp.data : (Array.isArray(resp) ? resp : []);
+      saved = list.length;
+    } catch (e) {
+      console.warn("GET /saved-prayers failed:", e);
+    }
+
+    setProfile((prev) => ({
+      ...prev,
+      totalPrayers: total,
+      answeredPrayers: answered,
+      savedPrayers: saved,
+    }));
+  }
+
+  // ---- initial load: user + image + counts ----
   useEffect(() => {
     let alive = true;
+
     (async () => {
       try {
         setLoading(true);
 
-        // 1) Get session user from server
-        const me = await authAPI.me().catch((e) => {
-          if (e.status === 401) return null;
-          throw e;
-        });
-
-        // Don’t navigate from here; RequireAuth already guarded the route.
+        const me = await authAPI.me().catch((e) => (e.status === 401 ? null : Promise.reject(e)));
         const u = me?.user ?? me ?? null;
+        if (!alive) return;
         setUser(u);
 
-        // 2) Profile image (by user id/email)
         const uid = u?.id || u?.email;
         const storedImg = uid
           ? localStorage.getItem(`profileImage_${uid}`) || localStorage.getItem("profileImage")
           : null;
+        if (!alive) return;
         setProfileImage(storedImg || null);
-
-        // 3) Stats (saved prayers via API; others are placeholders for now)
-        let savedCount = 0;
-        try {
-          const saved = await req("/saved-prayers");
-          const list = saved?.data || saved || [];
-          savedCount = Array.isArray(list) ? list.length : 0;
-        } catch { /* keep 0 */ }
-
-        // 4) Total/answered placeholders (replace with real endpoints later)
-        const totalPrayers = 0;
-        const answeredPrayers = 0;
 
         const joinDate = u?.createdAt
           ? new Date(u.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "long" })
           : "Recently";
 
-        const name = u?.name || u?.displayName || "User";
-        const email = u?.email || "";
-
-        const next = {
-          name,
-          email,
+        const base = {
+          name:  u?.name || u?.displayName || "User",
+          email: u?.email || "",
           joinDate,
-          totalPrayers,
-          answeredPrayers,
-          savedPrayers: savedCount,
+          totalPrayers: 0,
+          answeredPrayers: 0,
+          savedPrayers: 0,
           notifications: true,
           privateProfile: false,
         };
-        if (!alive) return;
-        setProfile(next);
-        setEditForm({ name: next.name, email: next.email });
+        setProfile(base);
+        setEditForm({ name: base.name, email: base.email });
+
+        // then load counts
+        await refreshCountsFromServer();
       } catch (err) {
-        // If something fails, still render a lightweight fallback instead of redirecting
         console.error("Profile load error:", err);
         toast.error("Could not load profile.");
       } finally {
         if (alive) setLoading(false);
       }
     })();
-    return () => { alive = false; };
+
+    // refresh counts when tab regains focus (optional but nice)
+    const onVis = () => {
+      if (document.visibilityState === "visible") {
+        refreshCountsFromServer().catch(() => {});
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+
+    return () => {
+      alive = false;
+      document.removeEventListener("visibilitychange", onVis);
+    };
   }, []);
 
+  /* ------------------------------ handlers ------------------------------ */
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setEditForm((p) => ({ ...p, [name]: value }));
   };
 
   const handleSave = async () => {
-    // No backend endpoint yet; keep local update only.
     if (!editForm.name.trim()) return toast.error("Name is required");
     const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRe.test(editForm.email)) return toast.error("Enter a valid email");
@@ -156,8 +180,8 @@ const Profile = () => {
       setProfile((p) => ({ ...p, name: editForm.name, email: editForm.email }));
       toast.success("Profile updated");
       setIsEditing(false);
-      // TODO: PUT /api/users/profile when ready
-    } catch (e) {
+      // TODO: PUT /api/users/profile when backend endpoint is ready
+    } catch {
       toast.error("Failed to update profile");
     } finally {
       setSaving(false);
@@ -213,6 +237,7 @@ const Profile = () => {
     }
   };
 
+  /* --------------------------------- UI --------------------------------- */
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 pt-20 lg:pl-40 px-4 pb-8 font-['Poppins']">
@@ -226,7 +251,6 @@ const Profile = () => {
     );
   }
 
-  // If somehow user is null here, show inline prompt (don’t navigate)
   if (!user?.id) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 pt-20 px-4">
@@ -249,12 +273,14 @@ const Profile = () => {
       <Toaster position="top-right" reverseOrder={false} />
 
       <div className="container mx-auto px-4 py-6">
+        {/* Title */}
         <div className="text-center mb-8">
           <h1 className="text-base font-semibold text-[#0C2E8A] mb-2">My Profile</h1>
           <p className="text-[#0C2E8A] text-base">Manage your prayer journey</p>
         </div>
 
         <div className="max-w-4xl mx-auto">
+          {/* Header Card */}
           <div className="bg-white rounded-2xl shadow border mb-8 overflow-hidden">
             <div className="bg-gradient-to-r from-[#0C2E8A] to-[#FCCF3A] h-32"></div>
 
@@ -321,6 +347,7 @@ const Profile = () => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Stats cards */}
             <div className="lg:col-span-3">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
                 <div className="bg-white rounded-2xl p-6 text-center shadow border hover:shadow-lg transition-shadow">
@@ -349,6 +376,7 @@ const Profile = () => {
               </div>
             </div>
 
+            {/* Account info */}
             <div className="lg:col-span-2">
               <div className="bg-white rounded-2xl shadow border p-6">
                 <div className="flex items-center justify-between mb-6">
@@ -450,6 +478,7 @@ const Profile = () => {
               </div>
             </div>
 
+            {/* Settings */}
             <div className="lg:col-span-1">
               <div className="bg-white rounded-2xl shadow border p-6">
                 <h2 className="text-base font-semibold text-[#0C2E8A] mb-6 flex items-center gap-2">
