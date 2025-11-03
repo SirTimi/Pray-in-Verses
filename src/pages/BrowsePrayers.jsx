@@ -34,7 +34,9 @@ async function getJSON(input, init) {
   if (!res.ok) {
     // Try to surface a meaningful body for debugging
     const ct = res.headers.get("content-type") || "";
-    const body = ct.includes("application/json") ? await res.json().catch(() => ({})) : await res.text();
+    const body = ct.includes("application/json")
+      ? await res.json().catch(() => ({}))
+      : await res.text();
     const detail = typeof body === "string" ? body.slice(0, 400) : JSON.stringify(body);
     throw new Error(`HTTP ${res.status} ${res.statusText} at ${input}\n${detail}`);
   }
@@ -54,19 +56,26 @@ const CANONICAL_BOOKS = [
   "Titus","Philemon","Hebrews","James","1 Peter","2 Peter","1 John","2 John","3 John","Jude","Revelation",
 ];
 
-// Testament map
-const TESTAMENT = new Map(
-  [
-    ..."Genesis Exodus Leviticus Numbers Deuteronomy Joshua Judges Ruth 1 Samuel 2 Samuel 1 Kings 2 Kings 1 Chronicles 2 Chronicles Ezra Nehemiah Esther Job Psalms Proverbs Ecclesiastes Song of Solomon Isaiah Jeremiah Lamentations Ezekiel Daniel Hosea Joel Amos Obadiah Jonah Micah Nahum Habakkuk Zephaniah Haggai Zechariah Malachi".split(
-      " "
-    ),
-  ].map((b) => [b, "old"])
-);
-[
-  ..."Matthew Mark Luke John Acts Romans 1 Corinthians 2 Corinthians Galatians Ephesians Philippians Colossians 1 Thessalonians 2 Thessalonians 1 Timothy 2 Timothy Titus Philemon Hebrews James 1 Peter 2 Peter 1 John 2 John 3 John Jude Revelation".split(
-    " "
-  ),
-].forEach((b) => TESTAMENT.set(b, "new"));
+// Explicit testament lists (no splitting!)
+const OLD_TESTAMENT = [
+  "Genesis","Exodus","Leviticus","Numbers","Deuteronomy",
+  "Joshua","Judges","Ruth","1 Samuel","2 Samuel","1 Kings","2 Kings","1 Chronicles","2 Chronicles",
+  "Ezra","Nehemiah","Esther","Job","Psalms","Proverbs","Ecclesiastes","Song of Solomon",
+  "Isaiah","Jeremiah","Lamentations","Ezekiel","Daniel",
+  "Hosea","Joel","Amos","Obadiah","Jonah","Micah","Nahum","Habakkuk","Zephaniah",
+  "Haggai","Zechariah","Malachi",
+];
+
+const NEW_TESTAMENT = [
+  "Matthew","Mark","Luke","John","Acts","Romans","1 Corinthians","2 Corinthians","Galatians",
+  "Ephesians","Philippians","Colossians","1 Thessalonians","2 Thessalonians","1 Timothy","2 Timothy",
+  "Titus","Philemon","Hebrews","James","1 Peter","2 Peter","1 John","2 John","3 John","Jude","Revelation",
+];
+
+const TESTAMENT_BY_BOOK = new Map([
+  ...OLD_TESTAMENT.map((b) => [b, "old"]),
+  ...NEW_TESTAMENT.map((b) => [b, "new"]),
+]);
 
 // Aliases
 const BOOK_ALIASES = {
@@ -92,9 +101,10 @@ function normalizeBooksFromApi(raw) {
   if (!Array.isArray(list) || list.length < 60) {
     return CANONICAL_BOOKS;
   }
-  const set = new Set(list.map(String));
-  const inCanon = CANONICAL_BOOKS.filter((b) => set.has(b));
-  const extras = list.filter((b) => !new Set(CANONICAL_BOOKS).has(b));
+  const canonSet = new Set(CANONICAL_BOOKS);
+  const incomingSet = new Set(list.map(String));
+  const inCanon = CANONICAL_BOOKS.filter((b) => incomingSet.has(b));
+  const extras = list.filter((b) => !canonSet.has(b));
   return [...inCanon, ...extras];
 }
 
@@ -244,8 +254,8 @@ export default function BrowsePrayers() {
     });
   }, [q, books]);
 
-  const oldBooks = filtered.filter((b) => TESTAMENT.get(b) === "old");
-  const newBooks = filtered.filter((b) => TESTAMENT.get(b) === "new");
+  const oldBooks = filtered.filter((b) => TESTAMENT_BY_BOOK.get(b) === "old");
+  const newBooks = filtered.filter((b) => TESTAMENT_BY_BOOK.get(b) === "new");
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 pt-24 lg:pl-[224px] px-4 pb-8 font-['Poppins']">
@@ -261,7 +271,7 @@ export default function BrowsePrayers() {
             across <span className="font-semibold">{totalVerses.toLocaleString()}</span> verses
           </p>
 
-          {/**  Search */}
+          {/* Search */}
           <div className="mx-auto mt-4 max-w-xl relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
@@ -278,50 +288,50 @@ export default function BrowsePrayers() {
                 {searching ? (
                   <div className="p-3 text-sm text-gray-500">Searching…</div>
                 ) : results.length === 0 ? (
-                <div className="p-3 text-sm text-gray-500">No matches found.</div>
-              ) : (
-              <ul className="divide-y divide-gray-100">
-                {results.map((r) => {
-                  const ref = `${r.book} ${r.chapter}:${r.verse}`;
-                  const pointsCount = Array.isArray(r.prayerPoints) ? r.prayerPoints.length : 0;
-                  const goto = () => {
-                    // Clear the query first so the panel closes cleanly, then navigate
-                    setQ("");
-                    // IMPORTANT: use the slug for routing
-                    nav(`/book/${slugifyBook(r.book)}/chapter/${r.chapter}/verse/${r.verse}`);
-                  };
+                  <div className="p-3 text-sm text-gray-500">No matches found.</div>
+                ) : (
+                  <ul className="divide-y divide-gray-100">
+                    {results.map((r) => {
+                      const ref = `${r.book} ${r.chapter}:${r.verse}`;
+                      const pointsCount = Array.isArray(r.prayerPoints) ? r.prayerPoints.length : 0;
+                      const goto = () => {
+                        // Clear the query first so the panel closes cleanly, then navigate
+                        setQ("");
+                        // IMPORTANT: use the slug for routing (you confirmed this works)
+                        nav(`/book/${slugifyBook(r.book)}/chapter/${r.chapter}/verse/${r.verse}`);
+                      };
 
-                  const onKey = (e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      goto();
-                    }
-                  };
-                  return (
-                  <li
-                  key={`${r.book}-${r.chapter}-${r.verse}`}
-                  className="flex items-start justify-between gap-3 p-3 hover:bg-gray-50 cursor-pointer"
-                  role="button"
-                  tabIndex={0}
-                  onClick={goto}
-                  onKeyDown={onKey}
-                  >
-                    <div>
-                      <div className="text-sm font-semibold text-[#0C2E8A]">{ref}</div>
-                      {r.theme ? (
-                        <div className="text-xs text-gray-600 mt-0.5">{r.theme}</div>
-                        ) : null}
-                        </div>
-                        <div className="text-xs text-gray-500 whitespace-nowrap">
-                          {pointsCount} point{pointsCount === 1 ? "" : "s"}
+                      const onKey = (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          goto();
+                        }
+                      };
+                      return (
+                        <li
+                          key={`${r.book}-${r.chapter}-${r.verse}`}
+                          className="flex items-start justify-between gap-3 p-3 hover:bg-gray-50 cursor-pointer"
+                          role="button"
+                          tabIndex={0}
+                          onClick={goto}
+                          onKeyDown={onKey}
+                        >
+                          <div>
+                            <div className="text-sm font-semibold text-[#0C2E8A]">{ref}</div>
+                            {r.theme ? (
+                              <div className="text-xs text-gray-600 mt-0.5">{r.theme}</div>
+                            ) : null}
                           </div>
-                          </li>
-                          );
-                          })}
-                          </ul>
-                        )}
-                      </div>
-                    )}
+                          <div className="text-xs text-gray-500 whitespace-nowrap">
+                            {pointsCount} point{pointsCount === 1 ? "" : "s"}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
