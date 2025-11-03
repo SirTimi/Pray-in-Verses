@@ -1,4 +1,4 @@
-// src/AppRouter.jsx (or wherever this file lives)
+// src/AppRouter.jsx
 import React from "react";
 import {
   BrowserRouter as Router,
@@ -44,7 +44,7 @@ import Bookmarks from "./pages/Bookmark";
 import MyPrayerPoint from "./pages/MyPrayerPoint";
 import History from "./pages/History";
 
-// Browse flow (app, require auth)
+// Browse flow (now public)
 import BookPage from "./pages/BookPage";
 import ChapterPage from "./pages/ChapterPage";
 import VerseDetails from "./pages/VerseDetails";
@@ -53,35 +53,39 @@ import VerseDetails from "./pages/VerseDetails";
 // Admin (separate auth)
 // --------------------
 import AdminLayout from "./admin/AdminLayout";
-import AdminRequireAuth from "./admin/RequireAuth"; // role gate wrapper (kept for per-route roles)
+import AdminRequireAuth from "./admin/RequireAuth";
 import AdminLogin from "./admin/pages/Login";
 import AdminDashboard from "./admin/pages/Dashboard";
 import CuratedList from "./admin/pages/CuratedList";
 import CuratedEdit from "./admin/pages/CuratedEdit";
 import Invites from "./admin/pages/Invites";
 import AcceptInvite from "./admin/pages/AcceptInvite";
-import AdminRoute from "./admin/AdminRoute"; // global /admin gate (EDITOR/MODERATOR/SUPER_ADMIN)
-import AdminUsers from "./admin/pages/AdminUsers"; // NEW: list admins & change roles
+import AdminRoute from "./admin/AdminRoute";
+import AdminUsers from "./admin/pages/AdminUsers";
 
-// Toaster
 import { Toaster } from "react-hot-toast";
 
 function AppContent() {
   const { theme } = useUIStore();
   const location = useLocation();
 
-  // Public routes (no app header/footer)
-  // ADDED: /admin/accept so onboarding pages are truly “public layout”
-  const publicPaths = ["/", "/login", "/signup", "/forgot-password", "/admin/login", "/admin/accept"];
+  // Only these are "public layout" (no app header/footer)
+  const publicPaths = [
+    "/",
+    "/login",
+    "/signup",
+    "/forgot-password",
+    "/admin/login",
+    "/admin/accept",
+  ];
 
   const isAppLoggedInView =
     !publicPaths.includes(location.pathname) &&
-    // treat /admin/* as separate layout (no app header/footer)
     !location.pathname.startsWith("/admin");
 
   return (
     <div className={theme === "dark" ? "dark" : ""}>
-      {/* APP Header (not shown on admin pages or public pages) */}
+      {/* App header on app pages (not admin / not onboarding pages) */}
       {isAppLoggedInView && <Header />}
 
       <div className="min-h-screen flex flex-col bg-white dark:bg-primary text-primary dark:text-white font-sans">
@@ -93,6 +97,17 @@ function AppContent() {
             <Route path="/signup" element={<SignUp />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+
+            {/* PUBLIC: Bible browse flow so search results never hit an auth gate */}
+            <Route path="/book/:bookSlug" element={<BookPage />} />
+            <Route
+              path="/book/:bookSlug/chapter/:chapterNumber"
+              element={<ChapterPage />}
+            />
+            <Route
+              path="/book/:bookSlug/chapter/:chapterNumber/verse/:verseNumber"
+              element={<VerseDetails />}
+            />
 
             {/* Protected APP routes */}
             <Route element={<RequireAuth />}>
@@ -113,29 +128,19 @@ function AppContent() {
               <Route path="/bookmarks" element={<Bookmarks />} />
               <Route path="/my-prayer-point" element={<MyPrayerPoint />} />
               <Route path="/history" element={<History />} />
-
-              {/* Browse flow (books → chapters → verses) */}
-              <Route path="/book/:bookSlug" element={<BookPage />} />
-              <Route path="/book/:bookSlug/chapter/:chapterNumber" element={<ChapterPage />} />
-              <Route path="/book/:bookSlug/chapter/:chapterNumber/verse/:verseNumber" element={<VerseDetails />} />
             </Route>
 
-            {/* ------------------ */}
             {/* Admin auth & routes */}
-            {/* ------------------ */}
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin/accept" element={<AcceptInvite />} />
 
-            {/* Global /admin/** guard → only EDITOR/MODERATOR/SUPER_ADMIN may enter */}
             <Route path="/admin" element={<AdminRoute />}>
-              {/* Admin layout wraps all admin pages */}
               <Route element={<AdminLayout />}>
                 <Route index element={<AdminDashboard />} />
                 <Route path="curated" element={<CuratedList />} />
                 <Route path="curated/new" element={<CuratedEdit />} />
                 <Route path="curated/:id" element={<CuratedEdit />} />
 
-                {/* Per-route stronger role gating where needed */}
                 <Route
                   path="users"
                   element={
@@ -155,15 +160,14 @@ function AppContent() {
               </Route>
             </Route>
 
-            {/* Redirect unknown routes */}
+            {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
 
-        {/* APP Bottom Navigation - only visible on app-logged-in views (not admin/public) */}
+        {/* Bottom nav for app pages only */}
         {isAppLoggedInView && <BottomNavigation />}
 
-        {/* Notifications */}
         <Toaster position="top-right" reverseOrder={false} />
       </div>
     </div>

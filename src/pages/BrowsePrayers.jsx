@@ -288,7 +288,7 @@ export default function BrowsePrayers() {
                     // Clear the query first so the panel closes cleanly, then navigate
                     setQ("");
                     // IMPORTANT: use the slug for routing
-                    nav(`/browse/verse/${slugifyBook(r.book)}/${r.chapter}/${r.verse}`);
+                    nav(`/book/${slugifyBook(r.book)}/chapter/${r.chapter}/verse/${r.verse}`);
                   };
 
                   const onKey = (e) => {
