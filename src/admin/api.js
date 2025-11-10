@@ -38,25 +38,20 @@ function normalizeListPayload(payload) {
   return { items, nextCursor };
 }
 
-function normalizeSinglePayload(payload) {
-  const data =
-    payload?.data ??
-    payload?.item ??
-    payload?.row ??
-    (payload && typeof payload === "object" ? payload : null);
-  return { data };
+function normalizeUserShape(u) {
+  if (!u) return null;
+  return {
+    id: u.id ?? u.userId ?? null,
+    displayName: u.displayName ?? u.name ?? u.email ?? "—",
+    role: u.role ?? u.userRole ?? null,
+    email: u.email ?? null,
+  };
 }
 
 export const api = {
   me: () => request("/auth/me"),
-
   login: (email, password) =>
-    request("/auth/login", {
-      method: "POST",
-      body: { email, password },
-      allow401: true,
-    }),
-
+    request("/auth/login", { method: "POST", body: { email, password }, allow401: true }),
   logout: () => request("/auth/logout", { method: "POST" }),
 
   createInvite: (email, role) =>
@@ -72,7 +67,7 @@ export const api = {
   updateUserRole: (id, role) =>
     request(`/admin/users/${id}/role`, { method: "PATCH", body: { role } }),
 
-  // *** UPDATED: ask API to include owner and normalize owner fields
+  // UPDATED: include=owner,contributors and normalize both
   listCurated: async (q, state, book, limit = 20, cursor) => {
     const p = new URLSearchParams();
     if (q) p.set("q", q);
@@ -80,42 +75,56 @@ export const api = {
     if (book) p.set("book", book);
     if (limit) p.set("limit", String(limit));
     if (cursor) p.set("cursor", cursor);
-
-    // Ask backend to expand/include owner. If your controller uses a different key
-    // (e.g. ?expand=owner or ?with=owner), change this line accordingly.
-    p.set("include", "owner");
+    // Adjust key if your backend expects ?expand=owner,contributors instead
+    p.set("include", "owner,contributors");
 
     const res = await request(`/admin/curated-prayers?${p.toString()}`);
     if (!res) return { items: [], nextCursor: null, status: 401 };
+
     const { items, nextCursor } = normalizeListPayload(res);
 
     const normalized = (items || []).map((it) => {
-      const owner = it.owner || it.createdBy || null;
-      const ownerDisplayName =
-        owner?.displayName ??
-        it.ownerDisplayName ??
-        it.createdByName ??
-        owner?.email ??
-        it.ownerEmail ??
-        it.createdByEmail ??
-        "—";
-      const ownerRole =
-        owner?.role ??
-        it.ownerRole ??
-        it.createdByRole ??
-        null;
-      const ownerId =
-        owner?.id ??
-        it.ownerId ??
-        it.createdById ??
-        null;
+      const ownerRaw = it.owner || it.createdBy || null;
+      const owner = normalizeUserShape(ownerRaw);
+
+      // Try multiple shapes to collect contributors (excluding owner):
+      let rawContribs = [];
+      if (Array.isArray(it.contributors)) rawContribs = it.contributors;
+      else if (Array.isArray(it?.audit?.contributors)) rawContribs = it.audit.contributors;
+      else if (Array.isArray(it?.history)) {
+        rawContribs = it.history
+          .map((h) => h.actor || h.user || null)
+          .filter(Boolean);
+      }
+
+      // Normalize + dedupe by id/email, and drop owner if present
+      const seen = new Set();
+      const contributors = rawContribs
+        .map(normalizeUserShape)
+        .filter(Boolean)
+        .filter((c) => {
+          const key = c.id || c.email || c.displayName;
+          if (!key) return false;
+          if (owner && (c.id && c.id === owner.id)) return false;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
 
       return {
         ...it,
         owner,
-        ownerDisplayName,
-        ownerRole,
-        ownerId,
+        ownerId: owner?.id ?? it.ownerId ?? it.createdById ?? null,
+        ownerDisplayName:
+          owner?.displayName ??
+          it.ownerDisplayName ??
+          it.createdByName ??
+          owner?.email ??
+          it.ownerEmail ??
+          it.createdByEmail ??
+          "—",
+        ownerRole: owner?.role ?? it.ownerRole ?? it.createdByRole ?? null,
+        contributors, // [{id, displayName, role, email}]
       };
     });
 
@@ -123,11 +132,11 @@ export const api = {
   },
 
   getCuratedRaw: (id) => request(`/admin/curated-prayers/${id}`),
-
   getCurated: async (id) => {
     const res = await request(`/admin/curated-prayers/${id}`);
     if (!res) return { data: null, status: 401 };
-    const { data } = normalizeSinglePayload(res);
+    const data =
+      res?.data ?? res?.item ?? res?.row ?? (res && typeof res === "object" ? res : null);
     return { ...res, data };
   },
 
@@ -145,8 +154,7 @@ export const api = {
       method: "PATCH",
       body: { state },
     }),
-  deleteCurated: (id) =>
-    request(`/admin/curated-prayers/${id}`, { method: "DELETE" }),
+  deleteCurated: (id) => request(`/admin/curated-prayers/${id}`, { method: "DELETE" }),
 
   prayerPoints: {
     replace: (id, items) =>
@@ -185,25 +193,16 @@ export const api = {
   bibleChapters: (book) =>
     request(`/admin/bible/books/${encodeURIComponent(book)}/chapters`),
   bibleVerses: (book, chapter) =>
-    request(
-      `/admin/bible/books/${encodeURIComponent(book)}/chapters/${chapter}/verses`
-    ),
+    request(`/admin/bible/books/${encodeURIComponent(book)}/chapters/${chapter}/verses`),
 
   books: () => request(`/browse/books`),
-  chapters: (book) =>
-    request(`/browse/books/${encodeURIComponent(book)}/chapters`),
+  chapters: (book) => request(`/browse/books/${encodeURIComponent(book)}/chapters`),
   verses: (book, chapter) =>
-    request(
-      `/browse/books/${encodeURIComponent(book)}/chapters/${chapter}/verses`
-    ),
+    request(`/browse/books/${encodeURIComponent(book)}/chapters/${chapter}/verses`),
 
   savePoint: (curatedPrayerId, index) =>
-    request(`/saved-prayers/${curatedPrayerId}/points/${index}`, {
-      method: "POST",
-    }),
+    request(`/saved-prayers/${curatedPrayerId}/points/${index}`, { method: "POST" }),
   unsavePoint: (curatedPrayerId, index) =>
-    request(`/saved-prayers/${curatedPrayerId}/points/${index}`, {
-      method: "DELETE",
-    }),
+    request(`/saved-prayers/${curatedPrayerId}/points/${index}`, { method: "DELETE" }),
   publishedPointsCount: () => request(`/browse/published-points-count`),
 };

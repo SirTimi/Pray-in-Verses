@@ -3,7 +3,7 @@ import React from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import toast from "react-hot-toast";
-import { useMe } from "../RequireAuth"; // so we can mirror AdminLayout behavior
+import { useMe } from "../RequireAuth";
 
 const StateBadge = ({ state }) => {
   const colors = {
@@ -18,6 +18,12 @@ const StateBadge = ({ state }) => {
     </span>
   );
 };
+
+function roleForUser(u, me) {
+  if (!u) return "USER";
+  if (me?.id && u.id && u.id === me.id) return me.role || u.role || "USER";
+  return u.role || "USER";
+}
 
 export default function CuratedList() {
   const { me } = useMe();
@@ -75,25 +81,53 @@ export default function CuratedList() {
     setSp(nextSP, { replace: true });
   }
 
-  function ownerDisplay(it) {
-    // Prefer normalized fields from api.listCurated; fall back smartly
-    const display =
-      it.ownerDisplayName ??
-      it.owner?.displayName ??
-      it.createdByName ??
-      it.owner?.email ??
-      it.ownerEmail ??
-      it.createdByEmail ??
-      "—";
-    return display;
+  function OwnerCell({ it }) {
+    const owner = it.owner || { id: it.ownerId, displayName: it.ownerDisplayName, role: it.ownerRole };
+    const display = owner?.displayName || it.ownerDisplayName || "—";
+    const role = roleForUser(owner, me);
+    return (
+      <div className="flex items-center gap-2">
+        <span>{display}</span>
+        <span className="ml-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-gray-50 text-gray-700">
+          {role}
+        </span>
+      </div>
+    );
   }
 
-  function ownerRole(it) {
-    // If the owner is the current admin, trust me.role to avoid "USER" fallback
-    if (me?.id && (it.ownerId === me.id || it.owner?.id === me.id)) {
-      return me.role || "USER";
-    }
-    return it.ownerRole ?? it.owner?.role ?? it.createdByRole ?? "USER";
+  function ContributorsCell({ it }) {
+    const list = Array.isArray(it.contributors) ? it.contributors : [];
+    if (list.length === 0) return <span className="text-gray-400">—</span>;
+
+    const maxShown = 3;
+    const shown = list.slice(0, maxShown);
+    const hidden = list.slice(maxShown);
+
+    const chips = shown.map((u) => {
+      const role = roleForUser(u, me);
+      return (
+        <span
+          key={u.id || u.email || u.displayName}
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border bg-[#FFFEF0] text-[#0C2E8A] text-[11px]"
+          title={`${u.displayName}${u.email ? ` • ${u.email}` : ""} • ${role}`}
+        >
+          <span className="font-medium">{u.displayName}</span>
+          <span className="text-[10px] opacity-70">{role}</span>
+        </span>
+      );
+    });
+
+    const more =
+      hidden.length > 0 ? (
+        <span
+          className="inline-flex items-center justify-center px-2 py-0.5 rounded-full border bg-gray-50 text-gray-600 text-[11px]"
+          title={hidden.map((u) => `${u.displayName} • ${roleForUser(u, me)}`).join("\n")}
+        >
+          +{hidden.length} more
+        </span>
+      ) : null;
+
+    return <div className="flex flex-wrap gap-1">{chips}{more}</div>;
   }
 
   async function onDelete(id) {
@@ -108,7 +142,7 @@ export default function CuratedList() {
   }
 
   return (
-    <div className="p-6 space-y-5 pl-5">
+    <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-base font-semibold text-[#0C2E8A]">Curated Prayers</h1>
         <Link
@@ -120,7 +154,7 @@ export default function CuratedList() {
       </div>
 
       {/* Filters */}
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-5">
         <input
           className="border rounded-md px-3 py-2"
           placeholder="Search theme or text…"
@@ -160,7 +194,7 @@ export default function CuratedList() {
               <th className="px-4 py-3">Reference</th>
               <th className="px-4 py-3">Theme</th>
               <th className="px-4 py-3">Owner</th>
-              <th className="px-4 py-3">Role</th>
+              <th className="px-4 py-3">Contributors</th>
               <th className="px-4 py-3">State</th>
               <th className="px-4 py-3">Updated</th>
               <th className="px-4 py-3"></th>
@@ -178,15 +212,9 @@ export default function CuratedList() {
                     {it.book} {it.chapter}:{it.verse}
                   </td>
                   <td className="px-4 py-3">{it.theme || "—"}</td>
-                  <td className="px-4 py-3">{ownerDisplay(it)}</td>
-                  <td className="px-4 py-3">
-                    <span className="ml-1 text-xs font-semibold px-2 py-0.5 rounded-full border bg-gray-50 text-gray-700">
-                      {ownerRole(it)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <StateBadge state={it.state} />
-                  </td>
+                  <td className="px-4 py-3"><OwnerCell it={it} /></td>
+                  <td className="px-4 py-3"><ContributorsCell it={it} /></td>
+                  <td className="px-4 py-3"><StateBadge state={it.state} /></td>
                   <td className="px-4 py-3">
                     {it.updatedAt ? new Date(it.updatedAt).toLocaleString() : "—"}
                   </td>
