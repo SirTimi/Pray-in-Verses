@@ -227,7 +227,7 @@ export default function CuratedList() {
                           </div>
                           <div>
                             <div className="text-sm font-medium text-gray-900">
-                              {displayName}
+                              {it.displayName}
                             </div>
                             <div className="text-xs">
                               <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#FCCF3A]/20 text-[#0C2E8A] font-semibold">
