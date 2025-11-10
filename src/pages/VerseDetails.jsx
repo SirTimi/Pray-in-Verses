@@ -2,10 +2,11 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Bookmark, Check } from "lucide-react";
+import { ArrowLeft, Bookmark, Check, ArrowRight, ArrowLeftCircle } from "lucide-react";
 import banner from "../assets/images/suggest/two-lovers-studying-the-bible-it-is-god-s-love-for-2022-06-18-20-18-08-utc.jpg";
 import { usePageLogger } from "../hooks/usePageLogger";
 import { logPrayer } from "../utils/historyLogger";
+import VERSE_COUNTS from "../constants/verse-counts.json";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "";
 function apiURL(path) {
@@ -46,8 +47,14 @@ const CANONICAL_BOOKS = [
 ];
 
 const BOOK_ALIASES = { "Song of Solomon": ["Song of Songs", "Canticles"], Psalms: ["Psalm"] };
+
 function slugifyBook(name) {
-  return String(name).normalize("NFKD").replace(/[’']/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/gi, "").toLowerCase();
+  return String(name)
+    .normalize("NFKD")
+    .replace(/[’']/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/gi, "")
+    .toLowerCase();
 }
 function resolveBookName(slugOrName) {
   if (!slugOrName) return "";
@@ -59,7 +66,55 @@ function resolveBookName(slugOrName) {
   for (const [canon, aliases] of Object.entries(BOOK_ALIASES)) {
     if (aliases.some((a) => a.toLowerCase() === lower || slugifyBook(a) === lower)) return canon;
   }
-  return String(slugOrName).split("-").map((t) => (t.length ? t[0].toUpperCase() + t.slice(1).toLowerCase() : "")).join(" ");
+  return String(slugOrName)
+    .split("-")
+    .map((t) => (t.length ? t[0].toUpperCase() + t.slice(1).toLowerCase() : ""))
+    .join(" ");
+}
+
+/** Next reference (book/chapter/verse) */
+function getNextRef(bookName, chapter, verse) {
+  const chapters = VERSE_COUNTS?.[bookName];
+  const bookIndex = CANONICAL_BOOKS.indexOf(bookName);
+  if (!Array.isArray(chapters) || bookIndex === -1) return null;
+
+  const versesInThisChapter = Number(chapters[chapter - 1] || 0);
+  if (versesInThisChapter <= 0) return null;
+
+  if (verse < versesInThisChapter) return { book: bookName, chapter, verse: verse + 1 };
+  if (chapter < chapters.length)  return { book: bookName, chapter: chapter + 1, verse: 1 };
+
+  const nextBook = CANONICAL_BOOKS[bookIndex + 1];
+  const nextChapters = nextBook ? VERSE_COUNTS?.[nextBook] : null;
+  if (!nextBook || !Array.isArray(nextChapters) || nextChapters.length === 0) return null;
+  return { book: nextBook, chapter: 1, verse: 1 };
+}
+
+/** Previous reference (book/chapter/verse) */
+function getPrevRef(bookName, chapter, verse) {
+  const chapters = VERSE_COUNTS?.[bookName];
+  const bookIndex = CANONICAL_BOOKS.indexOf(bookName);
+  if (!Array.isArray(chapters) || bookIndex === -1) return null;
+
+  if (verse > 1) return { book: bookName, chapter, verse: verse - 1 };
+
+  if (chapter > 1) {
+    const prevChapterVerses = Number(chapters[chapter - 2] || 0);
+    if (prevChapterVerses > 0) {
+      return { book: bookName, chapter: chapter - 1, verse: prevChapterVerses };
+    }
+    return null;
+  }
+
+  const prevBook = CANONICAL_BOOKS[bookIndex - 1];
+  const prevChapters = prevBook ? VERSE_COUNTS?.[prevBook] : null;
+  if (!prevBook || !Array.isArray(prevChapters) || prevChapters.length === 0) return null;
+
+  const lastChapter = prevChapters.length;
+  const lastVerse   = Number(prevChapters[lastChapter - 1] || 0);
+  if (lastVerse <= 0) return null;
+
+  return { book: prevBook, chapter: lastChapter, verse: lastVerse };
 }
 
 const VerseDetails = () => {
@@ -74,7 +129,6 @@ const VerseDetails = () => {
   const [isSaved, setIsSaved] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // per-point state
   const [savedPointKeys, setSavedPointKeys] = useState(() => new Set());
   const [busyPointKeys, setBusyPointKeys] = useState(() => new Set());
 
@@ -85,12 +139,21 @@ const VerseDetails = () => {
   const bookNameFromRoute = useMemo(() => resolveBookName(bookSlug), [bookSlug]);
   const chapterFromRoute = useMemo(() => Number(chapterNumber), [chapterNumber]);
   const verseFromRoute   = useMemo(() => Number(verseNumber), [verseNumber]);
-
-  const apiBookParam = useMemo(() => resolveBookName(bookSlug) || String(bookSlug || ""), [bookSlug]);
+  const apiBookParam     = useMemo(() => resolveBookName(bookSlug) || String(bookSlug || ""), [bookSlug]);
 
   const displayBook    = bookNameFromRoute || curated?.book || "";
   const displayChapter = Number.isFinite(chapterFromRoute) ? chapterFromRoute : Number(curated?.chapter);
   const displayVerse   = Number.isFinite(verseFromRoute)   ? verseFromRoute   : Number(curated?.verse);
+
+  const nextRef = useMemo(() => {
+    if (!displayBook || !Number.isFinite(displayChapter) || !Number.isFinite(displayVerse)) return null;
+    return getNextRef(displayBook, displayChapter, displayVerse);
+  }, [displayBook, displayChapter, displayVerse]);
+
+  const prevRef = useMemo(() => {
+    if (!displayBook || !Number.isFinite(displayChapter) || !Number.isFinite(displayVerse)) return null;
+    return getPrevRef(displayBook, displayChapter, displayVerse);
+  }, [displayBook, displayChapter, displayVerse]);
 
   const pointKey = (text, index) => `${index}::${String(text || "").trim()}`;
   const allPointKeysFrom = (entry) => {
@@ -101,13 +164,11 @@ const VerseDetails = () => {
     return s;
   };
 
-  // Single source of truth: refresh saved state from backend
   const refreshSavedState = async (entry) => {
     try {
       const savedRes = await request(`/saved-prayers`);
       const list = savedRes?.data || savedRes || [];
 
-      // whole entry?
       const wholeSaved = Array.isArray(list) &&
         list.some((it) => it.curatedPrayerId === entry.id && (it.pointIndex === null || typeof it.pointIndex === "undefined"));
       setIsSaved(wholeSaved);
@@ -179,7 +240,6 @@ const VerseDetails = () => {
     category: "Bible Study",
   });
 
-  // WHOLE entry toggle
   async function onToggleSaveWhole(pointTextForLog) {
     if (!curated?.id) return;
     setSaving(true);
@@ -192,14 +252,13 @@ const VerseDetails = () => {
       } else {
         await request(`/saved-prayers/${curated.id}`, { method: "POST" });
         setIsSaved(true);
-        setSavedPointKeys(allPointKeysFrom(curated)); // instant UX
+        setSavedPointKeys(allPointKeysFrom(curated));
         showToast("Saved ✅");
         if (pointTextForLog) logPrayer("Prayer Point Saved", pointTextForLog, refLabel);
         else if (Array.isArray(curated.prayerPoints) && curated.prayerPoints[0]) {
           logPrayer("Prayer Point Saved", curated.prayerPoints[0], refLabel);
         }
       }
-      // always re-pull server truth to survive refresh
       await refreshSavedState(curated);
     } catch (err) {
       if (err.status === 401) { setNeedsAuth(true); showToast("Please sign in to save."); }
@@ -207,7 +266,6 @@ const VerseDetails = () => {
     } finally { setSaving(false); }
   }
 
-  // Single point toggle
   async function onToggleSavePoint(e, pointText, index) {
     e?.preventDefault?.();
     e?.stopPropagation?.();
@@ -216,7 +274,6 @@ const VerseDetails = () => {
     const key = pointKey(pointText, index);
     const willSave = !savedPointKeys.has(key);
 
-    // optimistic
     setSavedPointKeys((prev) => {
       const next = new Set(prev);
       if (willSave) next.add(key); else next.delete(key);
@@ -232,11 +289,8 @@ const VerseDetails = () => {
       } else {
         await request(url, { method: "DELETE" });
       }
-
-      // Re-sync from backend to ensure it survives refresh and shows all
       await refreshSavedState(curated);
     } catch (err) {
-      // revert on failure
       setSavedPointKeys((prev) => {
         const next = new Set(prev);
         if (willSave) next.delete(key); else next.add(key);
@@ -248,6 +302,35 @@ const VerseDetails = () => {
       setBusyPointKeys((s) => { const n = new Set(s); n.delete(key); return n; });
     }
   }
+
+  function goNext() {
+    if (!nextRef) return;
+    navigate(`/book/${slugifyBook(nextRef.book)}/chapter/${nextRef.chapter}/verse/${nextRef.verse}`);
+  }
+  function goPrev() {
+    if (!prevRef) return;
+    navigate(`/book/${slugifyBook(prevRef.book)}/chapter/${prevRef.chapter}/verse/${prevRef.verse}`);
+  }
+
+  // Arrow key navigation (Right → next, Left → prev). Ignores typing in inputs.
+  useEffect(() => {
+    function onKey(e) {
+      const tag = (e.target?.tagName || "").toLowerCase();
+      if (e.defaultPrevented) return;
+      if (["input", "textarea", "select"].includes(tag)) return;
+      if (e.target?.isContentEditable) return;
+
+      if (e.key === "ArrowRight" && nextRef) {
+        e.preventDefault();
+        goNext();
+      } else if (e.key === "ArrowLeft" && prevRef) {
+        e.preventDefault();
+        goPrev();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [nextRef, prevRef]); // keep it simple; no visual changes
 
   if (loading) {
     return (
@@ -389,19 +472,56 @@ const VerseDetails = () => {
             </motion.div>
           ) : null}
 
-          {/* Whole-entry Save / Journal */}
-          <div className="flex items-center gap-3 pt-6">
+          {/* Actions layout */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-6">
+            {/* Prev */}
             <button
-              onClick={() => onToggleSaveWhole()}
-              disabled={!curated?.id || saving}
-              className={`px-3 py-2 rounded-md border ${isSaved ? "bg-green-600 text-white border-green-600" : "bg-white text-gray-900"}`}
+              type="button"
+              onClick={goPrev}
+              disabled={!prevRef}
+              className={`px-3 py-2 rounded-md border flex items-center justify-center gap-2 ${
+                prevRef ? "bg-white text-[#0C2E8A] hover:bg-blue-50" : "bg-gray-200 text-gray-500 cursor-not-allowed"
+              }`}
+              title={prevRef ? `Go to ${prevRef.book} ${prevRef.chapter}:${prevRef.verse}` : "Start of Bible"}
             >
-              {saving ? "…" : isSaved ? "Unsave" : "Save"}
+              <ArrowLeftCircle className="w-4 h-4" />
+              Previous
             </button>
 
-            <Link to={`/journal?ref=${encodeURIComponent(refLabel)}&curatedId=${encodeURIComponent(curated.id)}`} className="px-3 py-2 rounded-md border bg-white text-gray-900">
+            {/* Next */}
+            <button
+              type="button"
+              onClick={goNext}
+              disabled={!nextRef}
+              className={`px-3 py-2 rounded-md border flex items-center justify-center gap-2 ${
+                nextRef ? "bg-[#0C2E8A] text-white hover:opacity-95" : "bg-gray-200 text-gray-500 cursor-not-allowed"
+              }`}
+              title={nextRef ? `Go to ${nextRef.book} ${nextRef.chapter}:${nextRef.verse}` : "End of Bible"}
+            >
+              Next
+              <ArrowRight className="w-4 h-4" />
+            </button>
+
+            {/* Journal */}
+            <Link
+              to={`/journal?ref=${encodeURIComponent(refLabel)}&curatedId=${encodeURIComponent(curated.id)}`}
+              className="px-3 py-2 rounded-md border bg-white text-gray-900 text-center col-span-2 sm:col-span-1"
+            >
               Open Journal
             </Link>
+
+            {/* Save/Unsave */}
+            <div className="col-span-2 sm:col-span-3">
+              <button
+                onClick={() => onToggleSaveWhole()}
+                disabled={!curated?.id || saving}
+                className={`w-full mt-3 px-3 py-2 rounded-md border ${
+                  isSaved ? "bg-green-600 text-white border-green-600" : "bg-white text-gray-900"
+                }`}
+              >
+                {saving ? "…" : isSaved ? "Unsave" : "Save"}
+              </button>
+            </div>
           </div>
         </div>
       </div>
