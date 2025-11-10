@@ -19,15 +19,63 @@ const StateBadge = ({ state }) => {
   );
 };
 
-function roleForUser(u, me) {
+/** Prefer the live role for the signed-in admin to avoid stale rows */
+function effectiveRole(u, me) {
   if (!u) return "USER";
   if (me?.id && u.id && u.id === me.id) return me.role || u.role || "USER";
   return u.role || "USER";
 }
 
+function isAdminRole(role) {
+  return role === "ADMIN" || role === "SUPER_ADMIN";
+}
+
+/** Build a unique user list: owner (first) + contributors, de-duped by id/email */
+function collectUsersForRow(it) {
+  const out = [];
+  const seen = new Set();
+
+  const pushU = (u, asOwner = false) => {
+    if (!u) return;
+    const key = u.id || u.email || u.displayName;
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push({
+      id: u.id || null,
+      email: u.email || null,
+      displayName: u.displayName || u.name || null,
+      role: u.role || "USER",
+      isOwner: !!asOwner,
+    });
+  };
+
+  // Owner
+  if (it.owner) {
+    pushU(it.owner, true);
+  } else {
+    pushU(
+      {
+        id: it.ownerId,
+        email: it.ownerEmail,
+        displayName: it.ownerDisplayName,
+        role: it.ownerRole,
+      },
+      true
+    );
+  }
+
+  // Contributors
+  if (Array.isArray(it.contributors)) {
+    it.contributors.forEach((u) => pushU(u, false));
+  }
+
+  return out;
+}
+
 export default function CuratedList() {
   const { me } = useMe();
   const [sp, setSp] = useSearchParams();
+
   const [loading, setLoading] = React.useState(true);
   const [items, setItems] = React.useState([]);
   const [cursor, setCursor] = React.useState(null);
@@ -81,53 +129,42 @@ export default function CuratedList() {
     setSp(nextSP, { replace: true });
   }
 
-  function OwnerCell({ it }) {
-    const owner = it.owner || { id: it.ownerId, displayName: it.ownerDisplayName, role: it.ownerRole };
-    const display = owner?.displayName || it.ownerDisplayName || "—";
-    const role = roleForUser(owner, me);
+  function UsersCell({ it }) {
+    const users = collectUsersForRow(it);
+    if (users.length === 0) return <span className="text-gray-400">—</span>;
+
     return (
-      <div className="flex items-center gap-2">
-        <span>{display}</span>
-        <span className="ml-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-gray-50 text-gray-700">
-          {role}
-        </span>
+      <div className="flex flex-wrap gap-1">
+        {users.map((u) => {
+          const role = effectiveRole(u, me);
+          const label = isAdminRole(role)
+            ? (u.displayName || u.email || "—") // Admins → display name (fallback email)
+            : (u.email || u.displayName || "—"); // Others → email (fallback display name)
+
+          return (
+            <span
+              key={(u.id || u.email || u.displayName) + (u.isOwner ? "-owner" : "")}
+              className={`inline-flex items-center gap-2 px-2 py-1 rounded-full border text-[12px] ${
+                u.isOwner
+                  ? "bg-[#FFFEF0] border-[#FCCF3A] text-[#0C2E8A]"
+                  : "bg-white border-gray-200 text-gray-700"
+              }`}
+              title={`${label} • ${role}${u.isOwner ? " • owner" : ""}`}
+            >
+              <span className="font-medium">{label}</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 border border-gray-200">
+                {role}
+              </span>
+              {u.isOwner && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#FFF6CC] border border-[#FCE58A]">
+                  owner
+                </span>
+              )}
+            </span>
+          );
+        })}
       </div>
     );
-  }
-
-  function ContributorsCell({ it }) {
-    const list = Array.isArray(it.contributors) ? it.contributors : [];
-    if (list.length === 0) return <span className="text-gray-400">—</span>;
-
-    const maxShown = 3;
-    const shown = list.slice(0, maxShown);
-    const hidden = list.slice(maxShown);
-
-    const chips = shown.map((u) => {
-      const role = roleForUser(u, me);
-      return (
-        <span
-          key={u.id || u.email || u.displayName}
-          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border bg-[#FFFEF0] text-[#0C2E8A] text-[11px]"
-          title={`${u.displayName}${u.email ? ` • ${u.email}` : ""} • ${role}`}
-        >
-          <span className="font-medium">{u.displayName}</span>
-          <span className="text-[10px] opacity-70">{role}</span>
-        </span>
-      );
-    });
-
-    const more =
-      hidden.length > 0 ? (
-        <span
-          className="inline-flex items-center justify-center px-2 py-0.5 rounded-full border bg-gray-50 text-gray-600 text-[11px]"
-          title={hidden.map((u) => `${u.displayName} • ${roleForUser(u, me)}`).join("\n")}
-        >
-          +{hidden.length} more
-        </span>
-      ) : null;
-
-    return <div className="flex flex-wrap gap-1">{chips}{more}</div>;
   }
 
   async function onDelete(id) {
@@ -193,8 +230,7 @@ export default function CuratedList() {
             <tr className="text-left text-[#0C2E8A]">
               <th className="px-4 py-3">Reference</th>
               <th className="px-4 py-3">Theme</th>
-              <th className="px-4 py-3">Owner</th>
-              <th className="px-4 py-3">Contributors</th>
+              <th className="px-4 py-3">Users</th>
               <th className="px-4 py-3">State</th>
               <th className="px-4 py-3">Updated</th>
               <th className="px-4 py-3"></th>
@@ -202,9 +238,9 @@ export default function CuratedList() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-4 py-6" colSpan={7}>Loading…</td></tr>
+              <tr><td className="px-4 py-6" colSpan={6}>Loading…</td></tr>
             ) : items.length === 0 ? (
-              <tr><td className="px-4 py-6" colSpan={7}>No results.</td></tr>
+              <tr><td className="px-4 py-6" colSpan={6}>No results.</td></tr>
             ) : (
               items.map((it) => (
                 <tr key={it.id} className="border-t">
@@ -212,8 +248,9 @@ export default function CuratedList() {
                     {it.book} {it.chapter}:{it.verse}
                   </td>
                   <td className="px-4 py-3">{it.theme || "—"}</td>
-                  <td className="px-4 py-3"><OwnerCell it={it} /></td>
-                  <td className="px-4 py-3"><ContributorsCell it={it} /></td>
+                  <td className="px-4 py-3">
+                    <UsersCell it={it} />
+                  </td>
                   <td className="px-4 py-3"><StateBadge state={it.state} /></td>
                   <td className="px-4 py-3">
                     {it.updatedAt ? new Date(it.updatedAt).toLocaleString() : "—"}
