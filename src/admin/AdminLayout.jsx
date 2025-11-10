@@ -13,7 +13,7 @@ export default function AdminLayout() {
       to={to}
       end={exact}
       className={({ isActive }) =>
-        `flex items-center gap-2 px-3 py-2 rounded-lg transition ${
+        `flex items-center gap-2 px-3 pl-5 py-2 rounded-lg transition ${
           isActive
             ? "bg-[#0C2E8A] text-white"
             : "text-[#0C2E8A] hover:bg-blue-50"
@@ -73,7 +73,7 @@ export default function AdminLayout() {
       </aside>
 
       {/* Main content */}
-      <main className="pt-20 lg:pl-[224px] px-4 lg:px-6 pb-10">
+      <main className="pt-20 lg:pl-[224px] px-4 lg:px-6 pb-10 pl-5">
         <div className="container mx-auto">
           {/* Page card wrapper to match main platform */}
           <div className="bg-white rounded-2xl shadow border p-4 md:p-6">

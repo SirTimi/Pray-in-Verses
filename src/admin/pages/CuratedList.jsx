@@ -2,8 +2,8 @@
 import React from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api";
-import { useMe } from "../RequireAuth";
 import toast from "react-hot-toast";
+import { useMe } from "../RequireAuth"; // so we can mirror AdminLayout behavior
 
 const StateBadge = ({ state }) => {
   const colors = {
@@ -19,57 +19,9 @@ const StateBadge = ({ state }) => {
   );
 };
 
-function roleLabel(role) {
-  switch (role) {
-    case "SUPER_ADMIN": return "Super Admin";
-    case "ADMIN": return "Admin";
-    case "EDITOR": return "Editor";
-    case "USER": return "User";
-    default: return role || "User";
-  }
-}
-
-// Pull displayName + role for the owner of a curated item.
-// If the API omits role, but the owner is the current user, fall back to me.role (so Super Admin shows correctly).
-function extractOwner(it, me) {
-  const ownerObj =
-    it?.owner ||
-    it?.createdBy ||
-    null;
-
-  const ownerId =
-    it?.ownerId ||
-    it?.createdById ||
-    ownerObj?.id ||
-    null;
-
-  const displayName =
-    ownerObj?.displayName ??
-    it?.ownerDisplayName ??
-    it?.createdByName ??
-    ownerObj?.email ??
-    it?.ownerEmail ??
-    it?.createdByEmail ??
-    "—";
-
-  let role =
-    ownerObj?.role ??
-    it?.ownerRole ??
-    it?.createdByRole ??
-    null;
-
-  // If role missing but this row belongs to the logged-in user, trust session role
-  if (!role && me?.id && ownerId && String(ownerId) === String(me.id)) {
-    role = me.role || "USER";
-  }
-
-  return { displayName, role: role || "USER" };
-}
-
 export default function CuratedList() {
   const { me } = useMe();
   const [sp, setSp] = useSearchParams();
-
   const [loading, setLoading] = React.useState(true);
   const [items, setItems] = React.useState([]);
   const [cursor, setCursor] = React.useState(null);
@@ -91,25 +43,20 @@ export default function CuratedList() {
       }
       if (res.status && res.status >= 400) {
         toast.error(`Failed to load (${res.status})`);
-        if (!append) setItems([]);
+        setItems(append ? items : []);
         setCursor(null);
         return;
       }
 
-      const nextItems = Array.isArray(res.items)
-        ? res.items
-        : Array.isArray(res.data)
-        ? res.data
-        : [];
-
-      const nextCursor = res.nextCursor || res.cursor || null;
+      const nextItems = Array.isArray(res.items) ? res.items : [];
+      const nextCursor = res.nextCursor || null;
 
       setItems((prev) => (append ? [...prev, ...nextItems] : nextItems));
       setCursor(nextCursor);
     } catch {
       setLoading(false);
       toast.error("Failed to load curated prayers");
-      if (!append) setItems([]);
+      setItems(append ? items : []);
       setCursor(null);
     }
   }
@@ -128,6 +75,27 @@ export default function CuratedList() {
     setSp(nextSP, { replace: true });
   }
 
+  function ownerDisplay(it) {
+    // Prefer normalized fields from api.listCurated; fall back smartly
+    const display =
+      it.ownerDisplayName ??
+      it.owner?.displayName ??
+      it.createdByName ??
+      it.owner?.email ??
+      it.ownerEmail ??
+      it.createdByEmail ??
+      "—";
+    return display;
+  }
+
+  function ownerRole(it) {
+    // If the owner is the current admin, trust me.role to avoid "USER" fallback
+    if (me?.id && (it.ownerId === me.id || it.owner?.id === me.id)) {
+      return me.role || "USER";
+    }
+    return it.ownerRole ?? it.owner?.role ?? it.createdByRole ?? "USER";
+  }
+
   async function onDelete(id) {
     if (!window.confirm("Delete this curated prayer? This cannot be undone.")) return;
     const res = await api.deleteCurated(id);
@@ -140,7 +108,7 @@ export default function CuratedList() {
   }
 
   return (
-    <div className="p-6 space-y-4 pl-5">
+    <div className="p-6 space-y-5 pl-5">
       <div className="flex items-center justify-between">
         <h1 className="text-base font-semibold text-[#0C2E8A]">Curated Prayers</h1>
         <Link
@@ -204,43 +172,40 @@ export default function CuratedList() {
             ) : items.length === 0 ? (
               <tr><td className="px-4 py-6" colSpan={7}>No results.</td></tr>
             ) : (
-              items.map((it) => {
-                const { displayName, role } = extractOwner(it, me);
-                return (
-                  <tr key={it.id} className="border-t">
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {it.book} {it.chapter}:{it.verse}
-                    </td>
-                    <td className="px-4 py-3">{it.theme || "—"}</td>
-                    <td className="px-4 py-3">{displayName}</td>
-                    <td className="px-4 py-3">
-                      <span className="ml-1 text-xs font-semibold px-2 py-0.5 rounded-full border bg-gray-50 text-gray-700">
-                        {roleLabel(role)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <StateBadge state={it.state} />
-                    </td>
-                    <td className="px-4 py-3">
-                      {it.updatedAt ? new Date(it.updatedAt).toLocaleString() : "—"}
-                    </td>
-                    <td className="px-4 py-3 flex gap-2 justify-end">
-                      <Link
-                        to={`/admin/curated/${it.id}`}
-                        className="px-2 py-1 border rounded-md hover:bg-blue-50 text-[#0C2E8A]"
-                      >
-                        Edit
-                      </Link>
-                      <button
-                        onClick={() => onDelete(it.id)}
-                        className="px-2 py-1 border rounded-md text-red-600 hover:bg-red-50"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })
+              items.map((it) => (
+                <tr key={it.id} className="border-t">
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {it.book} {it.chapter}:{it.verse}
+                  </td>
+                  <td className="px-4 py-3">{it.theme || "—"}</td>
+                  <td className="px-4 py-3">{ownerDisplay(it)}</td>
+                  <td className="px-4 py-3">
+                    <span className="ml-1 text-xs font-semibold px-2 py-0.5 rounded-full border bg-gray-50 text-gray-700">
+                      {ownerRole(it)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <StateBadge state={it.state} />
+                  </td>
+                  <td className="px-4 py-3">
+                    {it.updatedAt ? new Date(it.updatedAt).toLocaleString() : "—"}
+                  </td>
+                  <td className="px-4 py-3 flex gap-2 justify-end">
+                    <Link
+                      to={`/admin/curated/${it.id}`}
+                      className="px-2 py-1 border rounded-md hover:bg-blue-50 text-[#0C2E8A]"
+                    >
+                      Edit
+                    </Link>
+                    <button
+                      onClick={() => onDelete(it.id)}
+                      className="px-2 py-1 border rounded-md text-red-600 hover:bg-red-50"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))
             )}
           </tbody>
         </table>

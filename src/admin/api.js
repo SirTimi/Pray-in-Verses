@@ -1,13 +1,7 @@
 // src/admin/api.js
 
-// Point straight to your API in dev (no proxy).
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
-/**
- * request(path, { method, body, headers, allow401 })
- * - credentials: 'include' so cookies flow
- * - allow401: if true, don't auto-redirect on 401 (used by /auth/login)
- */
 async function request(
   path,
   { method = "GET", body, headers = {}, allow401 = false } = {}
@@ -20,12 +14,10 @@ async function request(
   });
 
   if (res.status === 401 && !allow401) {
-    // not logged in → send to admin login (but don't break the login call itself)
     window.location.assign("/admin/login");
     return;
   }
 
-  // Try to parse JSON; fall back to raw text
   const text = await res.text();
   let data;
   try {
@@ -33,12 +25,9 @@ async function request(
   } catch {
     data = { data: text };
   }
-
-  // Return both status and data so callers can branch on codes
   return { status: res.status, ...data };
 }
 
-/** ---------- small normalizers so UI can rely on a stable shape ---------- */
 function normalizeListPayload(payload) {
   const items =
     payload?.data ??
@@ -50,7 +39,6 @@ function normalizeListPayload(payload) {
 }
 
 function normalizeSinglePayload(payload) {
-  // Accept {data}, {item}, {row}, or a plain object
   const data =
     payload?.data ??
     payload?.item ??
@@ -62,7 +50,6 @@ function normalizeSinglePayload(payload) {
 export const api = {
   me: () => request("/auth/me"),
 
-  // Note allow401 so the login page can show "invalid credentials" instead of redirecting
   login: (email, password) =>
     request("/auth/login", {
       method: "POST",
@@ -72,7 +59,6 @@ export const api = {
 
   logout: () => request("/auth/logout", { method: "POST" }),
 
-  // Admin invites
   createInvite: (email, role) =>
     request("/admin/invites", { method: "POST", body: { email, role } }),
   listInvites: () => request("/admin/invites"),
@@ -86,8 +72,7 @@ export const api = {
   updateUserRole: (id, role) =>
     request(`/admin/users/${id}/role`, { method: "PATCH", body: { role } }),
 
-  // ---------- Admin curated CRUD (+ normalized helpers) ----------
-  // Normalized list → always returns { items, nextCursor }
+  // *** UPDATED: ask API to include owner and normalize owner fields
   listCurated: async (q, state, book, limit = 20, cursor) => {
     const p = new URLSearchParams();
     if (q) p.set("q", q);
@@ -96,16 +81,49 @@ export const api = {
     if (limit) p.set("limit", String(limit));
     if (cursor) p.set("cursor", cursor);
 
+    // Ask backend to expand/include owner. If your controller uses a different key
+    // (e.g. ?expand=owner or ?with=owner), change this line accordingly.
+    p.set("include", "owner");
+
     const res = await request(`/admin/curated-prayers?${p.toString()}`);
     if (!res) return { items: [], nextCursor: null, status: 401 };
     const { items, nextCursor } = normalizeListPayload(res);
-    return { items, nextCursor, status: res.status };
+
+    const normalized = (items || []).map((it) => {
+      const owner = it.owner || it.createdBy || null;
+      const ownerDisplayName =
+        owner?.displayName ??
+        it.ownerDisplayName ??
+        it.createdByName ??
+        owner?.email ??
+        it.ownerEmail ??
+        it.createdByEmail ??
+        "—";
+      const ownerRole =
+        owner?.role ??
+        it.ownerRole ??
+        it.createdByRole ??
+        null;
+      const ownerId =
+        owner?.id ??
+        it.ownerId ??
+        it.createdById ??
+        null;
+
+      return {
+        ...it,
+        owner,
+        ownerDisplayName,
+        ownerRole,
+        ownerId,
+      };
+    });
+
+    return { items: normalized, nextCursor, status: res.status };
   },
 
-  // Raw (un-normalized) getters still available if you want them:
   getCuratedRaw: (id) => request(`/admin/curated-prayers/${id}`),
 
-  // Normalized single getter → always returns { data }
   getCurated: async (id) => {
     const res = await request(`/admin/curated-prayers/${id}`);
     if (!res) return { data: null, status: 401 };
@@ -122,7 +140,6 @@ export const api = {
       method: "POST",
       body: { target },
     }),
-  // optional: direct publish-state setter your controller exposes
   updatePublishState: (id, state) =>
     request(`/admin/curated-prayers/${id}/publish-state`, {
       method: "PATCH",
@@ -131,36 +148,26 @@ export const api = {
   deleteCurated: (id) =>
     request(`/admin/curated-prayers/${id}`, { method: "DELETE" }),
 
-  // ---------- Prayer Points (ADMIN per-point editing API) ----------
   prayerPoints: {
-    // Replace the entire array (expects { items: string[] })
     replace: (id, items) =>
       request(`/admin/curated-prayers/${id}/prayer-points`, {
         method: "PATCH",
         body: { items },
       }),
-
-    // Append a single new point (expects { text: string })
     append: (id, text) =>
       request(`/admin/curated-prayers/${id}/prayer-points`, {
         method: "POST",
         body: { text },
       }),
-
-    // Update one item by index (0-based) (expects { text: string })
     updateOne: (id, index, text) =>
       request(`/admin/curated-prayers/${id}/prayer-points/${index}`, {
         method: "PATCH",
         body: { text },
       }),
-
-    // Remove one item by index (0-based)
     removeOne: (id, index) =>
       request(`/admin/curated-prayers/${id}/prayer-points/${index}`, {
         method: "DELETE",
       }),
-
-    // Reorder: move item from -> to (expects { from:number, to:number })
     reorder: (id, from, to) =>
       request(`/admin/curated-prayers/${id}/prayer-points/reorder`, {
         method: "POST",
@@ -168,14 +175,12 @@ export const api = {
       }),
   },
 
-  // Small alias to match curatedEdit.jsx usage (api.replaceCuratedPoints)
   replaceCuratedPoints: (id, items) =>
     request(`/admin/curated-prayers/${id}/prayer-points`, {
       method: "PATCH",
       body: { items },
     }),
 
-  // ---------- Bible helpers for admin screens ----------
   bibleBooks: () => request(`/admin/bible/books`),
   bibleChapters: (book) =>
     request(`/admin/bible/books/${encodeURIComponent(book)}/chapters`),
@@ -184,7 +189,6 @@ export const api = {
       `/admin/bible/books/${encodeURIComponent(book)}/chapters/${chapter}/verses`
     ),
 
-  // ---------- Browse helpers (shared) ----------
   books: () => request(`/browse/books`),
   chapters: (book) =>
     request(`/browse/books/${encodeURIComponent(book)}/chapters`),
@@ -192,10 +196,14 @@ export const api = {
     request(
       `/browse/books/${encodeURIComponent(book)}/chapters/${chapter}/verses`
     ),
-  
+
   savePoint: (curatedPrayerId, index) =>
-    request(`/saved-prayers/${curatedPrayerId}/points/${index}`, {method: "POST" }),
+    request(`/saved-prayers/${curatedPrayerId}/points/${index}`, {
+      method: "POST",
+    }),
   unsavePoint: (curatedPrayerId, index) =>
-    request(`/saved-prayers/${curatedPrayerId}/points/${index}`, {method: "DELETE"}),
+    request(`/saved-prayers/${curatedPrayerId}/points/${index}`, {
+      method: "DELETE",
+    }),
   publishedPointsCount: () => request(`/browse/published-points-count`),
 };
