@@ -566,7 +566,7 @@ const PrayerWalls = () => {
             ) : filteredSorted.length > 0 ? (
               filteredSorted.map((req) => {
                 const name =
-                  req.isAnonymous ? "Anonymous" : (req.user?.displayName || req.user?.email || "User");
+                  req.isAnonymous ? "Anonymous" : (req.user?.name || req.user?.email || "User");
                 const created = req.createdAt ? formatTimeAgo(req.createdAt) : "";
                 const commentsFor = commentsMap[req.id] || [];
                 return (
@@ -660,7 +660,7 @@ const PrayerWalls = () => {
                           <div className="text-sm text-gray-500">No comments yet.</div>
                         ) : (
                           commentsFor.map((c) => {
-                            const who = c.user?.displayName //|| c.user?.email || "User";
+                            const who = c.user?.name //|| c.user?.email || "User";
                             const when = c.createdAt ? new Date(c.createdAt).toLocaleString() : "";
                             return (
                               <div key={c.id} className="flex gap-3 items-start bg-gray-50 p-3 rounded-lg">
