@@ -19,21 +19,28 @@ const StateBadge = ({ state }) => {
   );
 };
 
-/** Prefer live role for the signed-in admin to avoid stale rows */
+// Prefer live role for the signed-in admin in case row data is stale
 function effectiveRole(u, me) {
-  if (!u) return "USER";
-  if (me?.id && u.id && u.id === me.id) return me.role || u.role || "USER";
-  return u.role || "USER";
+  if (me?.id && u?.id && me.id === u.id) return me.role || u.role || "USER";
+  return u?.role || "USER";
 }
 
-/** Build a unique user list: owner (first) + contributors (de-duped) */
+// Label rule: "Display Name (email)" if both; else displayName; else email; else "—"
+function userLabel(u) {
+  const dn = u?.displayName || u?.name || "";
+  const em = u?.email || "";
+  if (dn && em) return `${dn} (${em})`;
+  return dn || em || "—";
+}
+
+// Build unique user list for a row: owner first, then contributors
 function collectUsersForRow(it) {
   const out = [];
   const seen = new Set();
 
-  const pushU = (u, asOwner = false) => {
+  const pushU = (u, isOwner = false) => {
     if (!u) return;
-    const key = u.id || u.email || u.displayName;
+    const key = u.id || u.email || u.displayName || u.name;
     if (!key || seen.has(key)) return;
     seen.add(key);
     out.push({
@@ -41,11 +48,10 @@ function collectUsersForRow(it) {
       email: u.email || null,
       displayName: u.displayName || u.name || null,
       role: u.role || "USER",
-      isOwner: !!asOwner,
+      isOwner,
     });
   };
 
-  // owner (normalized or fallback fields)
   if (it.owner) pushU(it.owner, true);
   else
     pushU(
@@ -58,8 +64,9 @@ function collectUsersForRow(it) {
       true
     );
 
-  // contributors
-  if (Array.isArray(it.contributors)) it.contributors.forEach((u) => pushU(u, false));
+  if (Array.isArray(it.contributors)) {
+    it.contributors.forEach((u) => pushU(u, false));
+  }
 
   return out;
 }
@@ -95,10 +102,8 @@ export default function CuratedList() {
       }
 
       const nextItems = Array.isArray(res.items) ? res.items : [];
-      const nextCursor = res.nextCursor || null;
-
       setItems((prev) => (append ? [...prev, ...nextItems] : nextItems));
-      setCursor(nextCursor);
+      setCursor(res.nextCursor || null);
     } catch {
       setLoading(false);
       toast.error("Failed to load curated prayers");
@@ -129,28 +134,17 @@ export default function CuratedList() {
       <div className="flex flex-wrap gap-1">
         {users.map((u) => {
           const role = effectiveRole(u, me);
-          const primary = u.displayName || u.email || "—";
-          const secondary =
-            u.displayName && u.email && u.displayName !== u.email ? u.email : null;
-
           return (
             <span
               key={(u.id || u.email || u.displayName) + (u.isOwner ? "-owner" : "")}
-              className={`inline-flex items-center gap-2 px-2 py-1 rounded-full border ${
+              className={`inline-flex items-center gap-2 px-2 py-1 rounded-full border text-[12px] ${
                 u.isOwner
                   ? "bg-[#FFFEF0] border-[#FCCF3A] text-[#0C2E8A]"
                   : "bg-white border-gray-200 text-gray-700"
               }`}
-              title={`${primary}${secondary ? ` • ${secondary}` : ""} • ${role}${
-                u.isOwner ? " • owner" : ""
-              }`}
+              title={`${userLabel(u)} • ${role}${u.isOwner ? " • owner" : ""}`}
             >
-              <span className="leading-tight">
-                <span className="font-medium text-[12px] block">{primary}</span>
-                {secondary && (
-                  <span className="text-[10px] text-gray-500 block">{secondary}</span>
-                )}
-              </span>
+              <span className="font-medium">{userLabel(u)}</span>
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 border border-gray-200">
                 {role}
               </span>
