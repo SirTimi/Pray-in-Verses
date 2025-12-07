@@ -2,6 +2,7 @@
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
+/** ----------------------------- core request ----------------------------- */
 async function request(
   path,
   { method = "GET", body, headers = {}, allow401 = false } = {}
@@ -28,6 +29,7 @@ async function request(
   return { status: res.status, ...data };
 }
 
+/** ----------------------------- normalizers ----------------------------- */
 function normalizeListPayload(payload) {
   const items =
     payload?.data ??
@@ -38,22 +40,86 @@ function normalizeListPayload(payload) {
   return { items, nextCursor };
 }
 
+function normalizeSinglePayload(payload) {
+  const data =
+    payload?.data ??
+    payload?.item ??
+    payload?.row ??
+    (payload && typeof payload === "object" ? payload : null);
+  return { data };
+}
+
 function normalizeUserShape(u) {
   if (!u) return null;
   return {
     id: u.id ?? u.userId ?? null,
     displayName: u.displayName ?? u.name ?? u.email ?? "—",
-    role: u.role ?? u.userRole ?? null,
+    role: u.role ?? u.userRole ?? "USER",
     email: u.email ?? null,
   };
 }
 
+const keyOfUser = (u) => (u?.id || u?.email || u?.displayName || "").toString();
+
+/** Merge missing identity fields from a lookup map into a partial user */
+function hydrateUser(partial, map) {
+  if (!partial) return null;
+  const id = partial.id ?? null;
+  const found = id ? map.get(id) : null;
+  if (!found) return normalizeUserShape(partial);
+  const merged = {
+    id: found.id,
+    displayName:
+      partial.displayName || found.displayName || found.email || "—",
+    email: partial.email || found.email || null,
+    role: partial.role || found.role || "USER",
+  };
+  return merged;
+}
+
+/** Collect unique user IDs we should look up from a batch of curated rows */
+function collectUserIds(rows) {
+  const ids = new Set();
+  for (const it of rows) {
+    const ownerId = it?.owner?.id ?? it?.ownerId ?? it?.createdById;
+    if (ownerId) ids.add(ownerId);
+
+    // Flexible shapes for contributor IDs
+    if (Array.isArray(it?.contributors)) {
+      it.contributors.forEach((c) => {
+        const id = (typeof c === "string" ? c : c?.id) ?? null;
+        if (id) ids.add(id);
+      });
+    }
+    if (Array.isArray(it?.contributorIds)) {
+      it.contributorIds.forEach((id) => id && ids.add(id));
+    }
+    if (Array.isArray(it?.history)) {
+      it.history.forEach((h) => {
+        const id =
+          h?.actor?.id ??
+          h?.user?.id ??
+          (typeof h?.actor === "string" ? h.actor : null);
+        if (id) ids.add(id);
+      });
+    }
+  }
+  return Array.from(ids);
+}
+
+/** ------------------------------- API  ---------------------------------- */
 export const api = {
+  /* auth */
   me: () => request("/auth/me"),
   login: (email, password) =>
-    request("/auth/login", { method: "POST", body: { email, password }, allow401: true }),
+    request("/auth/login", {
+      method: "POST",
+      body: { email, password },
+      allow401: true,
+    }),
   logout: () => request("/auth/logout", { method: "POST" }),
 
+  /* invites / users */
   createInvite: (email, role) =>
     request("/admin/invites", { method: "POST", body: { email, role } }),
   listInvites: () => request("/admin/invites"),
@@ -67,7 +133,22 @@ export const api = {
   updateUserRole: (id, role) =>
     request(`/admin/users/${id}/role`, { method: "PATCH", body: { role } }),
 
-  // UPDATED: include=owner,contributors and normalize both
+  /**
+   * Lightweight identity lookup that ALL admin roles can call.
+   * Backend should expose: GET /admin/users/lookup?ids=a,b,c
+   * Returns [{id, displayName, email, role}]
+   */
+  lookupUsersByIds: async (ids = []) => {
+    if (!ids.length) return { map: new Map(), status: 200 };
+    const p = new URLSearchParams({ ids: ids.join(",") });
+    const res = await request(`/admin/users/lookup?${p.toString()}`);
+    if (!res) return { map: new Map(), status: 401 };
+    const rows = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+    const map = new Map(rows.filter(Boolean).map((u) => [u.id, normalizeUserShape(u)]));
+    return { map, status: res.status };
+  },
+
+  /* curated list (with identity hydration for all roles) */
   listCurated: async (q, state, book, limit = 20, cursor) => {
     const p = new URLSearchParams();
     if (q) p.set("q", q);
@@ -75,37 +156,34 @@ export const api = {
     if (book) p.set("book", book);
     if (limit) p.set("limit", String(limit));
     if (cursor) p.set("cursor", cursor);
-    // Adjust key if your backend expects ?expand=owner,contributors instead
+    // Ask backend to expand if it can (no harm if ignored):
     p.set("include", "owner,contributors");
 
     const res = await request(`/admin/curated-prayers?${p.toString()}`);
     if (!res) return { items: [], nextCursor: null, status: 401 };
 
     const { items, nextCursor } = normalizeListPayload(res);
-
-    const normalized = (items || []).map((it) => {
+    const baseRows = (items || []).map((it) => {
+      // Normalize embedded owner (if present)
       const ownerRaw = it.owner || it.createdBy || null;
       const owner = normalizeUserShape(ownerRaw);
-
-      // Try multiple shapes to collect contributors (excluding owner):
+      // Build raw contributors from any shape we might receive
       let rawContribs = [];
       if (Array.isArray(it.contributors)) rawContribs = it.contributors;
       else if (Array.isArray(it?.audit?.contributors)) rawContribs = it.audit.contributors;
       else if (Array.isArray(it?.history)) {
-        rawContribs = it.history
-          .map((h) => h.actor || h.user || null)
-          .filter(Boolean);
+        rawContribs = it.history.map((h) => h.actor || h.user || null).filter(Boolean);
       }
 
-      // Normalize + dedupe by id/email, and drop owner if present
+      // Normalize + de-dup contributors
       const seen = new Set();
       const contributors = rawContribs
         .map(normalizeUserShape)
         .filter(Boolean)
         .filter((c) => {
-          const key = c.id || c.email || c.displayName;
+          const key = keyOfUser(c);
           if (!key) return false;
-          if (owner && (c.id && c.id === owner.id)) return false;
+          if (owner && c.id && owner.id && c.id === owner.id) return false;
           if (seen.has(key)) return false;
           seen.add(key);
           return true;
@@ -123,23 +201,95 @@ export const api = {
           it.ownerEmail ??
           it.createdByEmail ??
           "—",
-        ownerRole: owner?.role ?? it.ownerRole ?? it.createdByRole ?? null,
-        contributors, // [{id, displayName, role, email}]
+        ownerRole: owner?.role ?? it.ownerRole ?? it.createdByRole ?? "USER",
+        contributors,             // [{id, displayName, role, email}]
+        contributorIds: Array.isArray(it.contributorIds) ? it.contributorIds : undefined,
+      };
+    });
+
+    // Identity hydration for non-expanded rows (works for all roles)
+    const needIds = collectUserIds(baseRows);
+    let lookupMap = new Map();
+
+    if (needIds.length) {
+      // Try open lookup first
+      try {
+        const { map } = await api.lookupUsersByIds(needIds);
+        lookupMap = map || new Map();
+      } catch (_) {
+        lookupMap = new Map();
+      }
+
+      // If still empty (e.g., SUPER_ADMIN only environment), try listUsers
+      if (!lookupMap.size) {
+        try {
+          const lu = await api.listUsers();
+          const rows = Array.isArray(lu?.data) ? lu.data : Array.isArray(lu) ? lu : [];
+          rows.forEach((u) => {
+            const nu = normalizeUserShape(u);
+            if (nu?.id) lookupMap.set(nu.id, nu);
+          });
+        } catch (_) {
+          /* ignore */
+        }
+      }
+    }
+
+    // Merge hydrated identities where missing
+    const normalized = baseRows.map((it) => {
+      const owner =
+        it.ownerId && (!it.owner || !it.owner.displayName || !it.owner.email)
+          ? hydrateUser({ id: it.ownerId, ...it.owner }, lookupMap)
+          : it.owner;
+
+      // If contributors empty but we have contributorIds, hydrate them
+      let contributors = it.contributors || [];
+      if ((!contributors.length) && Array.isArray(it.contributorIds) && it.contributorIds.length) {
+        contributors = it.contributorIds
+          .map((id) => hydrateUser({ id }, lookupMap))
+          .filter(Boolean);
+      } else {
+        // Otherwise, top off any missing contributor fields
+        contributors = contributors.map((c) =>
+          c?.id ? hydrateUser(c, lookupMap) : normalizeUserShape(c)
+        );
+      }
+
+      // De-dup contributors again (after hydration)
+      const seen = new Set();
+      const finalContribs = [];
+      for (const c of contributors) {
+        const k = keyOfUser(c);
+        if (!k || seen.has(k)) continue;
+        seen.add(k);
+        // avoid duplicating owner
+        if (owner?.id && c?.id && owner.id === c.id) continue;
+        finalContribs.push(c);
+      }
+
+      return {
+        ...it,
+        owner,
+        ownerId: owner?.id ?? it.ownerId ?? null,
+        ownerDisplayName: owner?.displayName ?? it.ownerDisplayName ?? "—",
+        ownerRole: owner?.role ?? it.ownerRole ?? "USER",
+        contributors: finalContribs,
       };
     });
 
     return { items: normalized, nextCursor, status: res.status };
   },
 
+  /* single curated */
   getCuratedRaw: (id) => request(`/admin/curated-prayers/${id}`),
   getCurated: async (id) => {
     const res = await request(`/admin/curated-prayers/${id}`);
     if (!res) return { data: null, status: 401 };
-    const data =
-      res?.data ?? res?.item ?? res?.row ?? (res && typeof res === "object" ? res : null);
+    const { data } = normalizeSinglePayload(res);
     return { ...res, data };
   },
 
+  /* mutations */
   createCurated: (payload) =>
     request(`/admin/curated-prayers`, { method: "POST", body: payload }),
   updateCurated: (id, payload) =>
@@ -156,6 +306,7 @@ export const api = {
     }),
   deleteCurated: (id) => request(`/admin/curated-prayers/${id}`, { method: "DELETE" }),
 
+  /* per-point admin editing */
   prayerPoints: {
     replace: (id, items) =>
       request(`/admin/curated-prayers/${id}/prayer-points`, {
@@ -189,17 +340,22 @@ export const api = {
       body: { items },
     }),
 
+  /* bible helpers (admin) */
   bibleBooks: () => request(`/admin/bible/books`),
   bibleChapters: (book) =>
     request(`/admin/bible/books/${encodeURIComponent(book)}/chapters`),
   bibleVerses: (book, chapter) =>
-    request(`/admin/bible/books/${encodeURIComponent(book)}/chapters/${chapter}/verses`),
+    request(
+      `/admin/bible/books/${encodeURIComponent(book)}/chapters/${chapter}/verses`
+    ),
 
+  /* shared browse helpers */
   books: () => request(`/browse/books`),
   chapters: (book) => request(`/browse/books/${encodeURIComponent(book)}/chapters`),
   verses: (book, chapter) =>
     request(`/browse/books/${encodeURIComponent(book)}/chapters/${chapter}/verses`),
 
+  /* saved points & counts (shared) */
   savePoint: (curatedPrayerId, index) =>
     request(`/saved-prayers/${curatedPrayerId}/points/${index}`, { method: "POST" }),
   unsavePoint: (curatedPrayerId, index) =>

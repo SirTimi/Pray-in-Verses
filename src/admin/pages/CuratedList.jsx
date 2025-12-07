@@ -3,7 +3,6 @@ import React from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import toast from "react-hot-toast";
-import { useMe } from "../RequireAuth";
 
 const StateBadge = ({ state }) => {
   const colors = {
@@ -19,166 +18,146 @@ const StateBadge = ({ state }) => {
   );
 };
 
-// prefer live role for the signed-in admin
-function effectiveRole(u, me) {
-  if (!u) return "USER";
-  if (me?.id && u.id && u.id === me.id) return me.role || u.role || "USER";
-  return u.role || "USER";
-}
-
-/** Normalize a “user-ish” thing to an id string, if present */
-function getUserIdish(u) {
+function idOf(u) {
   if (!u) return null;
   if (typeof u === "string") return u;
   return u.id || null;
 }
 
-/** Build: owner first, then contributors, using userMap when only ids are present */
-function collectUsersForRow(it, userMap) {
+function collectRowUsers(it, userMap) {
   const out = [];
   const seen = new Set();
 
-  const pushUser = (src, asOwner = false) => {
+  const push = (src, isOwner = false) => {
     if (!src) return;
-
-    // src can be:
-    // - full user {id, email, displayName, role}
-    // - partial {id, ...}
-    // - just id: string
-    const id = getUserIdish(src);
+    const id = idOf(src);
     const hydrated = id ? userMap.get(id) : null;
-
     const u = hydrated || (typeof src === "object" ? src : null);
-    const key = id || u?.email || u?.displayName;
+
+    const displayName = u?.displayName || u?.name || u?.email || "—";
+    const email = u?.email || "";
+    const role = u?.role || "USER";
+    const key = id || email || displayName;
     if (!key || seen.has(key)) return;
     seen.add(key);
 
-    out.push({
-      id: id || null,
-      displayName: u?.displayName || u?.name || u?.email || "—",
-      email: u?.email || "",
-      role: u?.role || "USER",
-      isOwner: !!asOwner,
-    });
+    out.push({ id, displayName, email, role, isOwner });
   };
 
-  // Owner (support embedded owner or legacy ownerId/ownerEmail/ownerDisplayName/ownerRole)
-  if (it.owner) {
-    pushUser(it.owner, true);
-  } else if (it.ownerId) {
-    pushUser({ id: it.ownerId }, true);
-  } else if (it.ownerEmail || it.ownerDisplayName) {
-    pushUser(
-      {
-        id: null,
-        email: it.ownerEmail,
-        displayName: it.ownerDisplayName,
-        role: it.ownerRole,
-      },
+  // owner (supports owner object, ownerId, or legacy owner* fields)
+  if (it.owner) push(it.owner, true);
+  else if (it.ownerId) push({ id: it.ownerId }, true);
+  else if (it.ownerEmail || it.ownerDisplayName) {
+    push(
+      { id: null, email: it.ownerEmail, displayName: it.ownerDisplayName, role: it.ownerRole },
       true
     );
   }
 
-  // Contributors: can be array of ids OR array of user objects
-  if (Array.isArray(it.contributors)) {
-    it.contributors.forEach((c) => pushUser(c, false));
-  } else if (Array.isArray(it.contributorIds)) {
-    it.contributorIds.forEach((id) => pushUser(id, false));
-  }
+  // contributors (ids or objects)
+  if (Array.isArray(it.contributors)) it.contributors.forEach((c) => push(c, false));
+  if (Array.isArray(it.contributorIds)) it.contributorIds.forEach((id) => push({ id }, false));
 
   return out;
 }
 
-function UsersCell({ it, me, userMap }) {
-  const users = collectUsersForRow(it, userMap);
+function UsersCell({ it, userMap }) {
+  const users = collectRowUsers(it, userMap);
   if (users.length === 0) return <span className="text-gray-400">—</span>;
 
   return (
     <div className="flex flex-wrap gap-2">
-      {users.map((u) => {
-        const role = effectiveRole({ id: u.id, role: u.role }, me);
-        return (
-          <div
-            key={(u.id || u.email || u.displayName) + (u.isOwner ? "-owner" : "")}
-            className={`min-w-[200px] max-w-full px-2 py-1 rounded-lg border ${
-              u.isOwner ? "bg-[#FFFEF0] border-[#FCCF3A]" : "bg-white border-gray-200"
-            }`}
-            title={`${u.displayName}${u.email ? ` • ${u.email}` : ""} • ${role}${
-              u.isOwner ? " • owner" : ""
-            }`}
-          >
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[12px] font-medium text-[#0C2E8A]">
-                {u.displayName}
+      {users.map((u) => (
+        <div
+          key={(u.id || u.email || u.displayName) + (u.isOwner ? "-owner" : "")}
+          className={`min-w-[200px] max-w-full px-2 py-1 rounded-lg border ${
+            u.isOwner ? "bg-[#FFFEF0] border-[#FCCF3A]" : "bg-white border-gray-200"
+          }`}
+          title={`${u.displayName}${u.email ? ` • ${u.email}` : ""} • ${u.role}${
+            u.isOwner ? " • owner" : ""
+          }`}
+        >
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[12px] font-medium text-[#0C2E8A]">{u.displayName}</span>
+            {u.email ? (
+              <span className="text-[11px] text-gray-600 break-all">{u.email}</span>
+            ) : null}
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 border border-gray-200 text-gray-700">
+              {u.role}
+            </span>
+            {u.isOwner && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#FFF6CC] border border-[#FCE58A] text-[#7A5B00]">
+                owner
               </span>
-              {u.email ? (
-                <span className="text-[11px] text-gray-600 break-all">{u.email}</span>
-              ) : null}
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 border border-gray-200 text-gray-700">
-                {role}
-              </span>
-              {u.isOwner && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#FFF6CC] border border-[#FCE58A] text-[#7A5B00]">
-                  owner
-                </span>
-              )}
-            </div>
+            )}
           </div>
-        );
-      })}
+        </div>
+      ))}
     </div>
   );
 }
 
 export default function CuratedList() {
-  const { me } = useMe();
   const [sp, setSp] = useSearchParams();
 
   const [loading, setLoading] = React.useState(true);
   const [items, setItems] = React.useState([]);
   const [cursor, setCursor] = React.useState(null);
 
-  // cache of all admins by id (from api.listUsers)
+  // id -> {id, displayName, email, role}
   const [userMap, setUserMap] = React.useState(() => new Map());
 
   const q = sp.get("q") || "";
   const state = sp.get("state") || "";
   const book = sp.get("book") || "";
 
-  async function hydrateUsersFor(itemsBatch) {
-    // Gather unique ids from owner/contributors
+  function idsNeeded(batch) {
     const ids = new Set();
-    for (const it of itemsBatch) {
-      const ownerId = getUserIdish(it.owner) || it.ownerId || null;
+    for (const it of batch) {
+      const ownerId = idOf(it.owner) || it.ownerId || null;
       if (ownerId) ids.add(ownerId);
-
       if (Array.isArray(it.contributors)) {
         it.contributors.forEach((c) => {
-          const id = getUserIdish(c);
+          const id = idOf(c);
           if (id) ids.add(id);
         });
       }
-      if (Array.isArray(it.contributorIds)) {
-        it.contributorIds.forEach((id) => ids.add(id));
+      if (Array.isArray(it.contributorIds)) it.contributorIds.forEach((id) => ids.add(id));
+    }
+    // remove already cached
+    return Array.from(ids).filter((id) => !userMap.has(id));
+  }
+
+  async function hydrateUsers(batch) {
+    const missing = idsNeeded(batch);
+    if (!missing.length) return;
+
+    // 1) Try open-to-all lookup
+    let got = false;
+    try {
+      const res = await api.lookupUsersByIds(missing);
+      if (res?.map) {
+        const next = new Map(userMap);
+        res.map.forEach((v, k) => next.set(k, v));
+        setUserMap(next);
+        got = true;
       }
-    }
+    } catch { /* ignore */ }
 
-    // If we already have all of them, skip request
-    let missing = [];
-    for (const id of ids) {
-      if (!userMap.has(id)) missing.push(id);
+    // 2) Fallback to listUsers (may require SUPER_ADMIN). Still harmless if 403.
+    if (!got) {
+      try {
+        const res = await api.listUsers();
+        if (res?.status < 400) {
+          const rows = Array.isArray(res?.data) ? res.data
+                     : Array.isArray(res)       ? res
+                     : [];
+          const next = new Map(userMap);
+          rows.forEach((u) => { if (u?.id) next.set(u.id, u); });
+          setUserMap(next);
+        }
+      } catch { /* ignore */ }
     }
-    if (missing.length === 0) return;
-
-    // Fetch all admins; build map (id -> {id,email,displayName,role})
-    const res = await api.listUsers(); // expects array of users
-    if (res?.status >= 400) return; // ignore silently
-    const rows = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
-    const nextMap = new Map(userMap);
-    rows.forEach((u) => {
-      if (u?.id) nextMap.set(u.id, u);
-    });
-    setUserMap(nextMap);
   }
 
   async function load(listCursor = null, { append = false } = {}) {
@@ -206,8 +185,8 @@ export default function CuratedList() {
       setItems(merged);
       setCursor(nextCursor);
 
-      // hydrate user identities for the visible rows
-      await hydrateUsersFor(nextItems);
+      // hydrate identities for visible rows (role/email/displayName for all)
+      await hydrateUsers(nextItems);
     } catch {
       setLoading(false);
       toast.error("Failed to load curated prayers");
@@ -312,7 +291,7 @@ export default function CuratedList() {
                   </td>
                   <td className="px-4 py-3">{it.theme || "—"}</td>
                   <td className="px-4 py-3">
-                    <UsersCell it={it} me={me} userMap={userMap} />
+                    <UsersCell it={it} userMap={userMap} />
                   </td>
                   <td className="px-4 py-3"><StateBadge state={it.state} /></td>
                   <td className="px-4 py-3">
