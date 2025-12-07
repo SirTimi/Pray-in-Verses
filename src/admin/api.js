@@ -1,23 +1,50 @@
 // src/admin/api.js
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+// Prefer explicit VITE_API_BASE if provided.
+// Otherwise: in production (same-origin) use "/api"; in local dev use "http://localhost:4000".
+const inferBase = () => {
+  const env = import.meta?.env?.VITE_API_BASE;
+  if (env && typeof env === "string") return env.replace(/\/+$/, "");
+
+  const host = typeof window !== "undefined" ? window.location.host : "";
+  const isLocal =
+    host.startsWith("localhost") ||
+    host.startsWith("127.0.0.1") ||
+    host.endsWith(".local");
+
+  return isLocal ? "http://localhost:4000" : "/api";
+};
+
+export const API_BASE = inferBase();
 
 /** ----------------------------- core request ----------------------------- */
 async function request(
   path,
   { method = "GET", body, headers = {}, allow401 = false } = {}
 ) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method,
-    credentials: "include",
-    headers: { "Content-Type": "application/json", ...headers },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const url = `${API_BASE}${path}`;
+  let res;
+
+  try {
+    res = await fetch(url, {
+      method,
+      credentials: "include",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (e) {
+    // Network error: surface a consistent shape so callers can decide.
+    return { status: 0, error: "NETWORK_ERROR", detail: String(e) };
+  }
 
   if (res.status === 401 && !allow401) {
+    // Unauth everywhere except where explicitly allowed (e.g., login, accept invite)
     window.location.assign("/admin/login");
     return;
   }
+
+  // Some endpoints legitimately return 204 No Content
+  if (res.status === 204) return { status: 204, data: null };
 
   const text = await res.text();
   let data;
@@ -84,7 +111,6 @@ function collectUserIds(rows) {
     const ownerId = it?.owner?.id ?? it?.ownerId ?? it?.createdById;
     if (ownerId) ids.add(ownerId);
 
-    // Flexible shapes for contributor IDs
     if (Array.isArray(it?.contributors)) {
       it.contributors.forEach((c) => {
         const id = (typeof c === "string" ? c : c?.id) ?? null;
@@ -134,21 +160,32 @@ export const api = {
     request(`/admin/users/${id}/role`, { method: "PATCH", body: { role } }),
 
   /**
-   * Lightweight identity lookup that ALL admin roles can call.
-   * Backend should expose: GET /admin/users/lookup?ids=a,b,c
-   * Returns [{id, displayName, email, role}]
+   * Identity lookup for all admin roles.
+   * GET /admin/users/lookup?ids=a,b,c
    */
   lookupUsersByIds: async (ids = []) => {
     if (!ids.length) return { map: new Map(), status: 200 };
     const p = new URLSearchParams({ ids: ids.join(",") });
     const res = await request(`/admin/users/lookup?${p.toString()}`);
-    if (!res) return { map: new Map(), status: 401 };
-    const rows = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
-    const map = new Map(rows.filter(Boolean).map((u) => [u.id, normalizeUserShape(u)]));
+
+    // If backend hasn’t mounted this route yet (404), or we got a network failure, just continue gracefully.
+    if (!res || res.status === 404 || res.status === 0) {
+      return { map: new Map(), status: res?.status ?? 0 };
+    }
+
+    const rows = Array.isArray(res?.data)
+      ? res.data
+      : Array.isArray(res)
+      ? res
+      : [];
+
+    const map = new Map(
+      rows.filter(Boolean).map((u) => [u.id, normalizeUserShape(u)])
+    );
     return { map, status: res.status };
   },
 
-  /* curated list (with identity hydration for all roles) */
+  /* curated list (with identity hydration) */
   listCurated: async (q, state, book, limit = 20, cursor) => {
     const p = new URLSearchParams();
     if (q) p.set("q", q);
@@ -156,7 +193,6 @@ export const api = {
     if (book) p.set("book", book);
     if (limit) p.set("limit", String(limit));
     if (cursor) p.set("cursor", cursor);
-    // Ask backend to expand if it can (no harm if ignored):
     p.set("include", "owner,contributors");
 
     const res = await request(`/admin/curated-prayers?${p.toString()}`);
@@ -164,18 +200,19 @@ export const api = {
 
     const { items, nextCursor } = normalizeListPayload(res);
     const baseRows = (items || []).map((it) => {
-      // Normalize embedded owner (if present)
       const ownerRaw = it.owner || it.createdBy || null;
       const owner = normalizeUserShape(ownerRaw);
-      // Build raw contributors from any shape we might receive
+
       let rawContribs = [];
-      if (Array.isArray(it.contributors)) rawContribs = it.contributors;
-      else if (Array.isArray(it?.audit?.contributors)) rawContribs = it.audit.contributors;
+      if (Array.isArray(it?.contributors)) rawContribs = it.contributors;
+      else if (Array.isArray(it?.audit?.contributors))
+        rawContribs = it.audit.contributors;
       else if (Array.isArray(it?.history)) {
-        rawContribs = it.history.map((h) => h.actor || h.user || null).filter(Boolean);
+        rawContribs = it.history
+          .map((h) => h.actor || h.user || null)
+          .filter(Boolean);
       }
 
-      // Normalize + de-dup contributors
       const seen = new Set();
       const contributors = rawContribs
         .map(normalizeUserShape)
@@ -202,25 +239,25 @@ export const api = {
           it.createdByEmail ??
           "—",
         ownerRole: owner?.role ?? it.ownerRole ?? it.createdByRole ?? "USER",
-        contributors,             // [{id, displayName, role, email}]
-        contributorIds: Array.isArray(it.contributorIds) ? it.contributorIds : undefined,
+        contributors,
+        contributorIds: Array.isArray(it.contributorIds)
+          ? it.contributorIds
+          : undefined,
       };
     });
 
-    // Identity hydration for non-expanded rows (works for all roles)
     const needIds = collectUserIds(baseRows);
     let lookupMap = new Map();
 
     if (needIds.length) {
-      // Try open lookup first
       try {
         const { map } = await api.lookupUsersByIds(needIds);
         lookupMap = map || new Map();
-      } catch (_) {
+      } catch {
         lookupMap = new Map();
       }
 
-      // If still empty (e.g., SUPER_ADMIN only environment), try listUsers
+      // Fallback if open lookup isn’t available
       if (!lookupMap.size) {
         try {
           const lu = await api.listUsers();
@@ -229,40 +266,39 @@ export const api = {
             const nu = normalizeUserShape(u);
             if (nu?.id) lookupMap.set(nu.id, nu);
           });
-        } catch (_) {
+        } catch {
           /* ignore */
         }
       }
     }
 
-    // Merge hydrated identities where missing
     const normalized = baseRows.map((it) => {
       const owner =
         it.ownerId && (!it.owner || !it.owner.displayName || !it.owner.email)
           ? hydrateUser({ id: it.ownerId, ...it.owner }, lookupMap)
           : it.owner;
 
-      // If contributors empty but we have contributorIds, hydrate them
       let contributors = it.contributors || [];
-      if ((!contributors.length) && Array.isArray(it.contributorIds) && it.contributorIds.length) {
+      if (
+        !contributors.length &&
+        Array.isArray(it.contributorIds) &&
+        it.contributorIds.length
+      ) {
         contributors = it.contributorIds
           .map((id) => hydrateUser({ id }, lookupMap))
           .filter(Boolean);
       } else {
-        // Otherwise, top off any missing contributor fields
         contributors = contributors.map((c) =>
           c?.id ? hydrateUser(c, lookupMap) : normalizeUserShape(c)
         );
       }
 
-      // De-dup contributors again (after hydration)
       const seen = new Set();
       const finalContribs = [];
       for (const c of contributors) {
         const k = keyOfUser(c);
         if (!k || seen.has(k)) continue;
         seen.add(k);
-        // avoid duplicating owner
         if (owner?.id && c?.id && owner.id === c.id) continue;
         finalContribs.push(c);
       }
@@ -304,7 +340,8 @@ export const api = {
       method: "PATCH",
       body: { state },
     }),
-  deleteCurated: (id) => request(`/admin/curated-prayers/${id}`, { method: "DELETE" }),
+  deleteCurated: (id) =>
+    request(`/admin/curated-prayers/${id}`, { method: "DELETE" }),
 
   /* per-point admin editing */
   prayerPoints: {
@@ -351,14 +388,19 @@ export const api = {
 
   /* shared browse helpers */
   books: () => request(`/browse/books`),
-  chapters: (book) => request(`/browse/books/${encodeURIComponent(book)}/chapters`),
+  chapters: (book) =>
+    request(`/browse/books/${encodeURIComponent(book)}/chapters`),
   verses: (book, chapter) =>
     request(`/browse/books/${encodeURIComponent(book)}/chapters/${chapter}/verses`),
 
   /* saved points & counts (shared) */
   savePoint: (curatedPrayerId, index) =>
-    request(`/saved-prayers/${curatedPrayerId}/points/${index}`, { method: "POST" }),
+    request(`/saved-prayers/${curatedPrayerId}/points/${index}`, {
+      method: "POST",
+    }),
   unsavePoint: (curatedPrayerId, index) =>
-    request(`/saved-prayers/${curatedPrayerId}/points/${index}`, { method: "DELETE" }),
+    request(`/saved-prayers/${curatedPrayerId}/points/${index}`, {
+      method: "DELETE",
+    }),
   publishedPointsCount: () => request(`/browse/published-points-count`),
 };
