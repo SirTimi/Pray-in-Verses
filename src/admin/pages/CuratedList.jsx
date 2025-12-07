@@ -19,41 +19,36 @@ const StateBadge = ({ state }) => {
   );
 };
 
-// Prefer live role for the signed-in admin in case row data is stale
+/** Prefer the live role for the signed-in admin to avoid stale rows */
 function effectiveRole(u, me) {
-  if (me?.id && u?.id && me.id === u.id) return me.role || u.role || "USER";
-  return u?.role || "USER";
+  if (!u) return "USER";
+  if (me?.id && u.id && u.id === me.id) return me.role || u.role || "USER";
+  return u.role || "USER";
 }
 
-// Label rule: "Display Name (email)" if both; else displayName; else email; else "—"
-function userLabel(u) {
-  const dn = u?.displayName || u?.name || "";
-  const em = u?.email || "";
-  if (dn && em) return `${dn} (${em})`;
-  return dn || em || "—";
-}
-
-// Build unique user list for a row: owner first, then contributors
+/** Build a unique user list: owner (first) + contributors, de-duped by id/email */
 function collectUsersForRow(it) {
   const out = [];
   const seen = new Set();
 
-  const pushU = (u, isOwner = false) => {
+  const pushU = (u, asOwner = false) => {
     if (!u) return;
-    const key = u.id || u.email || u.displayName || u.name;
+    const key = u.id || u.email || u.displayName;
     if (!key || seen.has(key)) return;
     seen.add(key);
     out.push({
       id: u.id || null,
       email: u.email || null,
-      displayName: u.displayName || u.name || null,
+      displayName: u.displayName || u.name || u.email || "—",
       role: u.role || "USER",
-      isOwner,
+      isOwner: !!asOwner,
     });
   };
 
-  if (it.owner) pushU(it.owner, true);
-  else
+  // Owner (normalized or fallback fields)
+  if (it.owner) {
+    pushU(it.owner, true);
+  } else {
     pushU(
       {
         id: it.ownerId,
@@ -63,12 +58,57 @@ function collectUsersForRow(it) {
       },
       true
     );
+  }
 
+  // Contributors (normalized)
   if (Array.isArray(it.contributors)) {
     it.contributors.forEach((u) => pushU(u, false));
   }
 
   return out;
+}
+
+function UsersCell({ it, me }) {
+  const users = collectUsersForRow(it);
+  if (users.length === 0) return <span className="text-gray-400">—</span>;
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {users.map((u) => {
+        const role = effectiveRole(u, me);
+        const name = u.displayName || "—";
+        const email = u.email || "";
+        return (
+          <div
+            key={(u.id || u.email || name) + (u.isOwner ? "-owner" : "")}
+            className={`min-w-[200px] max-w-full px-2 py-1 rounded-lg border ${
+              u.isOwner
+                ? "bg-[#FFFEF0] border-[#FCCF3A]"
+                : "bg-white border-gray-200"
+            }`}
+            title={`${name}${email ? ` • ${email}` : ""} • ${role}${
+              u.isOwner ? " • owner" : ""
+            }`}
+          >
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[12px] font-medium text-[#0C2E8A]">{name}</span>
+              {email ? (
+                <span className="text-[11px] text-gray-600 break-all">{email}</span>
+              ) : null}
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 border border-gray-200 text-gray-700">
+                {role}
+              </span>
+              {u.isOwner && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#FFF6CC] border border-[#FCE58A] text-[#7A5B00]">
+                  owner
+                </span>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 export default function CuratedList() {
@@ -80,7 +120,7 @@ export default function CuratedList() {
   const [cursor, setCursor] = React.useState(null);
 
   const q = sp.get("q") || "";
-  const state = sp.get("state") || "";
+   const state = sp.get("state") || "";
   const book = sp.get("book") || "";
 
   async function load(listCursor = null, { append = false } = {}) {
@@ -102,8 +142,10 @@ export default function CuratedList() {
       }
 
       const nextItems = Array.isArray(res.items) ? res.items : [];
+      const nextCursor = res.nextCursor || null;
+
       setItems((prev) => (append ? [...prev, ...nextItems] : nextItems));
-      setCursor(res.nextCursor || null);
+      setCursor(nextCursor);
     } catch {
       setLoading(false);
       toast.error("Failed to load curated prayers");
@@ -124,40 +166,6 @@ export default function CuratedList() {
       else nextSP.delete(k);
     });
     setSp(nextSP, { replace: true });
-  }
-
-  function UsersCell({ it }) {
-    const users = collectUsersForRow(it);
-    if (users.length === 0) return <span className="text-gray-400">—</span>;
-
-    return (
-      <div className="flex flex-wrap gap-1">
-        {users.map((u) => {
-          const role = effectiveRole(u, me);
-          return (
-            <span
-              key={(u.id || u.email || u.displayName) + (u.isOwner ? "-owner" : "")}
-              className={`inline-flex items-center gap-2 px-2 py-1 rounded-full border text-[12px] ${
-                u.isOwner
-                  ? "bg-[#FFFEF0] border-[#FCCF3A] text-[#0C2E8A]"
-                  : "bg-white border-gray-200 text-gray-700"
-              }`}
-              title={`${userLabel(u)} • ${role}${u.isOwner ? " • owner" : ""}`}
-            >
-              <span className="font-medium">{userLabel(u)}</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 border border-gray-200">
-                {role}
-              </span>
-              {u.isOwner && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#FFF6CC] border border-[#FCE58A]">
-                  owner
-                </span>
-              )}
-            </span>
-          );
-        })}
-      </div>
-    );
   }
 
   async function onDelete(id) {
@@ -242,7 +250,7 @@ export default function CuratedList() {
                   </td>
                   <td className="px-4 py-3">{it.theme || "—"}</td>
                   <td className="px-4 py-3">
-                    <UsersCell it={it} />
+                    <UsersCell it={it} me={me} />
                   </td>
                   <td className="px-4 py-3"><StateBadge state={it.state} /></td>
                   <td className="px-4 py-3">
