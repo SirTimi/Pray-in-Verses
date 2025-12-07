@@ -22,13 +22,13 @@ async function request(path, { method = "GET", body, headers = {}, allow401 = fa
   const res = await fetch(url, {
     method,
     credentials: "include",
-    cache: "no-store", // avoid 304/empty-body weirdness
+    cache: "no-store",
     headers: { "Content-Type": "application/json", ...headers },
     body: body ? JSON.stringify(body) : undefined,
   });
 
   if (!res.ok) {
-    if (allow401 && res.status === 401) return null;
+    if (allow401 && (res.status === 401 || res.status === 403)) return null;
     const ct = res.headers.get("content-type") || "";
     const bodyText = ct.includes("application/json")
       ? JSON.stringify(await res.json().catch(() => ({})))
@@ -72,23 +72,8 @@ const categoryColors = {
 };
 
 /* ---- name + counts normalizers ---- */
-// IMPORTANT: never fall back to email for public display.
-function pickNameNoEmail(u) {
-  if (!u) return null;
-  return u.displayName || u.name || null;
-}
-function resolveDisplayName(req) {
-  if (req.isAnonymous) return "Anonymous";
-  return (
-    pickNameNoEmail(req.user) ||
-    pickNameNoEmail(req.owner) ||
-    req.ownerDisplayName || // if backend already resolved a name string
-    req.createdByName ||
-    "User"
-  );
-}
 function getCount(obj, key) {
-  if (obj == null) return 0;
+  if (!obj) return 0;
   if (typeof obj[`${key}Count`] === "number") return obj[`${key}Count`];
   if (obj._count && typeof obj._count[key] === "number") return obj._count[key];
   if (obj.stats && typeof obj.stats[key] === "number") return obj.stats[key];
@@ -97,10 +82,95 @@ function getCount(obj, key) {
   return 0;
 }
 
+/* ---------------- identity hydration (like CuratedList) ---------------- */
+function idOf(u) {
+  if (!u) return null;
+  if (typeof u === "string") return u;
+  return u.id || null;
+}
+function collectIdsFromRows(rows) {
+  const ids = new Set();
+  for (const r of rows) {
+    if (r.user && r.user.id) ids.add(r.user.id);
+    if (r.owner && r.owner.id) ids.add(r.owner.id);
+    if (r.userId) ids.add(r.userId);
+    if (r.ownerId) ids.add(r.ownerId);
+  }
+  return Array.from(ids).filter(Boolean);
+}
+function collectIdsFromComments(comments) {
+  const ids = new Set();
+  for (const c of comments || []) {
+    const id = (c.user && c.user.id) || c.userId || null;
+    if (id) ids.add(id);
+  }
+  return Array.from(ids);
+}
+
+// Try multiple endpoints; succeed with any.
+// Expected response shapes we accept:
+// 1) { data: [{id,displayName,email,role}...] }
+// 2) { map: { [id]: {id,displayName,email,role} } }
+// 3) bare array [{id,displayName,...}]
+async function lookupUsersByIds(ids) {
+  if (!ids || ids.length === 0) return new Map();
+  const qs = `?ids=${encodeURIComponent(ids.join(","))}`;
+  const candidates = [
+    `/users/lookup${qs}`,
+    `/identity/lookup${qs}`,
+    `/admin/users/lookup${qs}`, // may 401/403 for normal users; we soft-fail
+  ];
+  for (const path of candidates) {
+    try {
+      const res = await request(path, { allow401: true });
+      if (!res) continue;
+      const map = new Map();
+      const arr =
+        Array.isArray(res?.data) ? res.data :
+        Array.isArray(res) ? res :
+        null;
+      if (arr) {
+        for (const u of arr) if (u?.id) map.set(u.id, u);
+        if (map.size) return map;
+      }
+      if (res?.map && typeof res.map === "object") {
+        const entries = Object.entries(res.map);
+        if (entries.length) return new Map(entries);
+      }
+    } catch { /* ignore and try next */ }
+  }
+  return new Map();
+}
+
+function displayNameFromMaps(req, userMap) {
+  if (req.isAnonymous) return "Anonymous";
+
+  // Prefer embedded user/owner objects first (never show email)
+  const embedded =
+    (req.user && (req.user.displayName || req.user.name)) ||
+    (req.owner && (req.owner.displayName || req.owner.name));
+  if (embedded) return embedded;
+
+  // Then try hydrated map using ids
+  const tryIds = [req.userId, req.ownerId].filter(Boolean);
+  for (const id of tryIds) {
+    const u = userMap.get(id);
+    const nm = u?.displayName || u?.name || null;
+    if (nm) return nm;
+  }
+
+  // Finally, backend-provided strings if present
+  if (req.ownerDisplayName) return req.ownerDisplayName;
+  if (req.createdByName) return req.createdByName;
+
+  return "User";
+}
+
 const PrayerWalls = () => {
   const nav = useNavigate();
 
   const [prayerRequests, setPrayerRequests] = useState([]);
+  const [userMap, setUserMap] = useState(() => new Map()); // id -> {id, displayName, ...}
   const [loading, setLoading] = useState(true);
   const [totalUsers, setTotalUsers] = useState(null);
 
@@ -118,9 +188,9 @@ const PrayerWalls = () => {
   });
 
   const [toastMessage, setToastMessage] = useState("");
-  const showToast = (message) => { setToastMessage(message); setTimeout(() => setToastMessage(""), 3000); };
+  const showToast = (m) => { setToastMessage(m); setTimeout(() => setToastMessage(""), 3000); };
 
-  // current user id (to mark "You commented" if backend doesn't send a flag)
+  // current user id (for "You commented")
   const [meId, setMeId] = useState(null);
   useEffect(() => {
     (async () => {
@@ -130,92 +200,64 @@ const PrayerWalls = () => {
     })();
   }, []);
 
-  usePageLogger({
-    title: "Prayer Wall", type: "page", reference: "Prayer Wall Page", content: "Browsing community prayer requests", category: "Prayer",
-  });
+  usePageLogger({ title: "Prayer Wall", type: "page" });
 
-  /* ---------------- Load list ---------------- */
+  /* ---------------- Load list + hydrate names ---------------- */
   const loadList = useCallback(async () => {
     setLoading(true);
     try {
       const usp = new URLSearchParams();
       if (searchTerm.trim()) usp.set("q", searchTerm.trim());
       if (selectedCategory !== "All") usp.set("category", selectedCategory);
-      // Ask server (nicely) to include user + counts + current-user flags
-      usp.set("include", "user,counts,current");
+      usp.set("include", "counts"); // keep request lean; we'll hydrate identities ourselves
+
       const res = await request(`/prayer-wall${usp.toString() ? `?${usp.toString()}` : ""}`);
       const rows = res?.data ?? res ?? [];
+
+      // Normalize counts/flags
       const norm = rows.map((r) => ({
         ...r,
         _likesCount: getCount(r, "likes"),
         _commentsCount: getCount(r, "comments"),
         currentUserLiked: !!r.currentUserLiked,
         currentUserBookmarked: !!r.currentUserBookmarked,
-        currentUserCommented: !!r.currentUserCommented, // if backend provides
+        currentUserCommented: !!r.currentUserCommented,
       }));
       setPrayerRequests(norm);
+
+      // ——— Hydrate missing identities like admin CuratedList ———
+      const ids = collectIdsFromRows(norm).filter((id) => !userMap.has(id));
+      if (ids.length) {
+        const fetched = await lookupUsersByIds(ids);
+        if (fetched.size) {
+          setUserMap((prev) => {
+            const next = new Map(prev);
+            fetched.forEach((v, k) => next.set(k, v));
+            return next;
+          });
+        }
+      }
     } catch (err) {
       if (err.status === 401) nav("/login", { replace: true });
       else showToast(err.message || "Failed to load prayer wall");
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, selectedCategory, nav]);
+  }, [searchTerm, selectedCategory, nav, userMap]);
 
   useEffect(() => { loadList(); }, [loadList]);
 
-  // total users count (optional)
+  // total users (optional)
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
         const res = await request("/stats/users-count", { allow401: true });
         if (alive && res) setTotalUsers(Number(res?.count ?? 0));
-      } catch (e) {
-        console.warn("GET /stats/users-count failed:", e?.message || e);
-      }
+      } catch {}
     })();
     return () => { alive = false; };
   }, []);
-
-  // aggregate stats (silent fallbacks)
-  const statsWarnedRef = useRef(false);
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        let users = 0;
-        try {
-          const usersResp = await request("/stats/users-count", { allow401: true });
-          users = Number(usersResp?.count ?? 0) || 0;
-        } catch {}
-
-        let requests = 0;
-        try {
-          const head = await fetch(apiURL("/prayer-wall"), { method: "HEAD", credentials: "include", cache: "no-store" });
-          if (head.ok) {
-            const hdr = head.headers.get("x-total-count");
-            const n = Number(hdr);
-            if (Number.isFinite(n) && n >= 0) requests = n;
-          }
-        } catch {}
-
-        if (!requests) requests = Array.isArray(prayerRequests) ? prayerRequests.length : 0;
-
-        if (alive) {/* optional set to UI somewhere if needed */}
-        if (!statsWarnedRef.current && requests === 0) {
-          console.warn("PrayerWalls: add HEAD /prayer-wall with X-Total-Count for accurate totals.");
-          statsWarnedRef.current = true;
-        }
-      } catch (e) {
-        if (!statsWarnedRef.current) {
-          console.warn("PrayerWalls: stats fetch failed (silent)", e?.message || e);
-          statsWarnedRef.current = true;
-        }
-      }
-    })();
-    return () => { alive = false; };
-  }, [prayerRequests]);
 
   /* ---------------- Sorting ---------------- */
   const filteredSorted = (() => {
@@ -282,15 +324,28 @@ const PrayerWalls = () => {
     if (!next) return;
 
     try {
-      const res = await request(`/prayer-wall/${id}?include=user,counts,comments,current`);
+      const res = await request(`/prayer-wall/${id}?include=comments,counts,user,current`);
       const item = res?.data ?? res ?? null;
       const comments = item?.comments ?? [];
+
+      // hydrate commenters too
+      const missing = collectIdsFromComments(comments).filter((uid) => !userMap.has(uid));
+      if (missing.length) {
+        const fetched = await lookupUsersByIds(missing);
+        if (fetched.size) {
+          setUserMap((prev) => {
+            const nextMap = new Map(prev);
+            fetched.forEach((v, k) => nextMap.set(k, v));
+            return nextMap;
+          });
+        }
+      }
+
       setCommentsMap((m) => ({ ...m, [id]: comments }));
 
-      // compute "You commented" if backend doesn't send it
       const youCommented =
         !!item?.currentUserCommented ||
-        (!!meId && comments.some((c) => (c?.user?.id || null) === meId));
+        (!!meId && comments.some((c) => (c?.user?.id || c?.userId || null) === meId));
 
       setPrayerRequests((prev) =>
         prev.map((r) =>
@@ -302,6 +357,9 @@ const PrayerWalls = () => {
                 currentUserBookmarked: !!item?.currentUserBookmarked,
                 currentUserLiked: !!item?.currentUserLiked,
                 currentUserCommented: youCommented,
+                // attach owner/user objects if the API returned them
+                user: item?.user || r.user,
+                owner: item?.owner || r.owner,
               }
             : r
         )
@@ -318,6 +376,20 @@ const PrayerWalls = () => {
     try {
       const res = await request(`/prayer-wall/${requestId}/comments`, { method: "POST", body: { body } });
       const created = res?.data ?? res;
+
+      // hydrate the comment author (me) if backend sends only id
+      const myId = created?.user?.id || created?.userId || meId;
+      if (myId && !userMap.has(myId)) {
+        const fetched = await lookupUsersByIds([myId]);
+        if (fetched.size) {
+          setUserMap((prev) => {
+            const next = new Map(prev);
+            fetched.forEach((v, k) => next.set(k, v));
+            return next;
+          });
+        }
+      }
+
       setCommentsMap((m) => ({ ...m, [requestId]: [created, ...(m[requestId] || [])] }));
       setPrayerRequests((prev) =>
         prev.map((r) =>
@@ -489,11 +561,10 @@ const PrayerWalls = () => {
               ))
             ) : filteredSorted.length > 0 ? (
               filteredSorted.map((req) => {
-                const name = resolveDisplayName(req);
+                const name = displayNameFromMaps(req, userMap);
                 const created = req.createdAt ? formatTimeAgo(req.createdAt) : "";
                 const commentsFor = commentsMap[req.id] || [];
 
-                // badges for your interactions
                 const youBadges = [];
                 if (req.currentUserLiked) youBadges.push("You liked this");
                 if (req.currentUserCommented) youBadges.push("You commented");
@@ -530,7 +601,6 @@ const PrayerWalls = () => {
                       </button>
                     </div>
 
-                    {/* Your interaction badges */}
                     {youBadges.length > 0 && (
                       <div className="mb-3 flex flex-wrap gap-2">
                         {youBadges.map((t) => (
@@ -590,7 +660,13 @@ const PrayerWalls = () => {
                           <div className="text-sm text-gray-500">No comments yet.</div>
                         ) : (
                           commentsFor.map((c) => {
-                            const who = pickNameNoEmail(c.user) || "User"; // no email fallback
+                            // resolve commenter display name via map (no email)
+                            const uid = (c.user && c.user.id) || c.userId || null;
+                            const hydrated = uid ? userMap.get(uid) : null;
+                            const who =
+                              (c.user && (c.user.displayName || c.user.name)) ||
+                              (hydrated && (hydrated.displayName || hydrated.name)) ||
+                              "User";
                             const when = c.createdAt ? new Date(c.createdAt).toLocaleString() : "";
                             return (
                               <div key={c.id} className="flex gap-3 items-start bg-gray-50 p-3 rounded-lg">
