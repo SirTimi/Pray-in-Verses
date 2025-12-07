@@ -8,6 +8,11 @@ import { LayoutDashboard, ListChecks, UserPlus } from "lucide-react";
 export default function AdminLayout() {
   const { me } = useMe();
 
+  // Accept both shapes: { id, role, ... } or { user: { id, role, ... } }
+  const currentUser = me?.user ? me.user : me;
+  const displayName = currentUser?.displayName || currentUser?.email || "—";
+  const role = currentUser?.role || "USER";
+
   const navItem = (to, label, Icon, exact = false) => (
     <NavLink
       to={to}
@@ -39,9 +44,9 @@ export default function AdminLayout() {
 
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-700">
-              {me?.displayName || "—"}{" "}
+              {displayName}{" "}
               <span className="ml-1 text-xs font-semibold px-2 py-0.5 rounded-full border bg-gray-50 text-gray-700">
-                {me?.role || "USER"}
+                {role}
               </span>
             </span>
             <button
@@ -56,7 +61,7 @@ export default function AdminLayout() {
         </div>
       </header>
 
-      {/* Sidebar (fixed on lg+) */}
+      {/* Sidebar */}
       <aside className="hidden lg:block fixed left-0 top-16 bottom-0 w-[224px] border-r bg-white/70 backdrop-blur z-20">
         <nav className="p-3">
           <div className="text-xs uppercase tracking-wide text-gray-500 px-2 py-2">
@@ -65,7 +70,7 @@ export default function AdminLayout() {
           <ul className="space-y-1">
             <li>{navItem("/admin", "Dashboard", LayoutDashboard, true)}</li>
             <li>{navItem("/admin/curated", "Curated Prayers", ListChecks)}</li>
-            {me?.role === "SUPER_ADMIN" && (
+            {role === "SUPER_ADMIN" && (
               <li>{navItem("/admin/invites", "Invites", UserPlus)}</li>
             )}
           </ul>
@@ -73,9 +78,8 @@ export default function AdminLayout() {
       </aside>
 
       {/* Main content */}
-      <main className="pt-20 lg:pl-[224px] px-4 lg:px-6 pb-10 pl-5">
+      <main className="pt-20 lg:pl-[224px] px-4 lg:px-6 pb-10">
         <div className="container mx-auto">
-          {/* Page card wrapper to match main platform */}
           <div className="bg-white rounded-2xl shadow border p-4 md:p-6">
             <Outlet />
           </div>
