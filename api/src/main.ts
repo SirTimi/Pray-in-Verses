@@ -1,38 +1,24 @@
-// src/main.ts
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import * as cookieParser from 'cookie-parser';
+import cookieParser from 'cookie-parser';
 import { ValidationPipe } from '@nestjs/common';
+// ⬇️ only if you want proper typing, but not required
+import { NestExpressApplication } from '@nestjs/platform-express';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // All routes served under /api
+  // make sure nginx → Node passes X-Forwarded-* correctly
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+
   app.setGlobalPrefix('api');
-
-  // Behind Nginx/Cloud proxy → let Express trust X-Forwarded-* headers
-  app.set('trust proxy', 1);
-
-  // Parse cookies (for JwtCookieAuthGuard)
   app.use(cookieParser());
-
-  // CORS for local dev + production domains with credentials
   app.enableCors({
-    origin: [
-      'http://localhost:3000',
-      'https://prayinverses.com',
-      'https://www.prayinverses.com',
-    ],
+    origin: ['https://prayinverses.com', 'http://localhost:3000'],
     credentials: true,
-    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    exposedHeaders: ['set-cookie'], // allow frontend to read Set-Cookie in devtools
   });
-
-  // DTO validation
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
   await app.listen(process.env.PORT || 4000);
 }
-
 bootstrap();
