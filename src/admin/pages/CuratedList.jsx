@@ -19,18 +19,14 @@ const StateBadge = ({ state }) => {
   );
 };
 
-/** Prefer the live role for the signed-in admin to avoid stale rows */
+/** Prefer live role for the signed-in admin to avoid stale rows */
 function effectiveRole(u, me) {
   if (!u) return "USER";
   if (me?.id && u.id && u.id === me.id) return me.role || u.role || "USER";
   return u.role || "USER";
 }
 
-function isAdminRole(role) {
-  return role === "ADMIN" || role === "SUPER_ADMIN";
-}
-
-/** Build a unique user list: owner (first) + contributors, de-duped by id/email */
+/** Build a unique user list: owner (first) + contributors (de-duped) */
 function collectUsersForRow(it) {
   const out = [];
   const seen = new Set();
@@ -49,10 +45,9 @@ function collectUsersForRow(it) {
     });
   };
 
-  // Owner
-  if (it.owner) {
-    pushU(it.owner, true);
-  } else {
+  // owner (normalized or fallback fields)
+  if (it.owner) pushU(it.owner, true);
+  else
     pushU(
       {
         id: it.ownerId,
@@ -62,12 +57,9 @@ function collectUsersForRow(it) {
       },
       true
     );
-  }
 
-  // Contributors
-  if (Array.isArray(it.contributors)) {
-    it.contributors.forEach((u) => pushU(u, false));
-  }
+  // contributors
+  if (Array.isArray(it.contributors)) it.contributors.forEach((u) => pushU(u, false));
 
   return out;
 }
@@ -137,21 +129,28 @@ export default function CuratedList() {
       <div className="flex flex-wrap gap-1">
         {users.map((u) => {
           const role = effectiveRole(u, me);
-          const label = isAdminRole(role)
-            ? (u.displayName || u.email || "—") // Admins → display name (fallback email)
-            : (u.email || u.displayName || "—"); // Others → email (fallback display name)
+          const primary = u.displayName || u.email || "—";
+          const secondary =
+            u.displayName && u.email && u.displayName !== u.email ? u.email : null;
 
           return (
             <span
               key={(u.id || u.email || u.displayName) + (u.isOwner ? "-owner" : "")}
-              className={`inline-flex items-center gap-2 px-2 py-1 rounded-full border text-[12px] ${
+              className={`inline-flex items-center gap-2 px-2 py-1 rounded-full border ${
                 u.isOwner
                   ? "bg-[#FFFEF0] border-[#FCCF3A] text-[#0C2E8A]"
                   : "bg-white border-gray-200 text-gray-700"
               }`}
-              title={`${label} • ${role}${u.isOwner ? " • owner" : ""}`}
+              title={`${primary}${secondary ? ` • ${secondary}` : ""} • ${role}${
+                u.isOwner ? " • owner" : ""
+              }`}
             >
-              <span className="font-medium">{label}</span>
+              <span className="leading-tight">
+                <span className="font-medium text-[12px] block">{primary}</span>
+                {secondary && (
+                  <span className="text-[10px] text-gray-500 block">{secondary}</span>
+                )}
+              </span>
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 border border-gray-200">
                 {role}
               </span>
