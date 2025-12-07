@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+// src/admin/admin.controller.ts
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { JwtCookieAuthGuard } from '../auth/jwt.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -10,7 +21,7 @@ import type { Request } from 'express';
 export class AdminController {
   constructor(private service: AdminService) {}
 
-  // Create invite (SUPER_ADMIN)
+  // ---------------------- Invites (SUPER_ADMIN) ----------------------
   @UseGuards(JwtCookieAuthGuard, RolesGuard)
   @Roles('SUPER_ADMIN')
   @Post('invites')
@@ -20,7 +31,6 @@ export class AdminController {
     return this.service.createInvite(inviterId, dto);
   }
 
-  // List invites (SUPER_ADMIN)
   @UseGuards(JwtCookieAuthGuard, RolesGuard)
   @Roles('SUPER_ADMIN')
   @Get('invites')
@@ -28,13 +38,13 @@ export class AdminController {
     return this.service.listInvites();
   }
 
-  // Accept invite (PUBLIC)
+  // Public accept
   @Post('invites/accept')
   async accept(@Body() dto: AcceptInviteDto) {
     return this.service.acceptInvite(dto);
   }
 
-  // List users (SUPER_ADMIN)
+  // ---------------------- Users (SUPER_ADMIN) ------------------------
   @UseGuards(JwtCookieAuthGuard, RolesGuard)
   @Roles('SUPER_ADMIN')
   @Get('users')
@@ -42,11 +52,35 @@ export class AdminController {
     return this.service.listUsers();
   }
 
-  // Update user role (SUPER_ADMIN)
   @UseGuards(JwtCookieAuthGuard, RolesGuard)
   @Roles('SUPER_ADMIN')
   @Patch('users/:id/role')
   async updateRole(@Param('id') id: string, @Body() dto: UpdateUserRoleDto) {
     return this.service.updateUserRole(id, dto);
+  }
+
+  // ---------------------- Read-only lookup (ALL ADMIN ROLES) ---------
+  // Allows SUPER_ADMIN, MODERATOR, EDITOR to resolve identities by id.
+  // GET /admin/users/lookup?ids=a,b,c
+  @UseGuards(JwtCookieAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'MODERATOR', 'EDITOR')
+  @Get('users/lookup')
+  async lookupUsers(@Query('ids') ids: string) {
+    const list = await this.service.lookupUsersByIds(
+      (ids || '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    );
+
+    // Normalize to the minimal shape the frontend expects.
+    return {
+      data: list.map((u) => ({
+        id: u.id,
+        displayName: u.displayName ?? u.name ?? u.email ?? '—',
+        email: u.email ?? null,
+        role: u.role, // 'SUPER_ADMIN' | 'MODERATOR' | 'EDITOR' | 'USER'
+      })),
+    };
   }
 }
