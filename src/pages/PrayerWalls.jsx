@@ -34,7 +34,10 @@ async function safeJson(res) {
   return res.json();
 }
 
-async function request(path, { method = "GET", body, headers = {}, allow401 = false } = {}) {
+async function request(
+  path,
+  { method = "GET", body, headers = {}, allow401 = false } = {}
+) {
   const url = apiURL(path);
   const res = await fetch(url, {
     method,
@@ -56,10 +59,28 @@ async function request(path, { method = "GET", body, headers = {}, allow401 = fa
     const err = new Error(`HTTP ${res.status} ${res.statusText} at ${url}
 ${String(bodyText).slice(0, 400)}`);
     err.status = res.status;
-    try { err.payload = JSON.parse(bodyText); } catch { err.payload = bodyText; }
+    try {
+      err.payload = JSON.parse(bodyText);
+    } catch {
+      err.payload = bodyText;
+    }
     throw err;
   }
   return safeJson(res);
+}
+
+/* ---------------------- identity helpers (new) ---------------------- */
+function normalizeUser(u) {
+  if (!u || typeof u !== "object") return null;
+  return {
+    id: u.id ?? u.userId ?? null,
+    displayName: u.displayName ?? u.name ?? null,
+    email: u.email ?? null,
+  };
+}
+function displayNameOf(u) {
+  if (!u) return "User";
+  return u.displayName || u.name || u.email || "User";
 }
 
 // Mock hooks (keep as-is)
@@ -173,6 +194,7 @@ const PrayerWalls = () => {
       const rows = res?.data ?? res ?? [];
       const norm = rows.map((r) => ({
         ...r,
+        user: normalizeUser(r.user), // normalize poster identity
         _likesCount: r.likesCount ?? r._likesCount ?? 0,
         _commentsCount: r.commentsCount ?? r._commentsCount ?? 0,
         currentUserLiked: !!r.currentUserLiked,
@@ -203,7 +225,9 @@ const PrayerWalls = () => {
         console.warn("GET /stats/users-count failed:", e?.message || e);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, []);
 
   // prayer wall stats (users + requests). Keep it quiet: no probing of non-existent endpoints
@@ -223,7 +247,10 @@ const PrayerWalls = () => {
         // 2) Requests count via HEAD header if backend provides X-Total-Count
         let requests = 0;
         try {
-          const head = await fetch(apiURL("/prayer-wall"), { method: "HEAD", credentials: "include" });
+          const head = await fetch(apiURL("/prayer-wall"), {
+            method: "HEAD",
+            credentials: "include",
+          });
           if (head.ok) {
             const hdr = head.headers.get("x-total-count");
             const n = Number(hdr);
@@ -237,7 +264,9 @@ const PrayerWalls = () => {
         if (alive) setStats({ users, requests });
 
         if (!statsWarnedRef.current && requests === 0) {
-          console.warn("PrayerWalls: using list-length fallback for requests; add HEAD /prayer-wall with X-Total-Count for accuracy.");
+          console.warn(
+            "PrayerWalls: using list-length fallback for requests; add HEAD /prayer-wall with X-Total-Count for accuracy."
+          );
           statsWarnedRef.current = true;
         }
       } catch (e) {
@@ -248,7 +277,9 @@ const PrayerWalls = () => {
       }
     })();
 
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [prayerRequests]);
 
   // Sort client-side for now
@@ -315,7 +346,9 @@ const PrayerWalls = () => {
     if (!current) return;
     setPrayerRequests((prev) =>
       prev.map((r) =>
-        r.id === id ? { ...r, currentUserBookmarked: !r.currentUserBookmarked } : r
+        r.id === id
+          ? { ...r, currentUserBookmarked: !r.currentUserBookmarked }
+          : r
       )
     );
     try {
@@ -325,7 +358,9 @@ const PrayerWalls = () => {
       // revert
       setPrayerRequests((prev) =>
         prev.map((r) =>
-          r.id === id ? { ...r, currentUserBookmarked: !r.currentUserBookmarked } : r
+          r.id === id
+            ? { ...r, currentUserBookmarked: !r.currentUserBookmarked }
+            : r
         )
       );
       if (err.status === 401) nav("/login", { replace: true });
@@ -342,16 +377,21 @@ const PrayerWalls = () => {
     try {
       const res = await request(`/prayer-wall/${id}`);
       const item = res?.data ?? res ?? null;
-      const comments = item?.comments ?? [];
+      const comments = (item?.comments ?? []).map((c) => ({
+        ...c,
+        user: normalizeUser(c.user),
+      }));
       setCommentsMap((m) => ({ ...m, [id]: comments }));
       setPrayerRequests((prev) =>
         prev.map((r) =>
           r.id === id
             ? {
                 ...r,
-                _commentsCount: item?.commentsCount ?? comments.length ?? r._commentsCount ?? 0,
+                _commentsCount:
+                  item?.commentsCount ?? comments.length ?? r._commentsCount ?? 0,
                 currentUserBookmarked: !!item?.currentUserBookmarked,
                 currentUserLiked: !!item?.currentUserLiked,
+                user: normalizeUser(item?.user) ?? r.user,
               }
             : r
         )
@@ -372,9 +412,10 @@ const PrayerWalls = () => {
         body: { body },
       });
       const created = res?.data ?? res;
+      const createdNorm = { ...created, user: normalizeUser(created?.user) };
       setCommentsMap((m) => ({
         ...m,
-        [requestId]: [created, ...(m[requestId] || [])],
+        [requestId]: [createdNorm, ...(m[requestId] || [])],
       }));
       setPrayerRequests((prev) =>
         prev.map((r) =>
@@ -425,7 +466,11 @@ const PrayerWalls = () => {
       resetForm();
       showToast("Prayer request posted successfully!");
       loadList();
-      logPrayer(`Posted Prayer Request: ${payload.title}`, payload.description, payload.category);
+      logPrayer(
+        `Posted Prayer Request: ${payload.title}`,
+        payload.description,
+        payload.category
+      );
     } catch (err) {
       if (err.status === 401) nav("/login", { replace: true });
       else showToast(err.message || "Create failed");
@@ -454,9 +499,17 @@ const PrayerWalls = () => {
               <div>
                 <h1 className="text-base font-semibold mb-2">Community Prayer Wall</h1>
                 <p className="text-blue-100 text-sm">
-                  {totalUsers == null
-                    ? "Join believers in prayer and support"
-                    : <>Join <span className="font-semibold">{totalUsers.toLocaleString()}</span>+ believers in prayer and support</>}
+                  {totalUsers == null ? (
+                    "Join believers in prayer and support"
+                  ) : (
+                    <>
+                      Join{" "}
+                      <span className="font-semibold">
+                        {totalUsers.toLocaleString()}
+                      </span>
+                      + believers in prayer and support
+                    </>
+                  )}
                 </p>
               </div>
               <div className="hidden md:block">
@@ -491,8 +544,12 @@ const PrayerWalls = () => {
           {/* Browse header */}
           <div className="flex items-center pt-8 justify-between gap-3 mb-4">
             <div className="grid">
-              <h2 className="text-base font-semibold text-[#0C2E8A]">Browse Prayer Requests</h2>
-              <p className="text-sm text-gray-600">Support others through prayer and encouragement</p>
+              <h2 className="text-base font-semibold text-[#0C2E8A]">
+                Browse Prayer Requests
+              </h2>
+              <p className="text-sm text-gray-600">
+                Support others through prayer and encouragement
+              </p>
             </div>
             <div className="w-10 h-0.5 bg-gradient-to-r from-blue-600 to-yellow-500 rounded-full"></div>
           </div>
@@ -536,7 +593,9 @@ const PrayerWalls = () => {
                 </div>
               </div>
               <div className="w-full lg:w-auto">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Sort by</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Sort by
+                </label>
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
@@ -561,12 +620,16 @@ const PrayerWalls = () => {
           <div className="space-y-4">
             {loading ? (
               Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-40 bg-white rounded-lg shadow-sm border border-gray-100 animate-pulse" />
+                <div
+                  key={i}
+                  className="h-40 bg-white rounded-lg shadow-sm border border-gray-100 animate-pulse"
+                />
               ))
             ) : filteredSorted.length > 0 ? (
               filteredSorted.map((req) => {
-                const name =
-                  req.isAnonymous ? "Anonymous" : (req.user?.name || req.user?.email || "User");
+                const name = req.isAnonymous
+                  ? "Anonymous"
+                  : displayNameOf(req.user);
                 const created = req.createdAt ? formatTimeAgo(req.createdAt) : "";
                 const commentsFor = commentsMap[req.id] || [];
                 return (
@@ -601,7 +664,11 @@ const PrayerWalls = () => {
                         }`}
                         title="Bookmark"
                       >
-                        <Bookmark className={`w-5 h-5 ${req.currentUserBookmarked ? "fill-current" : ""}`} />
+                        <Bookmark
+                          className={`w-5 h-5 ${
+                            req.currentUserBookmarked ? "fill-current" : ""
+                          }`}
+                        />
                       </button>
                     </div>
 
@@ -638,7 +705,11 @@ const PrayerWalls = () => {
                           onClick={() => onToggleLike(req.id)}
                           title={req.currentUserLiked ? "Unlike" : "Like"}
                         >
-                          <Heart className={`w-4 h-4 ${req.currentUserLiked ? "fill-current" : ""}`} />
+                          <Heart
+                            className={`w-4 h-4 ${
+                              req.currentUserLiked ? "fill-current" : ""
+                            }`}
+                          />
                           <span>{req._likesCount || 0}</span>
                         </button>
 
@@ -648,7 +719,9 @@ const PrayerWalls = () => {
                           title="Comments"
                         >
                           <MessageCircle className="w-4 h-4" />
-                          <span>{req._commentsCount ?? commentsFor.length ?? 0}</span>
+                          <span>
+                            {req._commentsCount ?? commentsFor.length ?? 0}
+                          </span>
                         </button>
                       </div>
                     </div>
@@ -657,20 +730,37 @@ const PrayerWalls = () => {
                     {showComments === req.id && (
                       <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
                         {commentsFor.length === 0 ? (
-                          <div className="text-sm text-gray-500">No comments yet.</div>
+                          <div className="text-sm text-gray-500">
+                            No comments yet.
+                          </div>
                         ) : (
                           commentsFor.map((c) => {
-                            const who = c.user?.name //|| c.user?.email || "User";
-                            const when = c.createdAt ? new Date(c.createdAt).toLocaleString() : "";
+                            const who = c.user
+                              ? displayNameOf(c.user)
+                              : "User";
+                            const when = c.createdAt
+                              ? new Date(c.createdAt).toLocaleString()
+                              : "";
                             return (
-                              <div key={c.id} className="flex gap-3 items-start bg-gray-50 p-3 rounded-lg">
+                              <div
+                                key={c.id}
+                                className="flex gap-3 items-start bg-gray-50 p-3 rounded-lg"
+                              >
                                 <div className="w-8 h-8 rounded-full bg-[#0C2E8A] flex items-center justify-center text-white font-bold flex-shrink-0 text-sm">
                                   {who?.[0]?.toUpperCase() || "U"}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-[#0C2E8A] break-words">{who}</p>
-                                  <p className="text-sm text-gray-700 break-words">{c.body}</p>
-                                  {when && <span className="text-xs text-gray-400">{when}</span>}
+                                  <p className="text-sm font-medium text-[#0C2E8A] break-words">
+                                    {who}
+                                  </p>
+                                  <p className="text-sm text-gray-700 break-words">
+                                    {c.body}
+                                  </p>
+                                  {when && (
+                                    <span className="text-xs text-gray-400">
+                                      {when}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             );
@@ -684,7 +774,9 @@ const PrayerWalls = () => {
                             placeholder="Add a comment..."
                             value={newComment}
                             onChange={(e) => setNewComment(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && onAddComment(req.id)}
+                            onKeyDown={(e) =>
+                              e.key === "Enter" && onAddComment(req.id)
+                            }
                             className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0C2E8A] focus:border-transparent text-sm"
                           />
                           <button
@@ -766,7 +858,9 @@ const PrayerWalls = () => {
                     type="text"
                     placeholder="e.g., Healing for my mother, Job interview tomorrow..."
                     value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, title: e.target.value })
+                    }
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-[#0C2E8A] focus:border-[#0C2E8A] transition"
                     required
                     maxLength={100}
@@ -783,7 +877,9 @@ const PrayerWalls = () => {
                   <textarea
                     placeholder="Share the details of what you need prayer for…"
                     value={formData.content}
-                    onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, content: e.target.value })
+                    }
                     rows="5"
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-[#0C2E8A] focus:border-[#0C2E8A] resize-none transition"
                     required
@@ -801,14 +897,18 @@ const PrayerWalls = () => {
                     </label>
                     <select
                       value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, category: e.target.value })
+                      }
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-[#0C2E8A] focus:border-[#0C2E8A] transition"
                     >
-                      {categories.filter((c) => c !== "All").map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
-                        </option>
-                      ))}
+                      {categories
+                        .filter((c) => c !== "All")
+                        .map((cat) => (
+                          <option key={cat} value={cat}>
+                            {cat}
+                          </option>
+                        ))}
                     </select>
                   </div>
 
@@ -817,7 +917,12 @@ const PrayerWalls = () => {
                       <input
                         type="checkbox"
                         checked={formData.isUrgent}
-                        onChange={(e) => setFormData({ ...formData, isUrgent: e.target.checked })}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            isUrgent: e.target.checked,
+                          })
+                        }
                       />
                       <span className="text-sm">Mark as urgent</span>
                     </label>
@@ -825,7 +930,12 @@ const PrayerWalls = () => {
                       <input
                         type="checkbox"
                         checked={formData.isAnonymous}
-                        onChange={(e) => setFormData({ ...formData, isAnonymous: e.target.checked })}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            isAnonymous: e.target.checked,
+                          })
+                        }
                       />
                       <span className="text-sm">Post anonymously</span>
                     </label>
@@ -835,31 +945,43 @@ const PrayerWalls = () => {
                 {/* Optional verse reference */}
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Book (optional)</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Book (optional)
+                    </label>
                     <input
                       value={formData.book}
-                      onChange={(e) => setFormData({ ...formData, book: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, book: e.target.value })
+                      }
                       className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg"
                       placeholder="e.g., John"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Chapter</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Chapter
+                    </label>
                     <input
                       type="number"
                       min="1"
                       value={formData.chapter}
-                      onChange={(e) => setFormData({ ...formData, chapter: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, chapter: e.target.value })
+                      }
                       className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Verse</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Verse
+                    </label>
                     <input
                       type="number"
                       min="1"
                       value={formData.verse}
-                      onChange={(e) => setFormData({ ...formData, verse: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, verse: e.target.value })
+                      }
                       className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg"
                     />
                   </div>
