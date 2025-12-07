@@ -1,8 +1,6 @@
 // src/components/PrayerWalls.jsx
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import {
-  Plus, Heart, MessageCircle, Search, Send, Bookmark, X, Check,
-} from "lucide-react";
+import { Plus, Heart, MessageCircle, Search, Send, Bookmark, X, Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 /* ---------------- API base + helpers ---------------- */
@@ -11,8 +9,8 @@ const API_BASE = RAW_BASE.replace(/\/$/, "");
 const apiURL = (path) => `${API_BASE}${path.startsWith("/") ? path : "/" + path}`;
 
 async function safeJson(res) {
-  const ct = res.headers.get("content-type") || "";
-  if (!ct.toLowerCase().includes("application/json")) {
+  const ct = (res.headers.get("content-type") || "").toLowerCase();
+  if (!ct.includes("application/json")) {
     const text = await res.text();
     throw new Error(`Expected JSON, got ${ct || "unknown"}\n${text.slice(0, 400)}`);
   }
@@ -24,7 +22,7 @@ async function request(path, { method = "GET", body, headers = {}, allow401 = fa
   const res = await fetch(url, {
     method,
     credentials: "include",
-    cache: "no-store", // avoid 304-with-empty-body pitfalls
+    cache: "no-store", // avoid 304/empty-body weirdness
     headers: { "Content-Type": "application/json", ...headers },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -44,9 +42,7 @@ async function request(path, { method = "GET", body, headers = {}, allow401 = fa
 }
 
 /* ---------------- small utils ---------------- */
-const usePageLogger = (data) => {
-  useEffect(() => { console.log("Page logged:", data); }, []); // eslint-disable-line
-};
+const usePageLogger = (data) => { useEffect(() => { console.log("Page logged:", data); }, []); };
 const logPrayer = (title, content, category) => { console.log("Prayer logged:", { title, content, category }); };
 
 const Toast = ({ message }) => (
@@ -76,25 +72,22 @@ const categoryColors = {
 };
 
 /* ---- name + counts normalizers ---- */
-function pickNameFromUser(u) {
+// IMPORTANT: never fall back to email for public display.
+function pickNameNoEmail(u) {
   if (!u) return null;
-  return u.displayName || u.name || u.email || null;
+  return u.displayName || u.name || null;
 }
 function resolveDisplayName(req) {
   if (req.isAnonymous) return "Anonymous";
-  // Try various shapes that backend might return
   return (
-    pickNameFromUser(req.user) ||
-    pickNameFromUser(req.owner) ||
-    req.ownerDisplayName ||
+    pickNameNoEmail(req.user) ||
+    pickNameNoEmail(req.owner) ||
+    req.ownerDisplayName || // if backend already resolved a name string
     req.createdByName ||
-    req.ownerEmail ||
-    req.createdByEmail ||
     "User"
   );
 }
 function getCount(obj, key) {
-  // Accept many shapes
   if (obj == null) return 0;
   if (typeof obj[`${key}Count`] === "number") return obj[`${key}Count`];
   if (obj._count && typeof obj._count[key] === "number") return obj._count[key];
@@ -107,31 +100,35 @@ function getCount(obj, key) {
 const PrayerWalls = () => {
   const nav = useNavigate();
 
-  // server-backed items
   const [prayerRequests, setPrayerRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [totalUsers, setTotalUsers] = useState(null);
 
-  // UI state
   const [showModal, setShowModal] = useState(false);
   const [showComments, setShowComments] = useState(null);
-  const [commentsMap, setCommentsMap] = useState({}); // id -> comments[]
+  const [commentsMap, setCommentsMap] = useState({});
   const [newComment, setNewComment] = useState("");
 
-  // filters
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [sortBy, setSortBy] = useState("newest");
 
-  // form
   const [formData, setFormData] = useState({
     title: "", content: "", category: "Other", isUrgent: false, isAnonymous: false, book: "", chapter: "", verse: "",
   });
 
-  // toast
   const [toastMessage, setToastMessage] = useState("");
-  const [stats, setStats] = useState({ users: 0, requests: 0 });
   const showToast = (message) => { setToastMessage(message); setTimeout(() => setToastMessage(""), 3000); };
+
+  // current user id (to mark "You commented" if backend doesn't send a flag)
+  const [meId, setMeId] = useState(null);
+  useEffect(() => {
+    (async () => {
+      const me = await request("/auth/me", { allow401: true }).catch(() => null);
+      const u = me?.user ?? me ?? null;
+      setMeId(u?.id || null);
+    })();
+  }, []);
 
   usePageLogger({
     title: "Prayer Wall", type: "page", reference: "Prayer Wall Page", content: "Browsing community prayer requests", category: "Prayer",
@@ -144,11 +141,9 @@ const PrayerWalls = () => {
       const usp = new URLSearchParams();
       if (searchTerm.trim()) usp.set("q", searchTerm.trim());
       if (selectedCategory !== "All") usp.set("category", selectedCategory);
-      // Hint the API to expand user + counts (safe to ignore server-side)
-      usp.set("include", "user,counts");
-      const path = "/prayer-wall" + (usp.toString() ? `?${usp.toString()}` : "");
-
-      const res = await request(path);
+      // Ask server (nicely) to include user + counts + current-user flags
+      usp.set("include", "user,counts,current");
+      const res = await request(`/prayer-wall${usp.toString() ? `?${usp.toString()}` : ""}`);
       const rows = res?.data ?? res ?? [];
       const norm = rows.map((r) => ({
         ...r,
@@ -156,6 +151,7 @@ const PrayerWalls = () => {
         _commentsCount: getCount(r, "comments"),
         currentUserLiked: !!r.currentUserLiked,
         currentUserBookmarked: !!r.currentUserBookmarked,
+        currentUserCommented: !!r.currentUserCommented, // if backend provides
       }));
       setPrayerRequests(norm);
     } catch (err) {
@@ -182,7 +178,7 @@ const PrayerWalls = () => {
     return () => { alive = false; };
   }, []);
 
-  // prayer wall stats
+  // aggregate stats (silent fallbacks)
   const statsWarnedRef = useRef(false);
   useEffect(() => {
     let alive = true;
@@ -206,10 +202,9 @@ const PrayerWalls = () => {
 
         if (!requests) requests = Array.isArray(prayerRequests) ? prayerRequests.length : 0;
 
-        if (alive) setStats({ users, requests });
-
+        if (alive) {/* optional set to UI somewhere if needed */}
         if (!statsWarnedRef.current && requests === 0) {
-          console.warn("PrayerWalls: fallback list-length for requests; add HEAD /prayer-wall with X-Total-Count for accuracy.");
+          console.warn("PrayerWalls: add HEAD /prayer-wall with X-Total-Count for accurate totals.");
           statsWarnedRef.current = true;
         }
       } catch (e) {
@@ -287,10 +282,16 @@ const PrayerWalls = () => {
     if (!next) return;
 
     try {
-      const res = await request(`/prayer-wall/${id}?include=user,counts`);
+      const res = await request(`/prayer-wall/${id}?include=user,counts,comments,current`);
       const item = res?.data ?? res ?? null;
       const comments = item?.comments ?? [];
       setCommentsMap((m) => ({ ...m, [id]: comments }));
+
+      // compute "You commented" if backend doesn't send it
+      const youCommented =
+        !!item?.currentUserCommented ||
+        (!!meId && comments.some((c) => (c?.user?.id || null) === meId));
+
       setPrayerRequests((prev) =>
         prev.map((r) =>
           r.id === id
@@ -300,6 +301,7 @@ const PrayerWalls = () => {
                 _likesCount: getCount(item, "likes") || r._likesCount || 0,
                 currentUserBookmarked: !!item?.currentUserBookmarked,
                 currentUserLiked: !!item?.currentUserLiked,
+                currentUserCommented: youCommented,
               }
             : r
         )
@@ -318,7 +320,11 @@ const PrayerWalls = () => {
       const created = res?.data ?? res;
       setCommentsMap((m) => ({ ...m, [requestId]: [created, ...(m[requestId] || [])] }));
       setPrayerRequests((prev) =>
-        prev.map((r) => (r.id === requestId ? { ...r, _commentsCount: (r._commentsCount || 0) + 1 } : r))
+        prev.map((r) =>
+          r.id === requestId
+            ? { ...r, _commentsCount: (r._commentsCount || 0) + 1, currentUserCommented: true }
+            : r
+        )
       );
       setNewComment("");
       showToast("Comment added");
@@ -486,6 +492,12 @@ const PrayerWalls = () => {
                 const name = resolveDisplayName(req);
                 const created = req.createdAt ? formatTimeAgo(req.createdAt) : "";
                 const commentsFor = commentsMap[req.id] || [];
+
+                // badges for your interactions
+                const youBadges = [];
+                if (req.currentUserLiked) youBadges.push("You liked this");
+                if (req.currentUserCommented) youBadges.push("You commented");
+
                 return (
                   <div
                     key={req.id}
@@ -493,7 +505,7 @@ const PrayerWalls = () => {
                       req.answered ? "bg-green-50 border-green-300" : ""
                     }`}
                   >
-                    <div className="flex justify-between items-start mb-4 gap-2">
+                    <div className="flex justify-between items-start mb-2 gap-2">
                       <div className="flex items-center space-x-3 flex-1 min-w-0">
                         <div className="w-10 h-10 flex items-center justify-center rounded-full bg-[#0C2E8A] text-white font-bold flex-shrink-0">
                           {name?.[0]?.toUpperCase() || "U"}
@@ -517,6 +529,17 @@ const PrayerWalls = () => {
                         <Bookmark className={`w-5 h-5 ${req.currentUserBookmarked ? "fill-current" : ""}`} />
                       </button>
                     </div>
+
+                    {/* Your interaction badges */}
+                    {youBadges.length > 0 && (
+                      <div className="mb-3 flex flex-wrap gap-2">
+                        {youBadges.map((t) => (
+                          <span key={t} className="px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-200">
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    )}
 
                     {req.description && (
                       <p className="text-gray-700 text-sm mb-4 break-words leading-relaxed">{req.description}</p>
@@ -567,7 +590,7 @@ const PrayerWalls = () => {
                           <div className="text-sm text-gray-500">No comments yet.</div>
                         ) : (
                           commentsFor.map((c) => {
-                            const who = pickNameFromUser(c.user) || "User";
+                            const who = pickNameNoEmail(c.user) || "User"; // no email fallback
                             const when = c.createdAt ? new Date(c.createdAt).toLocaleString() : "";
                             return (
                               <div key={c.id} className="flex gap-3 items-start bg-gray-50 p-3 rounded-lg">
@@ -771,10 +794,7 @@ const PrayerWalls = () => {
       </main>
 
       <style>{`
-        @keyframes slide-in {
-          from { transform: translateX(100%); opacity: 0; }
-          to { transform: translateX(0); opacity: 1; }
-        }
+        @keyframes slide-in { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         .animate-slide-in { animation: slide-in 0.3s ease-out; }
       `}</style>
     </div>
