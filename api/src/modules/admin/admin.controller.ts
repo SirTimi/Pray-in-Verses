@@ -27,7 +27,7 @@ export class AdminController {
   @Post('invites')
   async createInvite(@Req() req: Request, @Body() dto: CreateInviteDto) {
     // @ts-ignore
-    const inviterId = req.user.id as string;
+    const inviterId = (req.user as any).id as string;
     return this.service.createInvite(inviterId, dto);
   }
 
@@ -77,7 +77,7 @@ export class AdminController {
     return {
       data: list.map((u) => ({
         id: u.id,
-        displayName: u.displayName ?? u.name ?? u.email ?? '—',
+        displayName: u.displayName ?? u.email ?? '—',
         email: u.email ?? null,
         role: u.role, // 'SUPER_ADMIN' | 'MODERATOR' | 'EDITOR' | 'USER'
       })),
