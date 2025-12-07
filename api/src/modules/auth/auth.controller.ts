@@ -117,6 +117,6 @@ export class AuthController {
       return { status: 401, message: 'Unauthorized' };
     }
     const user = await this.auth.me(id);
-    return { user };
+    return { data: user };
   }
 }

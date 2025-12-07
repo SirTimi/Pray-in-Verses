@@ -33,17 +33,14 @@ async function request(
       body: body ? JSON.stringify(body) : undefined,
     });
   } catch (e) {
-    // Network error: surface a consistent shape so callers can decide.
     return { status: 0, error: "NETWORK_ERROR", detail: String(e) };
   }
 
   if (res.status === 401 && !allow401) {
-    // Unauth everywhere except where explicitly allowed (e.g., login, accept invite)
     window.location.assign("/admin/login");
     return;
   }
 
-  // Some endpoints legitimately return 204 No Content
   if (res.status === 204) return { status: 204, data: null };
 
   const text = await res.text();
@@ -88,23 +85,19 @@ function normalizeUserShape(u) {
 
 const keyOfUser = (u) => (u?.id || u?.email || u?.displayName || "").toString();
 
-/** Merge missing identity fields from a lookup map into a partial user */
 function hydrateUser(partial, map) {
   if (!partial) return null;
   const id = partial.id ?? null;
   const found = id ? map.get(id) : null;
   if (!found) return normalizeUserShape(partial);
-  const merged = {
+  return {
     id: found.id,
-    displayName:
-      partial.displayName || found.displayName || found.email || "—",
+    displayName: partial.displayName || found.displayName || found.email || "—",
     email: partial.email || found.email || null,
     role: partial.role || found.role || "USER",
   };
-  return merged;
 }
 
-/** Collect unique user IDs we should look up from a batch of curated rows */
 function collectUserIds(rows) {
   const ids = new Set();
   for (const it of rows) {
@@ -136,13 +129,30 @@ function collectUserIds(rows) {
 /** ------------------------------- API  ---------------------------------- */
 export const api = {
   /* auth */
-  me: () => request("/auth/me"),
-  login: (email, password) =>
-    request("/auth/login", {
+  me: async () => {
+    const res = await request("/auth/me");
+    if (!res) return { data: null, status: 401 };
+    // Accept {data}, {user}, or flat object
+    const raw =
+      res?.data ??
+      res?.user ??
+      (res && typeof res === "object" && (res.id || res.email || res.role) ? res : null);
+    const user = normalizeUserShape(raw);
+    return { ...res, data: user };
+  },
+
+  login: async (email, password) => {
+    const res = await request("/auth/login", {
       method: "POST",
       body: { email, password },
       allow401: true,
-    }),
+    });
+    if (!res) return { data: null, user: null, status: 401 };
+    // Backend returns { user } – normalize & also mirror into data for consistency
+    const user = normalizeUserShape(res?.user ?? res?.data ?? null);
+    return { ...res, user, data: user };
+  },
+
   logout: () => request("/auth/logout", { method: "POST" }),
 
   /* invites / users */
@@ -168,7 +178,6 @@ export const api = {
     const p = new URLSearchParams({ ids: ids.join(",") });
     const res = await request(`/admin/users/lookup?${p.toString()}`);
 
-    // If backend hasn’t mounted this route yet (404), or we got a network failure, just continue gracefully.
     if (!res || res.status === 404 || res.status === 0) {
       return { map: new Map(), status: res?.status ?? 0 };
     }
@@ -257,7 +266,6 @@ export const api = {
         lookupMap = new Map();
       }
 
-      // Fallback if open lookup isn’t available
       if (!lookupMap.size) {
         try {
           const lu = await api.listUsers();
