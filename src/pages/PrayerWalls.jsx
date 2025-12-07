@@ -1,122 +1,65 @@
 // src/components/PrayerWalls.jsx
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
-  Plus,
-  Heart,
-  MessageCircle,
-  Search,
-  Send,
-  Bookmark,
-  X,
-  Check,
+  Plus, Heart, MessageCircle, Search, Send, Bookmark, X, Check,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-/**
- * API base rules
- * - Prefer VITE_API_BASE when defined (e.g., http://localhost:4000 or https://api.example.com)
- * - Otherwise default to "/api" so a dev proxy or same-origin API works
- * - Ensure no trailing slash, and join with a single slash
- */
+/* ---------------- API base + helpers ---------------- */
 const RAW_BASE = (import.meta.env.VITE_API_BASE ?? "/api").trim();
 const API_BASE = RAW_BASE.replace(/\/$/, "");
 const apiURL = (path) => `${API_BASE}${path.startsWith("/") ? path : "/" + path}`;
 
-// --- Safe JSON helpers to prevent HTML pages being parsed as JSON ---
 async function safeJson(res) {
   const ct = res.headers.get("content-type") || "";
   if (!ct.toLowerCase().includes("application/json")) {
     const text = await res.text();
-    throw new Error(
-      `Expected JSON, got ${ct || "unknown"}\n` + text.slice(0, 400)
-    );
+    throw new Error(`Expected JSON, got ${ct || "unknown"}\n${text.slice(0, 400)}`);
   }
   return res.json();
 }
 
-async function request(
-  path,
-  { method = "GET", body, headers = {}, allow401 = false } = {}
-) {
+async function request(path, { method = "GET", body, headers = {}, allow401 = false } = {}) {
   const url = apiURL(path);
   const res = await fetch(url, {
     method,
     credentials: "include",
+    cache: "no-store", // avoid 304-with-empty-body pitfalls
     headers: { "Content-Type": "application/json", ...headers },
     body: body ? JSON.stringify(body) : undefined,
   });
 
   if (!res.ok) {
-    if (allow401 && res.status === 401) {
-      // caller wants to treat 401 as a soft-fail (e.g., public page without login)
-      return null;
-    }
-    // try to surface a meaningful error body
+    if (allow401 && res.status === 401) return null;
     const ct = res.headers.get("content-type") || "";
     const bodyText = ct.includes("application/json")
       ? JSON.stringify(await res.json().catch(() => ({})))
       : await res.text();
-    const err = new Error(`HTTP ${res.status} ${res.statusText} at ${url}
-${String(bodyText).slice(0, 400)}`);
+    const err = new Error(`HTTP ${res.status} ${res.statusText} at ${url}\n${String(bodyText).slice(0, 400)}`);
     err.status = res.status;
-    try {
-      err.payload = JSON.parse(bodyText);
-    } catch {
-      err.payload = bodyText;
-    }
+    try { err.payload = JSON.parse(bodyText); } catch { err.payload = bodyText; }
     throw err;
   }
   return safeJson(res);
 }
 
-/* ---------------------- identity helpers (new) ---------------------- */
-function normalizeUser(u) {
-  if (!u || typeof u !== "object") return null;
-  return {
-    id: u.id ?? u.userId ?? null,
-    displayName: u.displayName ?? u.name ?? null,
-    email: u.email ?? null,
-  };
-}
-function displayNameOf(u) {
-  if (!u) return "User";
-  return u.displayName || u.name || u.email || "User";
-}
-
-// Mock hooks (keep as-is)
+/* ---------------- small utils ---------------- */
 const usePageLogger = (data) => {
-  useEffect(() => {
-    console.log("Page logged:", data);
-  }, []); // eslint-disable-line
+  useEffect(() => { console.log("Page logged:", data); }, []); // eslint-disable-line
 };
-const logPrayer = (title, content, category) => {
-  console.log("Prayer logged:", { title, content, category });
-};
+const logPrayer = (title, content, category) => { console.log("Prayer logged:", { title, content, category }); };
 
-// Toast Component
 const Toast = ({ message }) => (
   <div className="fixed top-20 right-4 md:right-6 bg-white shadow-lg rounded-lg px-4 py-3 border-l-4 border-green-500 z-50 animate-slide-in max-w-sm">
     <div className="flex items-center gap-2">
       <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
-      <span className="text-gray-800 font-medium text-sm md:text-base">
-        {message}
-      </span>
+      <span className="text-gray-800 font-medium text-sm md:text-base">{message}</span>
     </div>
   </div>
 );
 
 const categories = [
-  "All",
-  "Healing",
-  "Provision",
-  "Family",
-  "Career",
-  "Relationship",
-  "Financial",
-  "Spiritual",
-  "Guidance",
-  "Thanksgiving",
-  "Other",
+  "All","Healing","Provision","Family","Career","Relationship","Financial","Spiritual","Guidance","Thanksgiving","Other",
 ];
 
 const categoryColors = {
@@ -131,6 +74,35 @@ const categoryColors = {
   Thanksgiving: "bg-orange-100 text-orange-800",
   Other: "bg-gray-100 text-gray-800",
 };
+
+/* ---- name + counts normalizers ---- */
+function pickNameFromUser(u) {
+  if (!u) return null;
+  return u.displayName || u.name || u.email || null;
+}
+function resolveDisplayName(req) {
+  if (req.isAnonymous) return "Anonymous";
+  // Try various shapes that backend might return
+  return (
+    pickNameFromUser(req.user) ||
+    pickNameFromUser(req.owner) ||
+    req.ownerDisplayName ||
+    req.createdByName ||
+    req.ownerEmail ||
+    req.createdByEmail ||
+    "User"
+  );
+}
+function getCount(obj, key) {
+  // Accept many shapes
+  if (obj == null) return 0;
+  if (typeof obj[`${key}Count`] === "number") return obj[`${key}Count`];
+  if (obj._count && typeof obj._count[key] === "number") return obj._count[key];
+  if (obj.stats && typeof obj.stats[key] === "number") return obj.stats[key];
+  if (obj.meta && typeof obj.meta[key] === "number") return obj.meta[key];
+  if (Array.isArray(obj[key])) return obj[key].length;
+  return 0;
+}
 
 const PrayerWalls = () => {
   const nav = useNavigate();
@@ -153,50 +125,35 @@ const PrayerWalls = () => {
 
   // form
   const [formData, setFormData] = useState({
-    title: "",
-    content: "",
-    category: "Other",
-    isUrgent: false,
-    isAnonymous: false,
-    // optional verse ref
-    book: "",
-    chapter: "",
-    verse: "",
+    title: "", content: "", category: "Other", isUrgent: false, isAnonymous: false, book: "", chapter: "", verse: "",
   });
 
   // toast
   const [toastMessage, setToastMessage] = useState("");
   const [stats, setStats] = useState({ users: 0, requests: 0 });
-  const showToast = (message) => {
-    setToastMessage(message);
-    setTimeout(() => setToastMessage(""), 3000);
-  };
+  const showToast = (message) => { setToastMessage(message); setTimeout(() => setToastMessage(""), 3000); };
 
-  // Track page visit
   usePageLogger({
-    title: "Prayer Wall",
-    type: "page",
-    reference: "Prayer Wall Page",
-    content: "Browsing community prayer requests",
-    category: "Prayer",
+    title: "Prayer Wall", type: "page", reference: "Prayer Wall Page", content: "Browsing community prayer requests", category: "Prayer",
   });
 
-  // Load list from server (NO TRAILING '?')
+  /* ---------------- Load list ---------------- */
   const loadList = useCallback(async () => {
     setLoading(true);
     try {
       const usp = new URLSearchParams();
       if (searchTerm.trim()) usp.set("q", searchTerm.trim());
       if (selectedCategory !== "All") usp.set("category", selectedCategory);
+      // Hint the API to expand user + counts (safe to ignore server-side)
+      usp.set("include", "user,counts");
       const path = "/prayer-wall" + (usp.toString() ? `?${usp.toString()}` : "");
 
       const res = await request(path);
       const rows = res?.data ?? res ?? [];
       const norm = rows.map((r) => ({
         ...r,
-        user: normalizeUser(r.user), // normalize poster identity
-        _likesCount: r.likesCount ?? r._likesCount ?? 0,
-        _commentsCount: r.commentsCount ?? r._commentsCount ?? 0,
+        _likesCount: getCount(r, "likes"),
+        _commentsCount: getCount(r, "comments"),
         currentUserLiked: !!r.currentUserLiked,
         currentUserBookmarked: !!r.currentUserBookmarked,
       }));
@@ -209,48 +166,37 @@ const PrayerWalls = () => {
     }
   }, [searchTerm, selectedCategory, nav]);
 
-  useEffect(() => {
-    loadList();
-  }, [loadList]);
+  useEffect(() => { loadList(); }, [loadList]);
 
   // total users count (optional)
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const res = await request("/stats/users-count");
-        if (alive) setTotalUsers(Number(res?.count ?? 0));
+        const res = await request("/stats/users-count", { allow401: true });
+        if (alive && res) setTotalUsers(Number(res?.count ?? 0));
       } catch (e) {
-        // silent
         console.warn("GET /stats/users-count failed:", e?.message || e);
       }
     })();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, []);
 
-  // prayer wall stats (users + requests). Keep it quiet: no probing of non-existent endpoints
+  // prayer wall stats
   const statsWarnedRef = useRef(false);
   useEffect(() => {
     let alive = true;
-
     (async () => {
       try {
-        // 1) Users count (public). Soft-fail if protected/missing
         let users = 0;
         try {
           const usersResp = await request("/stats/users-count", { allow401: true });
           users = Number(usersResp?.count ?? 0) || 0;
         } catch {}
 
-        // 2) Requests count via HEAD header if backend provides X-Total-Count
         let requests = 0;
         try {
-          const head = await fetch(apiURL("/prayer-wall"), {
-            method: "HEAD",
-            credentials: "include",
-          });
+          const head = await fetch(apiURL("/prayer-wall"), { method: "HEAD", credentials: "include", cache: "no-store" });
           if (head.ok) {
             const hdr = head.headers.get("x-total-count");
             const n = Number(hdr);
@@ -258,64 +204,45 @@ const PrayerWalls = () => {
           }
         } catch {}
 
-        // 3) Final fallback: visible list length (may be paginated)
         if (!requests) requests = Array.isArray(prayerRequests) ? prayerRequests.length : 0;
 
         if (alive) setStats({ users, requests });
 
         if (!statsWarnedRef.current && requests === 0) {
-          console.warn(
-            "PrayerWalls: using list-length fallback for requests; add HEAD /prayer-wall with X-Total-Count for accuracy."
-          );
+          console.warn("PrayerWalls: fallback list-length for requests; add HEAD /prayer-wall with X-Total-Count for accuracy.");
           statsWarnedRef.current = true;
         }
       } catch (e) {
         if (!statsWarnedRef.current) {
-          console.warn("PrayerWalls: stats fetch failed (silent mode)", e?.message || e);
+          console.warn("PrayerWalls: stats fetch failed (silent)", e?.message || e);
           statsWarnedRef.current = true;
         }
       }
     })();
-
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [prayerRequests]);
 
-  // Sort client-side for now
+  /* ---------------- Sorting ---------------- */
   const filteredSorted = (() => {
     let arr = [...prayerRequests];
     switch (sortBy) {
-      case "newest":
-        arr.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        break;
-      case "oldest":
-        arr.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-        break;
-      case "most-prayed": // interpret as most liked
-        arr.sort((a, b) => (b._likesCount || 0) - (a._likesCount || 0));
-        break;
-      case "urgent":
-        arr.sort((a, b) => Number(b.isUrgent) - Number(a.isUrgent));
-        break;
-      default:
-        break;
+      case "newest":     arr.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); break;
+      case "oldest":     arr.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)); break;
+      case "most-prayed":arr.sort((a, b) => (b._likesCount || 0) - (a._likesCount || 0)); break;
+      case "urgent":     arr.sort((a, b) => Number(b.isUrgent) - Number(a.isUrgent)); break;
+      default: break;
     }
     return arr;
   })();
 
-  // Like
+  /* ---------------- Actions ---------------- */
   async function onToggleLike(id) {
     const current = prayerRequests.find((r) => r.id === id);
     if (!current) return;
     setPrayerRequests((prev) =>
       prev.map((r) =>
         r.id === id
-          ? {
-              ...r,
-              currentUserLiked: !r.currentUserLiked,
-              _likesCount: (r._likesCount || 0) + (!r.currentUserLiked ? 1 : -1),
-            }
+          ? { ...r, currentUserLiked: !r.currentUserLiked, _likesCount: (r._likesCount || 0) + (!r.currentUserLiked ? 1 : -1) }
           : r
       )
     );
@@ -326,12 +253,7 @@ const PrayerWalls = () => {
       setPrayerRequests((prev) =>
         prev.map((r) =>
           r.id === id
-            ? {
-                ...r,
-                currentUserLiked: !r.currentUserLiked,
-                _likesCount:
-                  (r._likesCount || 0) + (r.currentUserLiked ? 1 : -1),
-              }
+            ? { ...r, currentUserLiked: !r.currentUserLiked, _likesCount: (r._likesCount || 0) + (r.currentUserLiked ? 1 : -1) }
             : r
         )
       );
@@ -340,16 +262,11 @@ const PrayerWalls = () => {
     }
   }
 
-  // Bookmark
   async function onToggleBookmark(id) {
     const current = prayerRequests.find((r) => r.id === id);
     if (!current) return;
     setPrayerRequests((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? { ...r, currentUserBookmarked: !r.currentUserBookmarked }
-          : r
-      )
+      prev.map((r) => (r.id === id ? { ...r, currentUserBookmarked: !r.currentUserBookmarked } : r))
     );
     try {
       await request(`/prayer-wall/${id}/bookmark`, { method: "POST" });
@@ -357,41 +274,32 @@ const PrayerWalls = () => {
     } catch (err) {
       // revert
       setPrayerRequests((prev) =>
-        prev.map((r) =>
-          r.id === id
-            ? { ...r, currentUserBookmarked: !r.currentUserBookmarked }
-            : r
-        )
+        prev.map((r) => (r.id === id ? { ...r, currentUserBookmarked: !r.currentUserBookmarked } : r))
       );
       if (err.status === 401) nav("/login", { replace: true });
       else showToast(err.message || "Action failed");
     }
   }
 
-  // Show comments
   async function onToggleComments(id) {
     const next = showComments === id ? null : id;
     setShowComments(next);
     if (!next) return;
 
     try {
-      const res = await request(`/prayer-wall/${id}`);
+      const res = await request(`/prayer-wall/${id}?include=user,counts`);
       const item = res?.data ?? res ?? null;
-      const comments = (item?.comments ?? []).map((c) => ({
-        ...c,
-        user: normalizeUser(c.user),
-      }));
+      const comments = item?.comments ?? [];
       setCommentsMap((m) => ({ ...m, [id]: comments }));
       setPrayerRequests((prev) =>
         prev.map((r) =>
           r.id === id
             ? {
                 ...r,
-                _commentsCount:
-                  item?.commentsCount ?? comments.length ?? r._commentsCount ?? 0,
+                _commentsCount: getCount(item, "comments") || comments.length || r._commentsCount || 0,
+                _likesCount: getCount(item, "likes") || r._likesCount || 0,
                 currentUserBookmarked: !!item?.currentUserBookmarked,
                 currentUserLiked: !!item?.currentUserLiked,
-                user: normalizeUser(item?.user) ?? r.user,
               }
             : r
         )
@@ -402,27 +310,15 @@ const PrayerWalls = () => {
     }
   }
 
-  // Add comment
   async function onAddComment(requestId) {
     const body = newComment.trim();
     if (!body) return;
     try {
-      const res = await request(`/prayer-wall/${requestId}/comments`, {
-        method: "POST",
-        body: { body },
-      });
+      const res = await request(`/prayer-wall/${requestId}/comments`, { method: "POST", body: { body } });
       const created = res?.data ?? res;
-      const createdNorm = { ...created, user: normalizeUser(created?.user) };
-      setCommentsMap((m) => ({
-        ...m,
-        [requestId]: [createdNorm, ...(m[requestId] || [])],
-      }));
+      setCommentsMap((m) => ({ ...m, [requestId]: [created, ...(m[requestId] || [])] }));
       setPrayerRequests((prev) =>
-        prev.map((r) =>
-          r.id === requestId
-            ? { ...r, _commentsCount: (r._commentsCount || 0) + 1 }
-            : r
-        )
+        prev.map((r) => (r.id === requestId ? { ...r, _commentsCount: (r._commentsCount || 0) + 1 } : r))
       );
       setNewComment("");
       showToast("Comment added");
@@ -432,25 +328,15 @@ const PrayerWalls = () => {
     }
   }
 
-  // Create request
   function resetForm() {
-    setFormData({
-      title: "",
-      content: "",
-      category: "Other",
-      isUrgent: false,
-      isAnonymous: false,
-      book: "",
-      chapter: "",
-      verse: "",
-    });
+    setFormData({ title: "", content: "", category: "Other", isUrgent: false, isAnonymous: false, book: "", chapter: "", verse: "" });
   }
   async function onCreate(e) {
     e.preventDefault();
     try {
       const payload = {
         title: formData.title.trim(),
-        description: formData.content.trim(), // server expects 'description'
+        description: formData.content.trim(),
         category: formData.category || "Other",
         isUrgent: !!formData.isUrgent,
         isAnonymous: !!formData.isAnonymous,
@@ -460,17 +346,12 @@ const PrayerWalls = () => {
         payload.chapter = Number(formData.chapter);
         payload.verse = Number(formData.verse);
       }
-
       await request("/prayer-wall", { method: "POST", body: payload });
       setShowModal(false);
       resetForm();
       showToast("Prayer request posted successfully!");
       loadList();
-      logPrayer(
-        `Posted Prayer Request: ${payload.title}`,
-        payload.description,
-        payload.category
-      );
+      logPrayer(`Posted Prayer Request: ${payload.title}`, payload.description, payload.category);
     } catch (err) {
       if (err.status === 401) nav("/login", { replace: true });
       else showToast(err.message || "Create failed");
@@ -487,6 +368,7 @@ const PrayerWalls = () => {
     return `${Math.floor(diffH / 24)} days ago`;
   };
 
+  /* ---------------- UI ---------------- */
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-yellow-50 pt-24 pl-0 lg:pl-[224px] font-['Poppins']">
       {toastMessage && <Toast message={toastMessage} />}
@@ -499,24 +381,14 @@ const PrayerWalls = () => {
               <div>
                 <h1 className="text-base font-semibold mb-2">Community Prayer Wall</h1>
                 <p className="text-blue-100 text-sm">
-                  {totalUsers == null ? (
-                    "Join believers in prayer and support"
-                  ) : (
-                    <>
-                      Join{" "}
-                      <span className="font-semibold">
-                        {totalUsers.toLocaleString()}
-                      </span>
-                      + believers in prayer and support
-                    </>
-                  )}
+                  {totalUsers == null
+                    ? "Join believers in prayer and support"
+                    : <>Join <span className="font-semibold">{totalUsers.toLocaleString()}</span>+ believers in prayer and support</>}
                 </p>
               </div>
               <div className="hidden md:block">
                 <div className="bg-white/20 backdrop-blur-sm rounded-full px-4 py-2">
-                  <p className="text-sm font-medium">
-                    {prayerRequests.length} Active Requests
-                  </p>
+                  <p className="text-sm font-medium">{prayerRequests.length} Active Requests</p>
                 </div>
               </div>
             </div>
@@ -527,9 +399,7 @@ const PrayerWalls = () => {
             <div className="flex items-start gap-4">
               <div className="flex-1">
                 <h3 className="text-[#0C2E8A] font-semibold text-base mb-1">Need Prayer?</h3>
-                <p className="text-gray-600 text-sm mb-3">
-                  Share your prayer request with our loving community
-                </p>
+                <p className="text-gray-600 text-sm mb-3">Share your prayer request with our loving community</p>
                 <button
                   className="bg-[#0C2E8A] text-white px-6 py-2.5 rounded-lg hover:bg-blue-800 transition font-medium text-sm flex items-center gap-2"
                   onClick={() => setShowModal(true)}
@@ -544,12 +414,8 @@ const PrayerWalls = () => {
           {/* Browse header */}
           <div className="flex items-center pt-8 justify-between gap-3 mb-4">
             <div className="grid">
-              <h2 className="text-base font-semibold text-[#0C2E8A]">
-                Browse Prayer Requests
-              </h2>
-              <p className="text-sm text-gray-600">
-                Support others through prayer and encouragement
-              </p>
+              <h2 className="text-base font-semibold text-[#0C2E8A]">Browse Prayer Requests</h2>
+              <p className="text-sm text-gray-600">Support others through prayer and encouragement</p>
             </div>
             <div className="w-10 h-0.5 bg-gradient-to-r from-blue-600 to-yellow-500 rounded-full"></div>
           </div>
@@ -573,9 +439,7 @@ const PrayerWalls = () => {
           <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 md:p-6">
             <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
               <div className="flex-1 w-full">
-                <label className="block text-sm font-medium text-[#0C2E8A] mb-2">
-                  Filter by Category
-                </label>
+                <label className="block text-sm font-medium text-[#0C2E8A] mb-2">Filter by Category</label>
                 <div className="flex flex-wrap gap-2">
                   {categories.map((cat) => (
                     <button
@@ -593,9 +457,7 @@ const PrayerWalls = () => {
                 </div>
               </div>
               <div className="w-full lg:w-auto">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Sort by
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Sort by</label>
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
@@ -607,10 +469,7 @@ const PrayerWalls = () => {
                   <option value="urgent">Urgent</option>
                 </select>
               </div>
-              <button
-                onClick={loadList}
-                className="px-4 py-2 rounded-md border bg-white text-gray-900"
-              >
+              <button onClick={loadList} className="px-4 py-2 rounded-md border bg-white text-gray-900">
                 Apply
               </button>
             </div>
@@ -620,16 +479,11 @@ const PrayerWalls = () => {
           <div className="space-y-4">
             {loading ? (
               Array.from({ length: 6 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-40 bg-white rounded-lg shadow-sm border border-gray-100 animate-pulse"
-                />
+                <div key={i} className="h-40 bg-white rounded-lg shadow-sm border border-gray-100 animate-pulse" />
               ))
             ) : filteredSorted.length > 0 ? (
               filteredSorted.map((req) => {
-                const name = req.isAnonymous
-                  ? "Anonymous"
-                  : displayNameOf(req.user);
+                const name = resolveDisplayName(req);
                 const created = req.createdAt ? formatTimeAgo(req.createdAt) : "";
                 const commentsFor = commentsMap[req.id] || [];
                 return (
@@ -645,12 +499,8 @@ const PrayerWalls = () => {
                           {name?.[0]?.toUpperCase() || "U"}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-base font-semibold text-[#0C2E8A] break-words">
-                            {req.title}
-                          </h3>
-                          <p className="text-xs text-gray-500">
-                            by {name} {created && `• ${created}`}
-                          </p>
+                          <h3 className="text-base font-semibold text-[#0C2E8A] break-words">{req.title}</h3>
+                          <p className="text-xs text-gray-500">by {name} {created && `• ${created}`}</p>
                         </div>
                       </div>
 
@@ -664,18 +514,12 @@ const PrayerWalls = () => {
                         }`}
                         title="Bookmark"
                       >
-                        <Bookmark
-                          className={`w-5 h-5 ${
-                            req.currentUserBookmarked ? "fill-current" : ""
-                          }`}
-                        />
+                        <Bookmark className={`w-5 h-5 ${req.currentUserBookmarked ? "fill-current" : ""}`} />
                       </button>
                     </div>
 
                     {req.description && (
-                      <p className="text-gray-700 text-sm mb-4 break-words leading-relaxed">
-                        {req.description}
-                      </p>
+                      <p className="text-gray-700 text-sm mb-4 break-words leading-relaxed">{req.description}</p>
                     )}
 
                     <div className="flex gap-2 flex-wrap mb-4">
@@ -687,9 +531,7 @@ const PrayerWalls = () => {
                         {req.category || "Other"}
                       </span>
                       {req.isUrgent && (
-                        <span className="px-3 py-1 text-xs rounded-full bg-red-200 text-red-800 font-medium">
-                          Urgent
-                        </span>
+                        <span className="px-3 py-1 text-xs rounded-full bg-red-200 text-red-800 font-medium">Urgent</span>
                       )}
                     </div>
 
@@ -698,18 +540,12 @@ const PrayerWalls = () => {
                       <div className="flex items-center gap-4">
                         <button
                           className={`flex items-center gap-2 px-3 py-2 rounded-lg transition font-medium text-sm ${
-                            req.currentUserLiked
-                              ? "bg-red-50 text-red-600"
-                              : "bg-gray-50 text-gray-600 hover:bg-red-50 hover:text-red-600"
+                            req.currentUserLiked ? "bg-red-50 text-red-600" : "bg-gray-50 text-gray-600 hover:bg-red-50 hover:text-red-600"
                           }`}
                           onClick={() => onToggleLike(req.id)}
                           title={req.currentUserLiked ? "Unlike" : "Like"}
                         >
-                          <Heart
-                            className={`w-4 h-4 ${
-                              req.currentUserLiked ? "fill-current" : ""
-                            }`}
-                          />
+                          <Heart className={`w-4 h-4 ${req.currentUserLiked ? "fill-current" : ""}`} />
                           <span>{req._likesCount || 0}</span>
                         </button>
 
@@ -719,9 +555,7 @@ const PrayerWalls = () => {
                           title="Comments"
                         >
                           <MessageCircle className="w-4 h-4" />
-                          <span>
-                            {req._commentsCount ?? commentsFor.length ?? 0}
-                          </span>
+                          <span>{req._commentsCount ?? commentsFor.length ?? 0}</span>
                         </button>
                       </div>
                     </div>
@@ -730,37 +564,20 @@ const PrayerWalls = () => {
                     {showComments === req.id && (
                       <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
                         {commentsFor.length === 0 ? (
-                          <div className="text-sm text-gray-500">
-                            No comments yet.
-                          </div>
+                          <div className="text-sm text-gray-500">No comments yet.</div>
                         ) : (
                           commentsFor.map((c) => {
-                            const who = c.user
-                              ? displayNameOf(c.user)
-                              : "User";
-                            const when = c.createdAt
-                              ? new Date(c.createdAt).toLocaleString()
-                              : "";
+                            const who = pickNameFromUser(c.user) || "User";
+                            const when = c.createdAt ? new Date(c.createdAt).toLocaleString() : "";
                             return (
-                              <div
-                                key={c.id}
-                                className="flex gap-3 items-start bg-gray-50 p-3 rounded-lg"
-                              >
+                              <div key={c.id} className="flex gap-3 items-start bg-gray-50 p-3 rounded-lg">
                                 <div className="w-8 h-8 rounded-full bg-[#0C2E8A] flex items-center justify-center text-white font-bold flex-shrink-0 text-sm">
                                   {who?.[0]?.toUpperCase() || "U"}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-[#0C2E8A] break-words">
-                                    {who}
-                                  </p>
-                                  <p className="text-sm text-gray-700 break-words">
-                                    {c.body}
-                                  </p>
-                                  {when && (
-                                    <span className="text-xs text-gray-400">
-                                      {when}
-                                    </span>
-                                  )}
+                                  <p className="text-sm font-medium text-[#0C2E8A] break-words">{who}</p>
+                                  <p className="text-sm text-gray-700 break-words">{c.body}</p>
+                                  {when && <span className="text-xs text-gray-400">{when}</span>}
                                 </div>
                               </div>
                             );
@@ -774,9 +591,7 @@ const PrayerWalls = () => {
                             placeholder="Add a comment..."
                             value={newComment}
                             onChange={(e) => setNewComment(e.target.value)}
-                            onKeyDown={(e) =>
-                              e.key === "Enter" && onAddComment(req.id)
-                            }
+                            onKeyDown={(e) => e.key === "Enter" && onAddComment(req.id)}
                             className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0C2E8A] focus:border-transparent text-sm"
                           />
                           <button
@@ -829,19 +644,12 @@ const PrayerWalls = () => {
                 <div className="flex justify-between items-start">
                   <div className="flex items-start gap-4">
                     <div>
-                      <h2 className="text-xl font-bold text-white mb-1">
-                        Share Your Prayer Request
-                      </h2>
-                      <p className="text-blue-100 text-sm">
-                        Our community is here to pray with you
-                      </p>
+                      <h2 className="text-xl font-bold text-white mb-1">Share Your Prayer Request</h2>
+                      <p className="text-blue-100 text-sm">Our community is here to pray with you</p>
                     </div>
                   </div>
                   <button
-                    onClick={() => {
-                      setShowModal(false);
-                      resetForm();
-                    }}
+                    onClick={() => { setShowModal(false); resetForm(); }}
                     className="p-2 hover:bg-white/20 rounded-lg transition text-white"
                   >
                     <X className="w-5 h-5" />
@@ -851,64 +659,42 @@ const PrayerWalls = () => {
 
               <form onSubmit={onCreate} className="p-6 space-y-5">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Prayer Request Title *
-                  </label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Prayer Request Title *</label>
                   <input
                     type="text"
                     placeholder="e.g., Healing for my mother, Job interview tomorrow..."
                     value={formData.title}
-                    onChange={(e) =>
-                      setFormData({ ...formData, title: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-[#0C2E8A] focus:border-[#0C2E8A] transition"
-                    required
-                    maxLength={100}
+                    required maxLength={100}
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    {formData.title.length}/100 characters
-                  </p>
+                  <p className="text-xs text-gray-500 mt-1">{formData.title.length}/100 characters</p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Describe Your Request *
-                  </label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Describe Your Request *</label>
                   <textarea
                     placeholder="Share the details of what you need prayer for…"
                     value={formData.content}
-                    onChange={(e) =>
-                      setFormData({ ...formData, content: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, content: e.target.value })}
                     rows="5"
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-[#0C2E8A] focus:border-[#0C2E8A] resize-none transition"
-                    required
-                    maxLength={500}
+                    required maxLength={500}
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    {formData.content.length}/500 characters
-                  </p>
+                  <p className="text-xs text-gray-500 mt-1">{formData.content.length}/500 characters</p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Category
-                    </label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Category</label>
                     <select
                       value={formData.category}
-                      onChange={(e) =>
-                        setFormData({ ...formData, category: e.target.value })
-                      }
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-[#0C2E8A] focus:border-[#0C2E8A] transition"
                     >
-                      {categories
-                        .filter((c) => c !== "All")
-                        .map((cat) => (
-                          <option key={cat} value={cat}>
-                            {cat}
-                          </option>
-                        ))}
+                      {categories.filter((c) => c !== "All").map((cat) => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
                     </select>
                   </div>
 
@@ -917,12 +703,7 @@ const PrayerWalls = () => {
                       <input
                         type="checkbox"
                         checked={formData.isUrgent}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            isUrgent: e.target.checked,
-                          })
-                        }
+                        onChange={(e) => setFormData({ ...formData, isUrgent: e.target.checked })}
                       />
                       <span className="text-sm">Mark as urgent</span>
                     </label>
@@ -930,12 +711,7 @@ const PrayerWalls = () => {
                       <input
                         type="checkbox"
                         checked={formData.isAnonymous}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            isAnonymous: e.target.checked,
-                          })
-                        }
+                        onChange={(e) => setFormData({ ...formData, isAnonymous: e.target.checked })}
                       />
                       <span className="text-sm">Post anonymously</span>
                     </label>
@@ -945,43 +721,29 @@ const PrayerWalls = () => {
                 {/* Optional verse reference */}
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Book (optional)
-                    </label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Book (optional)</label>
                     <input
                       value={formData.book}
-                      onChange={(e) =>
-                        setFormData({ ...formData, book: e.target.value })
-                      }
+                      onChange={(e) => setFormData({ ...formData, book: e.target.value })}
                       className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg"
                       placeholder="e.g., John"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Chapter
-                    </label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Chapter</label>
                     <input
-                      type="number"
-                      min="1"
+                      type="number" min="1"
                       value={formData.chapter}
-                      onChange={(e) =>
-                        setFormData({ ...formData, chapter: e.target.value })
-                      }
+                      onChange={(e) => setFormData({ ...formData, chapter: e.target.value })}
                       className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Verse
-                    </label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Verse</label>
                     <input
-                      type="number"
-                      min="1"
+                      type="number" min="1"
                       value={formData.verse}
-                      onChange={(e) =>
-                        setFormData({ ...formData, verse: e.target.value })
-                      }
+                      onChange={(e) => setFormData({ ...formData, verse: e.target.value })}
                       className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg"
                     />
                   </div>
@@ -990,10 +752,7 @@ const PrayerWalls = () => {
                 <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
                   <button
                     type="button"
-                    onClick={() => {
-                      setShowModal(false);
-                      resetForm();
-                    }}
+                    onClick={() => { setShowModal(false); resetForm(); }}
                     className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
                   >
                     Cancel
