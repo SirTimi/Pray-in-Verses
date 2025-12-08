@@ -21,6 +21,11 @@ export class AuthService {
     private mail: MailService,
   ) {}
 
+  /** Resolve app base URL once */
+  private get appBase(): string {
+    return process.env.APP_BASE_URL || 'http://localhost:3000';
+  }
+
   /** Issue a signed JWT with a stable payload shape */
   private async signUserToken(user: {
     id: string;
@@ -31,7 +36,6 @@ export class AuthService {
     const payload = {
       sub: user.id,
       role: user.role,
-      // Add these so downstream guards/controllers can read them without a DB hit
       email: user.email,
       displayName: user.displayName ?? undefined,
     };
@@ -58,6 +62,14 @@ export class AuthService {
         createdAt: true,
       },
     });
+
+    // Soft-send a welcome email. Uses MailService SMTP/SendGrid fallback logic.
+    // If you prefer not to send on signup, remove this block.
+    const loginLink = `${this.appBase}/login`;
+    this.mail
+      .sendInvite(user.email, loginLink, 'USER') // reuses the clean template
+      .catch(() => undefined);
+
     return user;
   }
 
@@ -77,7 +89,6 @@ export class AuthService {
       displayName: user.displayName ?? null,
     });
 
-    // Public user fields (client/admin UI can show name & role immediately)
     const pub = {
       id: user.id,
       email: user.email,
@@ -85,7 +96,6 @@ export class AuthService {
       role: user.role,
     };
 
-    // Controller is responsible for setting cookie; we just return token + user
     return { token, user: pub };
   }
 
@@ -96,7 +106,7 @@ export class AuthService {
       .findUnique({ where: { email } })
       .catch(() => null);
 
-    // Silent success to prevent user enumeration
+    // Silent success to avoid user enumeration
     if (!user) return;
 
     const rawToken = randomBytes(32).toString('hex');
@@ -107,12 +117,10 @@ export class AuthService {
       data: { userId: user.id, tokenHash, expiresAt },
     });
 
-    const appBase = process.env.APP_BASE_URL || 'http://localhost:3000';
-    const resetUrl = `${appBase}/reset-password?token=${rawToken}`;
+    const resetUrl = `${this.appBase}/reset-password?token=${rawToken}`;
 
-    await this.mail
-      .sendPasswordReset(user.email, resetUrl)
-      .catch(() => undefined);
+    // Soft-fail email send so the API response is stable
+    this.mail.sendPasswordReset(user.email, resetUrl).catch(() => undefined);
   }
 
   async resetPasswordWithToken(rawToken: string, newPassword: string) {
