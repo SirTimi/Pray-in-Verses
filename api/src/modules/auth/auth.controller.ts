@@ -1,13 +1,6 @@
 // src/auth/auth.controller.ts
 import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  Post,
-  Req,
-  Res,
-  UseGuards,
+  Body, Controller, Get, HttpCode, Post, Req, Res, UseGuards,
 } from '@nestjs/common';
 import type { Response, Request } from 'express';
 import { AuthService } from './auth.service';
@@ -18,38 +11,44 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 
 const COOKIE_NAME = 'access_token';
 
-// Compute robust cookie settings from the incoming request.
-// Ensures we don't accidentally set multiple variant cookies (e.g., different domain/samesite/secure).
 function cookieOptionsFromReq(req: Request) {
   const host = String(req.headers.host || '').toLowerCase();
   const isHttps =
-    // if there's a trusted proxy, this is the reliable signal
     (req.headers['x-forwarded-proto'] || '').toString().toLowerCase() === 'https' ||
-    // fallback: production should always be https behind nginx
     process.env.NODE_ENV === 'production';
 
-  // Domain: pin to apex so both www and bare domain share the cookie.
-  // If you serve only one hostname, you can omit domain to let the browser default.
   let domain: string | undefined;
   if (host.endsWith('prayinverses.com')) {
-    domain = '.prayinverses.com'; // covers prayinverses.com and www.prayinverses.com
+    domain = '.prayinverses.com'; // cover apex + subdomains
   } else {
-    domain = undefined; // localhost/dev → no domain attribute
+    domain = undefined; // localhost/dev
   }
 
-  // SameSite:
-  // - 'lax' is ideal for same-site (the admin lives on same origin). If you ever embed the app
-  //   in a cross-site context, switch to 'none' + secure.
-  const sameSite: 'lax' | 'strict' | 'none' = domain ? 'lax' : 'lax';
+  const sameSite: 'lax' | 'strict' | 'none' = 'lax';
 
   return {
     httpOnly: true,
     secure: !!isHttps,
     sameSite,
     domain,
-    path: '/', // critical to avoid variants on different paths
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    path: '/',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
   } as const;
+}
+
+/** Aggressively remove any legacy cookie variants that might still exist. */
+function clearAuthCookies(res: Response) {
+  const BASE = { httpOnly: true, sameSite: 'lax' as const, path: '/' };
+
+  // host-only (no domain attr)
+  res.clearCookie(COOKIE_NAME, { ...BASE, secure: true });
+  res.clearCookie(COOKIE_NAME, { ...BASE, secure: false });
+
+  // explicit domains we may have used before
+  for (const d of ['.prayinverses.com', 'prayinverses.com', 'www.prayinverses.com']) {
+    res.clearCookie(COOKIE_NAME, { ...BASE, secure: true, domain: d });
+    res.clearCookie(COOKIE_NAME, { ...BASE, secure: false, domain: d });
+  }
 }
 
 @Controller('auth')
@@ -80,13 +79,13 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    // NOTE: auth.login() should now sign email/displayName into the JWT payload:
-    // payload = { sub: user.id, role: user.role, email: user.email, displayName: user.displayName }
-    // (See the updated auth.service.ts I provided earlier.)
     const { token, user } = await this.auth.login(dto);
 
+    // 1) nuke all legacy cookies to avoid duplicates
+    clearAuthCookies(res);
+
+    // 2) set the canonical cookie with stable attributes
     const opts = cookieOptionsFromReq(req);
-    // Overwrite any prior cookie by setting the same name+path+domain
     res.cookie(COOKIE_NAME, token, opts);
 
     return { user };
@@ -95,27 +94,17 @@ export class AuthController {
   @HttpCode(200)
   @Post('logout')
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const opts = cookieOptionsFromReq(req);
-    // Clear with identical attributes so the browser actually removes the same cookie
-    res.clearCookie(COOKIE_NAME, {
-      path: opts.path,
-      domain: opts.domain,
-      sameSite: opts.sameSite,
-      secure: opts.secure,
-    });
+    // Clear everything aggressively
+    clearAuthCookies(res);
     return { ok: true };
   }
 
   @UseGuards(JwtCookieAuthGuard)
   @Get('me')
   async me(@Req() req: Request) {
-    // jwt.guard attaches req.user = { id, role, email?, displayName? }
-    // @ts-ignore
+    // @ts-ignore – JwtCookieAuthGuard sets req.user
     const { id } = req.user || {};
-    // Graceful failure instead of 500 if something is off
-    if (!id) {
-      return { status: 401, message: 'Unauthorized' };
-    }
+    if (!id) return { status: 401, message: 'Unauthorized' };
     const user = await this.auth.me(id);
     return { data: user };
   }

@@ -20,51 +20,64 @@ type JwtPayload = {
 export class JwtCookieAuthGuard implements CanActivate {
   constructor(private jwt: JwtService) {}
 
-  private extractFromCookieObject(req: any): string | undefined {
-    // If cookie-parser populated req.cookies, use it first.
-    const v = req?.cookies?.access_token;
-    if (typeof v === 'string' && v.trim()) return v.trim();
-    return undefined;
-  }
-
-  private extractLastAccessTokenFromHeader(req: any): string | undefined {
-    // Handle multiple access_token entries in raw Cookie header.
-    const raw: string | undefined = req?.headers?.cookie;
-    if (!raw) return undefined;
-
-    // Split on ';' and parse pairs; keep the LAST access_token seen.
-    let last: string | undefined;
-    for (const part of raw.split(';')) {
-      const [k, ...rest] = part.split('=');
-      if (!k) continue;
-      const key = k.trim();
-      if (key === 'access_token') {
-        const value = rest.join('=').trim(); // preserve dots in JWT
-        if (value) last = value;
-      }
+  /** Normalize token: URL-decode & strip wrapping quotes if any */
+  private normalize(token?: string): string | undefined {
+    if (!token) return undefined;
+    let v = token.trim();
+    // strip optional quotes set by some proxies
+    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+      v = v.slice(1, -1);
     }
-    return last;
+    try {
+      v = decodeURIComponent(v);
+    } catch {
+      // ignore decode errors; use raw
+    }
+    return v || undefined;
   }
 
+  /** Authorization: Bearer <token> (highest priority) */
   private extractFromAuthHeader(req: any): string | undefined {
     const hdr: string | undefined = req?.headers?.authorization;
     if (!hdr) return undefined;
     const [scheme, token] = hdr.split(' ');
-    if (scheme?.toLowerCase() === 'bearer' && token?.trim()) return token.trim();
+    if (scheme?.toLowerCase() === 'bearer') return this.normalize(token);
     return undefined;
+  }
+
+  /** Read the LAST occurrence of access_token from raw Cookie header */
+  private extractLastAccessTokenFromRawCookie(req: any): string | undefined {
+    const raw: string | undefined = req?.headers?.cookie;
+    if (!raw) return undefined;
+
+    // Robust parse without breaking on dots in JWT
+    // Split by ';' and keep the last pair where name === 'access_token'
+    let last: string | undefined;
+    for (const part of raw.split(';')) {
+      const [k, ...rest] = part.split('=');
+      if (!k) continue;
+      if (k.trim() === 'access_token') {
+        const value = rest.join('=').trim(); // preserve dots
+        if (value) last = value;
+      }
+    }
+    return this.normalize(last);
+  }
+
+  /** cookie-parser fallback (lowest priority because it may be the first/old cookie) */
+  private extractFromCookieObject(req: any): string | undefined {
+    const v = req?.cookies?.access_token;
+    return this.normalize(typeof v === 'string' ? v : undefined);
   }
 
   async canActivate(ctx: ExecutionContext) {
     const req = ctx.switchToHttp().getRequest();
 
-    // 1) Try parsed cookies
-    let token = this.extractFromCookieObject(req);
-
-    // 2) If missing or empty, read the LAST occurrence from raw Cookie header
-    if (!token) token = this.extractLastAccessTokenFromHeader(req);
-
-    // 3) Fall back to Authorization: Bearer
-    if (!token) token = this.extractFromAuthHeader(req);
+    // Priority: Bearer > last cookie in raw header > cookie-parser
+    let token =
+      this.extractFromAuthHeader(req) ||
+      this.extractLastAccessTokenFromRawCookie(req) ||
+      this.extractFromCookieObject(req);
 
     if (!token) {
       throw new UnauthorizedException('No token');
@@ -73,9 +86,11 @@ export class JwtCookieAuthGuard implements CanActivate {
     try {
       const payload = await this.jwt.verifyAsync<JwtPayload>(token, {
         secret: process.env.JWT_SECRET,
+        // tolerate tiny clock skews from proxies/containers
+        clockTolerance: 5,
       });
 
-      // Attach rich user info so controllers/services can rely on it
+      // Attach rich user info for downstream use
       (req as any).user = {
         id: payload.sub,
         role: payload.role,
@@ -85,7 +100,6 @@ export class JwtCookieAuthGuard implements CanActivate {
 
       return true;
     } catch {
-      // Token present but invalid/expired
       throw new UnauthorizedException('Invalid token');
     }
   }
