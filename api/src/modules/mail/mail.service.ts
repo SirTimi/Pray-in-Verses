@@ -24,7 +24,6 @@ export class MailService {
   private usingSendgrid = false;
 
   constructor() {
-    // Prefer SendGrid if key present (you can remove this block if you want SMTP-only)
     const sgKey = process.env.SENDGRID_API_KEY;
     if (sgKey) {
       try {
@@ -38,15 +37,13 @@ export class MailService {
     }
   }
 
-  /* ----------------------------------------------------------------
-   * Transport & config
-   * ---------------------------------------------------------------- */
+  /* ---------------------------- Config ---------------------------- */
+
   private get fromName(): string {
     return process.env.MAIL_FROM_NAME || 'Pray in Verses';
   }
 
   private get fromAddress(): string {
-    // Keep domain aligned with the SMTP user for SPF/DKIM/DMARC
     return process.env.MAIL_FROM || 'admin@prayinverses.com';
   }
 
@@ -54,18 +51,47 @@ export class MailService {
     return { name: this.fromName, address: this.fromAddress };
   }
 
+  /** Canonical base used to normalize links in emails */
+  private get linkBase(): string {
+    // Prefer MAIL_LINK_BASE so you can keep API/UI bases separate if needed.
+    return (
+      process.env.MAIL_LINK_BASE ||
+      process.env.APP_BASE_URL ||
+      process.env.WEB_BASE_URL ||
+      'https://prayinverses.com'
+    ).replace(/\/+$/, ''); // trim trailing slash
+  }
+
+  /** Ensure a link is absolute and not pointing at localhost. */
+  private normalizeLink(link: string): string {
+    if (!link) return this.linkBase;
+    try {
+      // Absolute?
+      const u = new URL(link, this.linkBase);
+      // If someone passed http://localhost... or 127.0.0.1, rewrite origin to linkBase
+      const host = (u.hostname || '').toLowerCase();
+      if (host === 'localhost' || host === '127.0.0.1') {
+        const base = new URL(this.linkBase);
+        u.protocol = base.protocol;
+        u.host = base.host; // hostname + port (if any)
+      }
+      return u.toString();
+    } catch {
+      // Not parseable → fall back to base + raw string
+      return `${this.linkBase}${link.startsWith('/') ? link : `/${link}`}`;
+    }
+  }
+
   /** Build & cache a Nodemailer transporter from env (cPanel-friendly). */
   private getTransporter(): nodemailer.Transporter {
     if (this.transport) return this.transport;
 
-    // Option 1: SMTP_URL
     const url = process.env.SMTP_URL;
     if (url) {
       this.transport = nodemailer.createTransport(url, {
         pool: true,
         maxConnections: 5,
         maxMessages: 100,
-        // timeouts (ms)
         connectionTimeout: 20_000,
         greetingTimeout: 15_000,
         socketTimeout: 30_000,
@@ -74,12 +100,9 @@ export class MailService {
       return this.transport;
     }
 
-    // Option 2: HOST/PORT/SECURE
     const host = process.env.SMTP_HOST || '';
     const port = Number(process.env.SMTP_PORT || 465);
-    const secure =
-      String(process.env.SMTP_SECURE ?? (port === 465 ? 'true' : 'false')) === 'true';
-
+    const secure = String(process.env.SMTP_SECURE ?? (port === 465 ? 'true' : 'false')) === 'true';
     const user = process.env.SMTP_USER || '';
     const pass = process.env.SMTP_PASS || '';
 
@@ -88,25 +111,22 @@ export class MailService {
     this.transport = nodemailer.createTransport({
       host,
       port,
-      secure, // cPanel SSL: 465 = true, STARTTLS 587 = false
+      secure,
       auth: user && pass ? { user, pass } : undefined,
       pool: true,
       maxConnections: 5,
       maxMessages: 100,
-      // Defensive timeouts
       connectionTimeout: 20_000,
       greetingTimeout: 15_000,
       socketTimeout: 30_000,
     });
 
     this.logger.log(
-      `MailService: using SMTP host=${host} port=${port} secure=${secure ? 'true' : 'false'} (pooled)`
+      `MailService: using SMTP host=${host} port=${port} secure=${secure ? 'true' : 'false'} (pooled)`,
     );
-
     return this.transport;
   }
 
-  /** Optional: Call once at boot to verify SMTP connectivity. */
   async verify(): Promise<boolean> {
     if (this.usingSendgrid) return true;
     try {
@@ -119,21 +139,28 @@ export class MailService {
     }
   }
 
-  /* ----------------------------------------------------------------
-   * Core send
-   * ---------------------------------------------------------------- */
+  /* ----------------------------- Send ----------------------------- */
+
   private toPlainAddress(a: Address): { name?: string; email: string } {
     if (typeof a === 'string') return { email: a };
     return { name: a.name, email: a.address };
   }
 
+  private htmlToText(html: string): string {
+    return html
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<\/(p|div|h\d|li)>/gi, '\n')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
   async send(opts: SendOptions): Promise<void> {
     const from = opts.from || this.defaultFrom;
-
-    // Enforce a text fallback (helps deliverability)
     const text = opts.text ?? this.htmlToText(opts.html);
 
-    // SendGrid path
     if (this.usingSendgrid) {
       try {
         const toArray = Array.isArray(opts.to) ? opts.to : [opts.to];
@@ -149,14 +176,11 @@ export class MailService {
         return;
       } catch (e: any) {
         this.logger.error(`SendGrid send failed: ${e?.message || e}`);
-        if (e?.response?.body) {
-          this.logger.error(`SendGrid response: ${JSON.stringify(e.response.body)}`);
-        }
+        if (e?.response?.body) this.logger.error(`SendGrid response: ${JSON.stringify(e.response.body)}`);
         // fall through to SMTP
       }
     }
 
-    // SMTP path
     try {
       const tx = this.getTransporter();
       const info = await tx.sendMail({
@@ -174,87 +198,68 @@ export class MailService {
     }
   }
 
-  private htmlToText(html: string): string {
-    // Very small, safe, no-deps fallback. You can swap for a richer HTML->text later.
-    return html
-      .replace(/<style[\s\S]*?<\/style>/gi, '')
-      .replace(/<script[\s\S]*?<\/script>/gi, '')
-      .replace(/<\/(p|div|h\d|li)>/gi, '\n')
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<[^>]+>/g, '')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
-  }
+  /* ------------------------- Templated mail ------------------------ */
 
-  /* ----------------------------------------------------------------
-   * Templated messages (expand as needed)
-   * ---------------------------------------------------------------- */
-
-  /** Invite email */
   async sendInvite(to: string, link: string, role: string) {
+    const safeLink = this.normalizeLink(link);
     const subject = 'Your Pray in Verses invite';
     const html = this.frame(`
-      <p>You’ve been invited to join <b>Pray in Verses</b> as <b>${this.escape(
-        role
-      )}</b>.</p>
+      <p>You’ve been invited to join <b>Pray in Verses</b> as <b>${this.escape(role)}</b>.</p>
       <p>Click to accept your invite:</p>
-      <p><a href="${this.escape(link)}">${this.escape(link)}</a></p>
+      <p><a href="${this.escape(safeLink)}">${this.escape(safeLink)}</a></p>
       <p>This link will expire soon.</p>
     `);
-
-    await this.send({ to, subject, html });
+    await this.send({ to, subject, html, text: `Accept your invite:\n${safeLink}\n` });
   }
 
-  /** Password reset */
   async sendPasswordReset(to: string, link: string) {
+    const safeLink = this.normalizeLink(link);
     const subject = 'Reset your Pray in Verses password';
     const html = this.frame(`
       <p>Hello,</p>
       <p>We received a request to reset your password. Click the button below to set a new one:</p>
-      <p><a href="${this.escape(link)}" style="display:inline-block;background:#0C2E8A;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;">Reset Password</a></p>
+      <p><a href="${this.escape(
+        safeLink,
+      )}" style="display:inline-block;background:#0C2E8A;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;">Reset Password</a></p>
       <p>If you didn’t request this, you can safely ignore this email.</p>
     `);
-
-    await this.send({ to, subject, html });
+    await this.send({ to, subject, html, text: `Reset your password:\n${safeLink}\n` });
   }
 
-  /** Email verification (use for signup) */
   async sendVerification(to: string, link: string) {
+    const safeLink = this.normalizeLink(link);
     const subject = 'Verify your email';
     const html = this.frame(`
       <p>Welcome to <b>Pray in Verses</b>!</p>
       <p>Please verify your email to finish setting up your account.</p>
-      <p><a href="${this.escape(link)}" style="display:inline-block;background:#0C2E8A;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;">Verify Email</a></p>
+      <p><a href="${this.escape(
+        safeLink,
+      )}" style="display:inline-block;background:#0C2E8A;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;">Verify Email</a></p>
     `);
-
-    await this.send({ to, subject, html });
+    await this.send({ to, subject, html, text: `Verify your email:\n${safeLink}\n` });
   }
 
-  /** Notify prayer owner when someone comments */
   async notifyCommentOwner(ownerEmail: string, commenterName: string, prayerTitle: string, link: string) {
+    const safeLink = this.normalizeLink(link);
     const subject = 'New comment on your prayer request';
     const html = this.frame(`
       <p><b>${this.escape(commenterName || 'Someone')}</b> commented on your prayer request:</p>
       <p style="margin:8px 0;padding:10px;background:#F8FAFC;border-radius:6px;color:#0C2E8A;"><b>${this.escape(
-        prayerTitle || 'Your prayer'
+        prayerTitle || 'Your prayer',
       )}</b></p>
-      <p><a href="${this.escape(link)}" style="display:inline-block;background:#0C2E8A;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;">View comment</a></p>
+      <p><a href="${this.escape(
+        safeLink,
+      )}" style="display:inline-block;background:#0C2E8A;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;">View comment</a></p>
     `);
-
-    await this.send({ to: ownerEmail, subject, html });
+    await this.send({ to: ownerEmail, subject, html, text: `View comment:\n${safeLink}\n` });
   }
 
-  /* ----------------------------------------------------------------
-   * Tiny helpers
-   * ---------------------------------------------------------------- */
+  /* --------------------------- Helpers ---------------------------- */
+
   private escape(s: string): string {
-    return String(s)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
-  /** Branded frame around inner HTML */
   private frame(inner: string): string {
     const brand = this.fromName;
     return `
