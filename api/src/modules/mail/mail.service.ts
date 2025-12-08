@@ -70,7 +70,7 @@ export class MailService {
       const u = new URL(link, this.linkBase);
       // If someone passed http://localhost... or 127.0.0.1, rewrite origin to linkBase
       const host = (u.hostname || '').toLowerCase();
-      if (host === 'localhost' || host === '127.0.0.1') {
+      if (host === 'localhost:3000' || host === '127.0.0.1:3000') {
         const base = new URL(this.linkBase);
         u.protocol = base.protocol;
         u.host = base.host; // hostname + port (if any)
