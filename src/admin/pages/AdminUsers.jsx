@@ -2,7 +2,7 @@ import React from "react";
 import { api } from "../api";
 import toast from "react-hot-toast";
 
-const ROLES = ["EDITOR", "MODERATOR", "SUPER_ADMIN"];
+const ROLES = ["USER", "EDITOR", "MODERATOR", "SUPER_ADMIN"];
 
 export default function AdminUsers() {
   const [loading, setLoading] = React.useState(true);
