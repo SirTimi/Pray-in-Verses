@@ -116,8 +116,8 @@ async function lookupUsersByIds(ids) {
   if (!ids || ids.length === 0) return new Map();
   const qs = `?ids=${encodeURIComponent(ids.join(","))}`;
   const candidates = [
-    `/users/lookup${qs}`,
     `/identity/lookup${qs}`,
+    `/users/lookup${qs}`,
     `/admin/users/lookup${qs}`, // may 401/403 for normal users; we soft-fail
   ];
   for (const path of candidates) {
