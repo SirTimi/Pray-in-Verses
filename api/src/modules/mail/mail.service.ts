@@ -1,3 +1,4 @@
+// src/mail/mail.service.ts
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import * as SendGridNS from '@sendgrid/mail';
@@ -51,34 +52,60 @@ export class MailService {
     return { name: this.fromName, address: this.fromAddress };
   }
 
-  /** Canonical base used to normalize links in emails */
+  /**
+   * Canonical base used to normalize links in emails.
+   * - Prefers MAIL_LINK_BASE
+   * - Strips any port
+   * - Removes trailing slash
+   */
   private get linkBase(): string {
-    // Prefer MAIL_LINK_BASE so you can keep API/UI bases separate if needed.
-    return (
+    const raw =
       process.env.MAIL_LINK_BASE ||
       process.env.APP_BASE_URL ||
       process.env.WEB_BASE_URL ||
-      'https://prayinverses.com'
-    ).replace(/\/+$/, ''); // trim trailing slash
+      'https://prayinverses.com';
+
+    try {
+      const u = new URL(raw);
+      // Force no port in emails
+      u.port = '';
+      return u.toString().replace(/\/+$/, '');
+    } catch {
+      return 'https://prayinverses.com';
+    }
   }
 
-  /** Ensure a link is absolute and not pointing at localhost. */
+  /**
+   * Ensure a link is absolute, uses the linkBase origin (protocol + hostname),
+   * and has NO port (so no :3000 ever leaks).
+   */
   private normalizeLink(link: string): string {
-    if (!link) return this.linkBase;
     try {
-      // Absolute?
-      const u = new URL(link, this.linkBase);
-      // If someone passed http://localhost... or 127.0.0.1, rewrite origin to linkBase
-      const host = (u.hostname || '').toLowerCase();
-      if (host === 'localhost:3000' || host === '127.0.0.1:3000') {
-        const base = new URL(this.linkBase);
+      const base = new URL(this.linkBase);
+      const u = new URL(link || '/', base);
+
+      // If incoming host is localhost/127.*, override to canonical domain
+      const hostLower = (u.hostname || '').toLowerCase();
+      if (
+        hostLower === 'localhost' ||
+        hostLower === '127.0.0.1' ||
+        hostLower.endsWith('.local')
+      ) {
         u.protocol = base.protocol;
-        u.host = base.host; // hostname + port (if any)
+        u.hostname = base.hostname;
       }
+
+      // Always strip port and enforce protocol/hostname from base
+      u.protocol = base.protocol;
+      u.hostname = base.hostname;
+      u.port = '';
+
       return u.toString();
     } catch {
-      // Not parseable → fall back to base + raw string
-      return `${this.linkBase}${link.startsWith('/') ? link : `/${link}`}`;
+      // Fallback: join to base safely
+      const base = this.linkBase;
+      if (!link) return base;
+      return `${base}${link.startsWith('/') ? link : `/${link}`}`;
     }
   }
 
