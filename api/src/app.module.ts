@@ -11,6 +11,8 @@ import { PrayerWallModule } from './modules/prayer-wall/prayer-wall.module';
 import { MyPrayersModule } from './modules/my-prayers/my-prayers.module';
 import { StatsModule } from './modules/stats/stats.module';
 import { HealthModule } from './health/health.module';
+import { IdentityModule } from './modules/identity/identity.module';
+
 @Module({
   imports: [
     PrismaModule,
@@ -25,6 +27,7 @@ import { HealthModule } from './health/health.module';
     MyPrayersModule,
     StatsModule,
     HealthModule,
+    IdentityModule,
   ],
 })
 export class AppModule {}
