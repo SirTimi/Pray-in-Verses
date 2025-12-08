@@ -19,7 +19,7 @@ export class IdentityController {
 
     const users = await this.prisma.user.findMany({
       where: { id: { in: ids } },
-      select: { id: true, displayName: true, name: true },
+      select: { id: true, displayName: true },
     });
 
     // Build a sparse map: id -> { id, displayName }
@@ -27,7 +27,7 @@ export class IdentityController {
     for (const u of users) {
       map[u.id] = {
         id: u.id,
-        displayName: u.displayName || u.name || '—',
+        displayName: u.displayName || '—',
       };
     }
     return { map };
