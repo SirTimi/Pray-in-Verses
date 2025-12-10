@@ -216,3 +216,16 @@ model PasswordReset {
   @@index([userId])
   @@index([tokenHash])
 }
+
+model Donation {
+  id           String   @id @default(cuid())
+  reference    String   @unique
+  email        String
+  amountNGN    Int      // store kobo or naira? choose one; see note below
+  currency     String   @default("NGN")
+  status       String   @default("initialized") // initialized | pending | success | failed | abandoned
+  metadata     Json?
+  gatewayRaw   Json?
+  createdAt    DateTime @default(now())
+  paidAt       DateTime?
+}

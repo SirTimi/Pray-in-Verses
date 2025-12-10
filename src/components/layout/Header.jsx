@@ -13,14 +13,17 @@ import {
   ChevronDown,
   Users,
   CheckCircle2,
+  HeartHandshake,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuthStore } from "../../store";
-import logo from "../../assets/images/prayinverse2.png";
+
+const RAW_BASE = (import.meta.env.VITE_API_BASE ?? "/api").trim();
+const API_BASE = RAW_BASE.replace(/\/$/, "");
+const apiURL = (path) => `${API_BASE}${path.startsWith("/") ? path : "/" + path}`;
 
 export default function Header() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [aboutOpen, setAboutOpen] = useState(false);
   const [prayerWallOpen, setPrayerWallOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -30,36 +33,44 @@ export default function Header() {
   const location = useLocation();
   const { user } = useAuthStore();
 
+  // ---------------- Donate modal state ----------------
+  const [donateOpen, setDonateOpen] = useState(false);
+  const [donorName, setDonorName] = useState("");
+  const [donorEmail, setDonorEmail] = useState("");
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const [donateBusy, setDonateBusy] = useState(false);
+  const quickAmounts = [1000, 2000, 5000, 10000];
+
   /**
    * Get current user data from multiple sources with fallbacks
    */
   const getCurrentUser = () => {
-    if (user && user.id && user.name) {
-      return user;
+    if (user && user.id && (user.name || user.displayName || user.email)) {
+      return {
+        id: user.id,
+        name: user.name || user.displayName || "User",
+        email: user.email,
+      };
     }
 
     const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
-    if (currentUser.id && currentUser.name) {
+    if (currentUser.id && (currentUser.name || currentUser.email)) {
       return currentUser;
     }
 
     const legacyUserName = localStorage.getItem("userName");
     const legacyUserEmail = localStorage.getItem("userEmail");
-
-    if (legacyUserName && legacyUserEmail) {
+    if (legacyUserName || legacyUserEmail) {
       const users = JSON.parse(localStorage.getItem("users") || "[]");
-      const foundUser = users.find(
-        (u) => u.email.toLowerCase() === legacyUserEmail.toLowerCase()
-      );
-
-      if (foundUser) {
-        return foundUser;
-      }
-
+      const foundUser =
+        legacyUserEmail &&
+        users.find((u) => u.email?.toLowerCase() === legacyUserEmail.toLowerCase());
+      if (foundUser) return foundUser;
       return {
-        name: legacyUserName,
-        email: legacyUserEmail,
-        id: legacyUserEmail,
+        name: legacyUserName || "User",
+        email: legacyUserEmail || undefined,
+        id: legacyUserEmail || legacyUserName || "local-user",
       };
     }
 
@@ -75,19 +86,19 @@ export default function Header() {
     if (currentUser) {
       setUserName(currentUser.name || "User");
 
+      // prefill donate fields once
+      setDonorName((prev) => prev || currentUser.name || "");
+      setDonorEmail((prev) => prev || currentUser.email || "");
+
       const userId = currentUser.id || currentUser.email;
       let savedProfileImage = null;
 
       if (userId) {
         savedProfileImage = localStorage.getItem(`profileImage_${userId}`);
       }
-
       if (!savedProfileImage && currentUser.email) {
-        savedProfileImage = localStorage.getItem(
-          `profileImage_${currentUser.email}`
-        );
+        savedProfileImage = localStorage.getItem(`profileImage_${currentUser.email}`);
       }
-
       if (!savedProfileImage) {
         savedProfileImage = localStorage.getItem("profileImage");
       }
@@ -120,8 +131,6 @@ export default function Header() {
     ][now.getDay()];
 
     const newNotifications = [];
-
-    // Filter active reminders for today
     const todayReminders = reminders.filter(
       (r) => r.isActive && r.days && r.days.includes(currentDay)
     );
@@ -133,11 +142,9 @@ export default function Header() {
       const reminderTime = hours * 60 + minutes;
       const timeDiff = reminderTime - currentTime;
 
-      // Create notification for reminders within the next 60 minutes
       if (timeDiff > 0 && timeDiff <= 60) {
         const notifId = `reminder_${reminder.id}_${now.toDateString()}`;
         const isRead = readNotifications.includes(notifId);
-
         newNotifications.push({
           id: notifId,
           title: "Upcoming Prayer Reminder",
@@ -147,12 +154,9 @@ export default function Header() {
           read: isRead,
           type: "reminder",
         });
-      }
-      // Show notification for reminders that are happening now (within 5 minutes)
-      else if (timeDiff >= -5 && timeDiff <= 0) {
+      } else if (timeDiff >= -5 && timeDiff <= 0) {
         const notifId = `reminder_now_${reminder.id}_${now.toDateString()}`;
         const isRead = readNotifications.includes(notifId);
-
         newNotifications.push({
           id: notifId,
           title: "Prayer Time Now!",
@@ -165,7 +169,6 @@ export default function Header() {
       }
     });
 
-    // Add sample static notifications
     const staticNotifications = [
       {
         id: "static_1",
@@ -187,7 +190,6 @@ export default function Header() {
       },
     ];
 
-    // Combine and sort notifications (unread first, then by time)
     const allNotifications = [...newNotifications, ...staticNotifications];
     allNotifications.sort((a, b) => {
       if (a.read !== b.read) return a.read ? 1 : -1;
@@ -209,9 +211,6 @@ export default function Header() {
     return `${hour12}:${minutes} ${ampm}`;
   };
 
-  /**
-   * Initialize and listen for profile updates
-   */
   useEffect(() => {
     updateProfileData();
 
@@ -240,19 +239,10 @@ export default function Header() {
     };
   }, [user]);
 
-  /**
-   * Initialize and update notifications
-   */
   useEffect(() => {
     generateNotificationsFromReminders();
-
-    // Update notifications every minute to keep them fresh
     const interval = setInterval(generateNotificationsFromReminders, 60000);
-
-    // Listen for reminder updates
-    const handleReminderUpdate = () => {
-      generateNotificationsFromReminders();
-    };
+    const handleReminderUpdate = () => generateNotificationsFromReminders();
 
     window.addEventListener("reminderUpdated", handleReminderUpdate);
 
@@ -269,13 +259,8 @@ export default function Header() {
       localStorage.getItem("readNotifications") || "[]"
     );
     const allNotifIds = notifications.map((n) => n.id);
-    const updatedReadNotifs = [
-      ...new Set([...readNotifications, ...allNotifIds]),
-    ];
-    localStorage.setItem(
-      "readNotifications",
-      JSON.stringify(updatedReadNotifs)
-    );
+    const updatedReadNotifs = [...new Set([...readNotifications, ...allNotifIds])];
+    localStorage.setItem("readNotifications", JSON.stringify(updatedReadNotifs));
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   };
 
@@ -285,10 +270,7 @@ export default function Header() {
     );
     if (!readNotifications.includes(id)) {
       readNotifications.push(id);
-      localStorage.setItem(
-        "readNotifications",
-        JSON.stringify(readNotifications)
-      );
+      localStorage.setItem("readNotifications", JSON.stringify(readNotifications));
     }
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
@@ -313,19 +295,8 @@ export default function Header() {
 
   const sidebarItems = [
     { id: "dashboard", title: "Dashboard", icon: Home, path: "/home" },
-
-    {
-      id: "browse-prayers",
-      title: "Browse Prayers",
-      icon: BookMarked,
-      path: "/browse-prayers",
-    },
-    {
-      id: "saved-prayers",
-      title: "Saved Prayer (s)",
-      icon: BookmarkCheck,
-      path: "/saved-prayers",
-    },
+    { id: "browse-prayers", title: "Browse Prayers", icon: BookMarked, path: "/browse-prayers" },
+    { id: "saved-prayers", title: "Saved Prayer (s)", icon: BookmarkCheck, path: "/saved-prayers" },
     {
       id: "prayer-wall",
       title: "Prayer Wall",
@@ -334,39 +305,61 @@ export default function Header() {
       hasDropdown: true,
     },
     { id: "journal", title: "My Journal", icon: BookOpen, path: "/journal" },
-    {
-      id: "answered-prayers",
-      title: "Answered Prayer",
-      icon: BookmarkCheck,
-      path: "/answered-prayers",
-    },
-    {
-      id: "reminder",
-      title: "Prayer Reminder",
-      icon: Clock,
-      path: "/reminders",
-    },
-
-    {
-      id: "bookmarks",
-      title: "Bookmarks",
-      icon: BookMarked,
-      path: "/bookmarks",
-    },
-    {
-      id: "history",
-      title: "History",
-      icon: Clock,
-      path: "/history",
-    },
-    {
-      id: "about",
-      title: "About PIV",
-      icon: Info,
-      path: "/about",
-    },
+    { id: "answered-prayers", title: "Answered Prayer", icon: BookmarkCheck, path: "/answered-prayers" },
+    { id: "reminder", title: "Prayer Reminder", icon: Clock, path: "/reminders" },
+    { id: "bookmarks", title: "Bookmarks", icon: BookMarked, path: "/bookmarks" },
+    { id: "history", title: "History", icon: Clock, path: "/history" },
+    { id: "about", title: "About PIV", icon: Info, path: "/about" },
     { id: "profile", title: "Profile", icon: User, path: "/profile" },
+    // Optional donate entry in sidebar (opens modal)
+    { id: "donate", title: "Donate", icon: HeartHandshake, path: "#donate" },
   ];
+
+  // ---------------- Donation actions ----------------
+  async function startDonation(e) {
+    e?.preventDefault?.();
+    const amt = Number(amount);
+    if (!donorEmail || !/\S+@\S+\.\S+/.test(donorEmail)) {
+      alert("Enter a valid email.");
+      return;
+    }
+    if (!amt || amt < 100) {
+      alert("Enter a valid amount (minimum ₦100).");
+      return;
+    }
+    setDonateBusy(true);
+    try {
+      const res = await fetch(apiURL("/donations/initialize"), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: amt, // NGN
+          email: donorEmail,
+          name: donorName || undefined,
+          message: note || undefined,
+          // You can add a `redirectUrl` here if your backend supports it.
+        }),
+      });
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(t || `Failed to initialize donation (${res.status})`);
+      }
+      const data = await res.json();
+      const url =
+        data?.authorization_url ||
+        data?.data?.authorization_url ||
+        data?.data?.auth_url ||
+        data?.url;
+      if (!url) throw new Error("No authorization_url returned from server.");
+      window.location.href = url;
+    } catch (err) {
+      console.error(err);
+      alert("Could not start donation. Please try again.");
+    } finally {
+      setDonateBusy(false);
+    }
+  }
 
   return (
     <>
@@ -385,22 +378,18 @@ export default function Header() {
           </Link>
         </div>
 
-        {/* Middle: Search */}
-        {/* <div className="hidden md:flex flex-1 max-w-lg mx-4 relative">
-          <div className="relative w-full">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search verse, book, keyword..."
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 transition-all duration-200"
-            />
-          </div>
-        </div> */}
-
-        {/* Right: Notifications + User */}
+        {/* Right: Donate + Notifications + User */}
         <div className="flex items-center space-x-3 relative">
+          {/* Donate Button */}
+          <button
+            onClick={() => setDonateOpen(true)}
+            className="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#FCCF3A] text-[#0C2E8A] font-semibold hover:opacity-95 transition"
+            title="Support the mission"
+          >
+            <HeartHandshake className="w-4 h-4" />
+            Donate
+          </button>
+
           {/* Notification Bell */}
           <button
             onClick={() => setNotifOpen((n) => !n)}
@@ -419,9 +408,7 @@ export default function Header() {
           {notifOpen && (
             <div className="notification-dropdown absolute right-0 top-12 w-80 bg-white shadow-2xl rounded-xl border border-gray-200 z-50">
               <div className="flex justify-between items-center px-4 py-3 border-b border-gray-100">
-                <h3 className="text-sm font-semibold text-gray-700">
-                  Notifications
-                </h3>
+                <h3 className="text-sm font-semibold text-gray-700">Notifications</h3>
                 {unreadCount > 0 && (
                   <button
                     onClick={markAllRead}
@@ -478,11 +465,7 @@ export default function Header() {
           <Link to="/profile" className="relative group">
             <div className="w-10 h-10 rounded-full overflow-hidden hover:shadow-lg transition-shadow duration-200 border-2 border-transparent hover:border-blue-200">
               {profileImage ? (
-                <img
-                  src={profileImage}
-                  alt={userName}
-                  className="w-full h-full object-cover"
-                />
+                <img src={profileImage} alt={userName} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
                   <User className="w-5 h-5 text-white" />
@@ -512,7 +495,25 @@ export default function Header() {
                 item.path !== "#" &&
                 item.path !== "#about" &&
                 item.path !== "#prayer-wall" &&
+                item.path !== "#donate" &&
                 location.pathname === item.path;
+
+              if (item.id === "donate") {
+                return (
+                  <li key={item.id} className="w-full px-2">
+                    <button
+                      onClick={() => {
+                        setDonateOpen(true);
+                        setSidebarOpen(false);
+                      }}
+                      className="w-full flex gap-2 pl-3 items-center py-2 transition-all duration-200 rounded-md text-white hover:bg-[#FCCF3A] hover:text-[#0C2E8A]"
+                    >
+                      <Icon size={14} />
+                      <span className="text-xs">Donate</span>
+                    </button>
+                  </li>
+                );
+              }
 
               if (item.hasDropdown) {
                 if (item.id === "about") {
@@ -528,7 +529,7 @@ export default function Header() {
                         }`}
                       >
                         <Icon size={14} />
-                        <span className="text-xs">{item.title}</span>
+                        <span className="text-xs">About PIV</span>
                       </Link>
                     </li>
                   );
@@ -541,9 +542,7 @@ export default function Header() {
                         onClick={() => setPrayerWallOpen((prev) => !prev)}
                         className={`w-full flex items-center justify-between gap-2 px-3 py-2 transition-all duration-200 hover:bg-[#FCCF3A] hover:text-[#0C2E8A] rounded-md ${
                           prayerWallOpen ||
-                          ["/prayer-wall", "/my-prayer-point"].includes(
-                            location.pathname
-                          )
+                          ["/prayer-wall", "/my-prayer-point"].includes(location.pathname)
                             ? "text-white font-semibold"
                             : "text-white"
                         }`}
@@ -628,6 +627,119 @@ export default function Header() {
           className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
+      )}
+
+      {/* Donate Modal */}
+      {donateOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
+            <div className="px-5 py-4 bg-gradient-to-r from-[#0C2E8A] to-blue-700 text-white">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold">Support Pray in Verses</h3>
+                <button
+                  onClick={() => setDonateOpen(false)}
+                  className="text-white/80 hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="text-sm text-white/90 mt-1">
+                Your donation helps us reach more people with God’s word and prayer.
+              </p>
+            </div>
+
+            <form onSubmit={startDonation} className="p-5 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Name (optional)
+                  </label>
+                  <input
+                    value={donorName}
+                    onChange={(e) => setDonorName(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#0C2E8A] focus:border-transparent"
+                    placeholder="Your name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={donorEmail}
+                    onChange={(e) => setDonorEmail(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#0C2E8A] focus:border-transparent"
+                    placeholder="you@example.com"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-2">
+                  Amount (NGN) *
+                </label>
+                <div className="flex gap-2 mb-2">
+                  {quickAmounts.map((a) => (
+                    <button
+                      type="button"
+                      key={a}
+                      onClick={() => setAmount(String(a))}
+                      className={`px-3 py-1.5 rounded-lg border text-sm ${
+                        Number(amount) === a
+                          ? "bg-[#0C2E8A] text-white border-[#0C2E8A]"
+                          : "bg-white text-gray-800 border-gray-200 hover:bg-gray-50"
+                      }`}
+                    >
+                      ₦{a.toLocaleString()}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  inputMode="numeric"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ""))}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#0C2E8A] focus:border-transparent"
+                  placeholder="e.g. 2000"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Minimum ₦100. You’ll be redirected to Paystack to complete payment.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Note (optional)
+                </label>
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#0C2E8A] focus:border-transparent"
+                  placeholder="Leave a prayer or note (optional)"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDonateOpen(false)}
+                  className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={donateBusy}
+                  className="px-4 py-2 rounded-lg bg-[#FCCF3A] text-[#0C2E8A] font-semibold hover:opacity-95 disabled:opacity-70"
+                >
+                  {donateBusy ? "Starting…" : "Donate"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </>
   );
