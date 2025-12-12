@@ -26,9 +26,9 @@ export default function PrivacyPolicy() {
   ];
 
   return (
-    <div className="min-h-screen bg-white text-slate-800">
+    <div className="min-h-screen bg-white text-slate-800 pt-24 pl-0 lg:pl-[224px]">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-white/80 backdrop-blur border-b border-slate-200">
+      <header className="sticky top-16 lg:top-0 z-10 bg-white/80 backdrop-blur border-b border-slate-200">
         <div className="mx-auto max-w-4xl px-4 py-4 flex items-center justify-between">
           <h1 className="text-lg md:text-xl font-semibold text-[#0C2E8A]">
             Pray in Verses — Privacy Policy
@@ -39,10 +39,7 @@ export default function PrivacyPolicy() {
         </div>
       </header>
 
-      {/* Prevent overlap with any fixed global header (add top padding if needed) */}
-      <div className="pt-4 md:pt-6" />
-
-      <main className="mx-auto max-w-4xl px-4 pb-24">
+      <main className="mx-auto max-w-4xl px-4 py-8">
         {/* Intro */}
         <section id="intro" className="prose max-w-none">
           <p className="text-sm text-slate-600">
@@ -237,7 +234,7 @@ export default function PrivacyPolicy() {
         </section>
 
         {/* 11. Contact */}
-        <section id="contact" className="prose max-w-none mt-8">
+        <section id="contact" className="prose max-w-none mt-8 mb-24">
           <h2 className="text-base font-semibold text-[#0C2E8A]">11. Contact Us</h2>
           <p className="text-sm">
             Questions or privacy requests? Contact:
@@ -260,8 +257,8 @@ export default function PrivacyPolicy() {
         </section>
       </main>
 
-      {/* Footer actions (sticky) */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur border-t border-slate-200">
+      {/* Footer (avoids sidebar on lg) */}
+      <div className="fixed bottom-0 left-0 right-0 lg:left-[224px] bg-white/90 backdrop-blur border-t border-slate-200">
         <div className="mx-auto max-w-4xl px-4 py-3 flex items-center justify-between gap-3">
           <Link
             to={from}

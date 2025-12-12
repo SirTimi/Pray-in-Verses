@@ -28,9 +28,9 @@ export default function TermsOfService() {
   ];
 
   return (
-    <div className="min-h-screen bg-white text-slate-800">
+    <div className="min-h-screen bg-white text-slate-800 pt-24 pl-0 lg:pl-[224px]">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-white/80 backdrop-blur border-b border-slate-200">
+      <header className="sticky top-16 lg:top-0 z-10 bg-white/80 backdrop-blur border-b border-slate-200">
         <div className="mx-auto max-w-4xl px-4 py-4 flex items-center justify-between">
           <h1 className="text-lg md:text-xl font-semibold text-[#0C2E8A]">
             Pray in Verses — Terms of Service
@@ -39,8 +39,8 @@ export default function TermsOfService() {
         </div>
       </header>
 
-      {/* Content (with top padding so it never hides under any fixed header/sidebar) */}
-      <main className="mx-auto max-w-4xl px-4 py-8 lg:pt-10">
+      {/* Content */}
+      <main className="mx-auto max-w-4xl px-4 py-8">
         {/* Intro */}
         <section className="prose max-w-none">
           <p className="text-sm text-slate-600">
@@ -65,7 +65,7 @@ export default function TermsOfService() {
           </ul>
         </nav>
 
-        {/* 1. Eligibility */}
+        {/* Sections */}
         <section id="eligibility" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">1. Eligibility</h2>
           <ul className="text-sm leading-6 list-disc pl-5">
@@ -78,7 +78,6 @@ export default function TermsOfService() {
           </ul>
         </section>
 
-        {/* 2. Use of the Service */}
         <section id="use" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">2. Use of the Service</h2>
           <p className="text-sm">
@@ -96,7 +95,6 @@ export default function TermsOfService() {
           </ul>
         </section>
 
-        {/* 3. Accounts */}
         <section id="accounts" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">3. Accounts</h2>
           <p className="text-sm">
@@ -106,7 +104,6 @@ export default function TermsOfService() {
           </p>
         </section>
 
-        {/* 4. Donations */}
         <section id="donations" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">4. Donations (Optional)</h2>
           <ul className="text-sm leading-6 list-disc pl-5">
@@ -121,7 +118,6 @@ export default function TermsOfService() {
           </ul>
         </section>
 
-        {/* 5. User Content */}
         <section id="user-content" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">5. User Content</h2>
           <p className="text-sm">
@@ -133,7 +129,6 @@ export default function TermsOfService() {
           </p>
         </section>
 
-        {/* 6. IP */}
         <section id="ip" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">6. Intellectual Property</h2>
           <p className="text-sm">
@@ -143,7 +138,6 @@ export default function TermsOfService() {
           </p>
         </section>
 
-        {/* 7. Availability */}
         <section id="availability" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">7. Service Availability</h2>
           <p className="text-sm">
@@ -153,7 +147,6 @@ export default function TermsOfService() {
           </p>
         </section>
 
-        {/* 8. Warranty */}
         <section id="warranty" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">8. Disclaimer of Warranties</h2>
           <p className="text-sm">
@@ -163,7 +156,6 @@ export default function TermsOfService() {
           </p>
         </section>
 
-        {/* 9. Liability */}
         <section id="liability" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">9. Limitation of Liability</h2>
           <p className="text-sm">
@@ -175,7 +167,6 @@ export default function TermsOfService() {
           </p>
         </section>
 
-        {/* 10. Termination */}
         <section id="termination" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">10. Termination</h2>
           <p className="text-sm">
@@ -186,7 +177,6 @@ export default function TermsOfService() {
           </p>
         </section>
 
-        {/* 11. Third-Party Services */}
         <section id="third-party" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">11. Third-Party Services</h2>
           <p className="text-sm">
@@ -197,7 +187,6 @@ export default function TermsOfService() {
           </p>
         </section>
 
-        {/* 12. Privacy */}
         <section id="privacy" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">12. Privacy</h2>
           <p className="text-sm">
@@ -206,7 +195,6 @@ export default function TermsOfService() {
           </p>
         </section>
 
-        {/* 13. Changes */}
         <section id="changes" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">13. Changes to These Terms</h2>
           <p className="text-sm">
@@ -217,7 +205,6 @@ export default function TermsOfService() {
           </p>
         </section>
 
-        {/* 14. Contact */}
         <section id="contact" className="prose max-w-none mt-8 mb-24">
           <h2 className="text-base font-semibold text-[#0C2E8A]">14. Contact Us</h2>
           <p className="text-sm">
@@ -241,8 +228,8 @@ export default function TermsOfService() {
         </section>
       </main>
 
-      {/* Footer actions (sticky) */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur border-t border-slate-200">
+      {/* Footer (avoids sidebar on lg) */}
+      <div className="fixed bottom-0 left-0 right-0 lg:left-[224px] bg-white/90 backdrop-blur border-t border-slate-200">
         <div className="mx-auto max-w-4xl px-4 py-3 flex items-center justify-between gap-3">
           <Link
             to={from}

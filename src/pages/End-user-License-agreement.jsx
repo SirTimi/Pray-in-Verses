@@ -7,7 +7,24 @@ const LAST_UPDATED =
 
 export default function Eula() {
   const nav = useNavigate();
-  const loc = useLocation();
+  const loc = // ...inside Eula.jsx, replace the footer block with:
+<div className="fixed bottom-0 left-0 right-0 lg:left-[224px] bg-white/90 backdrop-blur border-t border-slate-200">
+  <div className="mx-auto max-w-4xl px-4 py-3 flex items-center justify-between gap-3">
+    <Link
+      to={from}
+      className="text-sm px-3 py-2 rounded-md border border-slate-300 hover:bg-slate-50"
+    >
+      Back
+    </Link>
+    <button
+      onClick={() => nav(from + "?acceptedEula=1")}
+      className="text-sm px-4 py-2 rounded-md bg-[#0C2E8A] text-white hover:bg-blue-800"
+    >
+      I Agree
+    </button>
+  </div>
+</div>
+useLocation();
   const from = new URLSearchParams(loc.search).get("from") || "/welcome";
 
   const sections = [
@@ -215,22 +232,24 @@ export default function Eula() {
       </main>
 
       {/* Sticky Footer Actions */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur border-t border-slate-200">
-        <div className="mx-auto max-w-4xl px-4 py-3 flex items-center justify-between gap-3">
-          <Link
-            to={from}
-            className="text-sm px-3 py-2 rounded-md border border-slate-300 hover:bg-slate-50"
-          >
-            Back
-          </Link>
-          <button
-            onClick={() => nav(from + "?acceptedEula=1")}
-            className="text-sm px-4 py-2 rounded-md bg-[#0C2E8A] text-white hover:bg-blue-800"
-          >
-            I Agree
-          </button>
-        </div>
-      </div>
+      // ...inside Eula.jsx, replace the footer block with:
+<div className="fixed bottom-0 left-0 right-0 lg:left-[224px] bg-white/90 backdrop-blur border-t border-slate-200">
+  <div className="mx-auto max-w-4xl px-4 py-3 flex items-center justify-between gap-3">
+    <Link
+      to={from}
+      className="text-sm px-3 py-2 rounded-md border border-slate-300 hover:bg-slate-50"
+    >
+      Back
+    </Link>
+    <button
+      onClick={() => nav(from + "?acceptedEula=1")}
+      className="text-sm px-4 py-2 rounded-md bg-[#0C2E8A] text-white hover:bg-blue-800"
+    >
+      I Agree
+    </button>
+  </div>
+</div>
+
     </div>
   );
 }
