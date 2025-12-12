@@ -31,7 +31,7 @@ export default function PrivacyPolicy() {
       <header className="sticky top-16 lg:top-0 z-10 bg-white/80 backdrop-blur border-b border-slate-200">
         <div className="mx-auto max-w-4xl px-4 py-4 flex items-center justify-between">
           <h1 className="text-lg md:text-xl font-semibold text-[#0C2E8A]">
-            Pray in Verses — Privacy Policy
+            Pray in Verses - Privacy Policy
           </h1>
           <span className="text-xs text-slate-500">
             Last Updated: {LAST_UPDATED}
