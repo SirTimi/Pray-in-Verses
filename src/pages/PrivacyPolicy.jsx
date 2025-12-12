@@ -28,8 +28,8 @@ export default function PrivacyPolicy() {
   ];
 
   return (
-    <div className="min-h-screen bg-white text-slate-800">
-      {/* Header */}
+    <div className="min-h-screen bg-white text-slate-800 pt-24 pl-0 lg:pl-[224px]">
+      {/* Header (sticks within content area, not under the sidebar) */}
       <header className="sticky top-0 z-10 bg-white/80 backdrop-blur border-b border-slate-200">
         <div className="mx-auto max-w-4xl px-4 py-4 flex items-center justify-between">
           <h1 className="text-lg md:text-xl font-semibold text-[#0C2E8A]">
@@ -43,7 +43,7 @@ export default function PrivacyPolicy() {
 
       <main className="mx-auto max-w-4xl px-4 py-8">
         {/* Intro */}
-        <section id="intro" className="prose max-w-none">
+        <section id="intro" className="prose max-w-none scroll-mt-24">
           <p className="text-sm text-slate-600">
             Pray in Verses (“we,” “our,” “us”) is committed to protecting your
             privacy. This Privacy Policy explains how we collect, use, disclose,
@@ -60,10 +60,7 @@ export default function PrivacyPolicy() {
           <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
             {sections.map((s) => (
               <li key={s.id}>
-                <a
-                  href={`#${s.id}`}
-                  className="text-[#0C2E8A] hover:underline"
-                >
+                <a href={`#${s.id}`} className="text-[#0C2E8A] hover:underline">
                   {s.label}
                 </a>
               </li>
@@ -72,10 +69,11 @@ export default function PrivacyPolicy() {
         </nav>
 
         {/* 1. Information We Collect */}
-        <section id="info-we-collect" className="prose max-w-none">
+        <section id="info-we-collect" className="prose max-w-none mt-8 scroll-mt-24">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
             1. Information We Collect
           </h2>
+
           <h3 className="text-sm font-semibold mt-4">
             A. Personal Information You Provide
           </h3>
@@ -109,9 +107,7 @@ export default function PrivacyPolicy() {
             <li>Device Information (device model, OS version, browser type)</li>
             <li>Usage Data (pages viewed, time spent, navigation patterns)</li>
             <li>Log Data (IP address, timestamps, error logs)</li>
-            <li>
-              Cookies/Tracking (website): analytics and UX improvements
-            </li>
+            <li>Cookies/Tracking (website): analytics and UX improvements</li>
           </ul>
 
           <h3 className="text-sm font-semibold mt-4">
@@ -125,7 +121,7 @@ export default function PrivacyPolicy() {
         </section>
 
         {/* 2. Use of Info */}
-        <section id="use-of-info" className="prose max-w-none mt-8">
+        <section id="use-of-info" className="prose max-w-none mt-8 scroll-mt-24">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
             2. How We Use Your Information
           </h2>
@@ -142,7 +138,7 @@ export default function PrivacyPolicy() {
         </section>
 
         {/* 3. Legal Basis */}
-        <section id="legal-basis" className="prose max-w-none mt-8">
+        <section id="legal-basis" className="prose max-w-none mt-8 scroll-mt-24">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
             3. Legal Basis for Processing (For GDPR Regions)
           </h2>
@@ -155,11 +151,12 @@ export default function PrivacyPolicy() {
         </section>
 
         {/* 4. Sharing */}
-        <section id="sharing" className="prose max-w-none mt-8">
+        <section id="sharing" className="prose max-w-none mt-8 scroll-mt-24">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
             4. How We Share Information
           </h2>
           <p className="text-sm">We do not sell your personal information.</p>
+
           <h3 className="text-sm font-semibold mt-4">A. Service Providers</h3>
           <ul className="text-sm leading-6 list-disc pl-5">
             <li>Cloud storage</li>
@@ -185,7 +182,7 @@ export default function PrivacyPolicy() {
         </section>
 
         {/* 5. Payments */}
-        <section id="payments" className="prose max-w-none mt-8">
+        <section id="payments" className="prose max-w-none mt-8 scroll-mt-24">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
             5. Payment Processing
           </h2>
@@ -197,7 +194,7 @@ export default function PrivacyPolicy() {
         </section>
 
         {/* 6. Security */}
-        <section id="security" className="prose max-w-none mt-8">
+        <section id="security" className="prose max-w-none mt-8 scroll-mt-24">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
             6. Data Storage and Security
           </h2>
@@ -214,7 +211,7 @@ export default function PrivacyPolicy() {
         </section>
 
         {/* 7. Rights */}
-        <section id="rights" className="prose max-w-none mt-8">
+        <section id="rights" className="prose max-w-none mt-8 scroll-mt-24">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
             7. Your Rights
           </h2>
@@ -227,10 +224,7 @@ export default function PrivacyPolicy() {
           </ul>
           <p className="text-sm">
             To exercise rights, contact{" "}
-            <a
-              className="text-[#0C2E8A] underline"
-              href="mailto:support@prayinverses.com"
-            >
+            <a className="text-[#0C2E8A] underline" href="mailto:support@prayinverses.com">
               support@prayinverses.com
             </a>
             .
@@ -238,7 +232,7 @@ export default function PrivacyPolicy() {
         </section>
 
         {/* 8. Retention */}
-        <section id="retention" className="prose max-w-none mt-8">
+        <section id="retention" className="prose max-w-none mt-8 scroll-mt-24">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
             8. Data Retention
           </h2>
@@ -251,7 +245,7 @@ export default function PrivacyPolicy() {
         </section>
 
         {/* 9. Children */}
-        <section id="children" className="prose max-w-none mt-8">
+        <section id="children" className="prose max-w-none mt-8 scroll-mt-24">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
             9. Children’s Privacy
           </h2>
@@ -263,7 +257,7 @@ export default function PrivacyPolicy() {
         </section>
 
         {/* 10. Transfers */}
-        <section id="transfers" className="prose max-w-none mt-8">
+        <section id="transfers" className="prose max-w-none mt-8 scroll-mt-24">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
             10. International Data Transfers
           </h2>
@@ -274,7 +268,7 @@ export default function PrivacyPolicy() {
         </section>
 
         {/* 11. Third-Party Links */}
-        <section id="links" className="prose max-w-none mt-8">
+        <section id="links" className="prose max-w-none mt-8 scroll-mt-24">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
             11. Third-Party Links
           </h2>
@@ -286,7 +280,7 @@ export default function PrivacyPolicy() {
         </section>
 
         {/* 12. Changes */}
-        <section id="changes" className="prose max-w-none mt-8">
+        <section id="changes" className="prose max-w-none mt-8 scroll-mt-24">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
             12. Changes to This Privacy Policy
           </h2>
@@ -301,7 +295,7 @@ export default function PrivacyPolicy() {
         </section>
 
         {/* 13. Contact */}
-        <section id="contact" className="prose max-w-none mt-8 mb-24">
+        <section id="contact" className="prose max-w-none mt-8 mb-24 scroll-mt-24">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
             13. Contact Us
           </h2>
@@ -326,8 +320,8 @@ export default function PrivacyPolicy() {
         </section>
       </main>
 
-      {/* Footer actions (sticky) */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur border-t border-slate-200">
+      {/* Footer actions (fixed, offset so it doesn't sit under the sidebar) */}
+      <div className="fixed bottom-0 left-0 right-0 lg:left-[224px] bg-white/90 backdrop-blur border-t border-slate-200">
         <div className="mx-auto max-w-4xl px-4 py-3 flex items-center justify-between gap-3">
           <Link
             to={from}
