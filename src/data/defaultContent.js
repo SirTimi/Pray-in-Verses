@@ -8,7 +8,7 @@ export function getDefaultAboutContent() {
       motivation:
         "And he spake a parable unto them to this end, that men ought always to pray, and not to faint ",
       about:
-        " Pray in Verses is a unique devotional platform designed to help you connect deeply with God's Word through prayer. Instead of  rushing through chapters or skimming familiar passages, this resource guides you to pray scripture itself — one verse at a  time. Each verse becomes not just something to read, but something   to internalize, declare, and live out. Our goal is to bridge the  gap between Bible study and prayer life by turning every verse",
+        " Pray in Verses is a unique devotional platform designed to help you connect deeply with God's Word through prayer. Instead of  rushing through chapters or skimming familiar passages, this resource guides you to pray scripture itself - one verse at a  time. Each verse becomes not just something to read, but something   to internalize, declare, and live out. Our goal is to bridge the  gap between Bible study and prayer life by turning every verse",
     },
     story: {
       title: "Born from a Heart for Prayer",
