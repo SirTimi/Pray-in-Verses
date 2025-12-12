@@ -25,9 +25,9 @@ export default function DonationPolicy() {
   ];
 
   return (
-    <div className="min-h-screen bg-white text-slate-800">
+    <div className="min-h-screen bg-white text-slate-800 pt-24 pl-0 lg:pl-[224px]">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-white/80 backdrop-blur border-b border-slate-200">
+      <header className="sticky top-16 lg:top-0 z-10 bg-white/80 backdrop-blur border-b border-slate-200">
         <div className="mx-auto max-w-4xl px-4 py-4 flex items-center justify-between">
           <h1 className="text-lg md:text-xl font-semibold text-[#0C2E8A]">
             Pray in Verses — Donation Policy
@@ -65,7 +65,7 @@ export default function DonationPolicy() {
           </ul>
         </nav>
 
-        {/* 1 */}
+        {/* Sections ... (unchanged content) */}
         <section id="voluntary" className="prose max-w-none">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
             1. Voluntary Contributions Only
@@ -78,7 +78,6 @@ export default function DonationPolicy() {
           </ul>
         </section>
 
-        {/* 2 */}
         <section id="purpose" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
             2. Purpose of Donations
@@ -95,7 +94,6 @@ export default function DonationPolicy() {
           </p>
         </section>
 
-        {/* 3 */}
         <section id="processing" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
             3. Donation Processing
@@ -111,7 +109,6 @@ export default function DonationPolicy() {
           </p>
         </section>
 
-        {/* 4 */}
         <section id="confirmation" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
             4. Donation Confirmation
@@ -126,7 +123,6 @@ export default function DonationPolicy() {
           </p>
         </section>
 
-        {/* 5 */}
         <section id="refunds" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">5. Refunds</h2>
           <p className="text-sm">
@@ -138,7 +134,6 @@ export default function DonationPolicy() {
           </p>
         </section>
 
-        {/* 6 */}
         <section id="privileges" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
             6. No Donor Privileges or Influence
@@ -151,7 +146,6 @@ export default function DonationPolicy() {
           </p>
         </section>
 
-        {/* 7 */}
         <section id="transparency" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">7. Transparency</h2>
           <p className="text-sm">
@@ -163,7 +157,6 @@ export default function DonationPolicy() {
           </p>
         </section>
 
-        {/* 8 */}
         <section id="tax" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">8. Tax Status</h2>
           <p className="text-sm">
@@ -174,7 +167,6 @@ export default function DonationPolicy() {
           </p>
         </section>
 
-        {/* 9 */}
         <section id="fraud" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
             9. Fraud and Unauthorized Transactions
@@ -186,7 +178,6 @@ export default function DonationPolicy() {
           </p>
         </section>
 
-        {/* 10 */}
         <section id="changes" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
             10. Changes to This Donation Policy
@@ -201,7 +192,6 @@ export default function DonationPolicy() {
           </p>
         </section>
 
-        {/* 11 */}
         <section id="contact" className="prose max-w-none mt-8 mb-24">
           <h2 className="text-base font-semibold text-[#0C2E8A]">11. Contact Us</h2>
           <p className="text-sm">
@@ -225,8 +215,8 @@ export default function DonationPolicy() {
         </section>
       </main>
 
-      {/* Footer actions (sticky) */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur border-t border-slate-200">
+      {/* Footer avoids sidebar on lg */}
+      <div className="fixed bottom-0 left-0 right-0 lg:left-[224px] bg-white/90 backdrop-blur border-t border-slate-200">
         <div className="mx-auto max-w-4xl px-4 py-3 flex items-center justify-between gap-3">
           <Link
             to={from}

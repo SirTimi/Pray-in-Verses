@@ -7,24 +7,7 @@ const LAST_UPDATED =
 
 export default function Eula() {
   const nav = useNavigate();
-  const loc = // ...inside Eula.jsx, replace the footer block with:
-<div className="fixed bottom-0 left-0 right-0 lg:left-[224px] bg-white/90 backdrop-blur border-t border-slate-200">
-  <div className="mx-auto max-w-4xl px-4 py-3 flex items-center justify-between gap-3">
-    <Link
-      to={from}
-      className="text-sm px-3 py-2 rounded-md border border-slate-300 hover:bg-slate-50"
-    >
-      Back
-    </Link>
-    <button
-      onClick={() => nav(from + "?acceptedEula=1")}
-      className="text-sm px-4 py-2 rounded-md bg-[#0C2E8A] text-white hover:bg-blue-800"
-    >
-      I Agree
-    </button>
-  </div>
-</div>
-useLocation();
+  const loc = useLocation();
   const from = new URLSearchParams(loc.search).get("from") || "/welcome";
 
   const sections = [
@@ -44,7 +27,7 @@ useLocation();
 
   return (
     <div className="min-h-screen bg-white text-slate-800 pt-24 pl-0 lg:pl-[224px]">
-      {/* Header */}
+      {/* Header under fixed top bar */}
       <header className="sticky top-16 lg:top-0 z-10 bg-white/80 backdrop-blur border-b border-slate-200">
         <div className="mx-auto max-w-4xl px-4 py-4 flex items-center justify-between">
           <h1 className="text-lg md:text-xl font-semibold text-[#0C2E8A]">
@@ -166,7 +149,7 @@ useLocation();
           </p>
         </section>
 
-        {/* 8. Disclaimers & Limitation of Liability */}
+        {/* 8. Disclaimers & Liability */}
         <section id="disclaimer" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
             8. Disclaimers & Limitation of Liability
@@ -231,21 +214,21 @@ useLocation();
         </section>
       </main>
 
-      {/* Sticky Footer Actions */}
+      {/* Sticky Footer avoids sidebar on large screens */}
       <div className="fixed bottom-0 left-0 right-0 lg:left-[224px] bg-white/90 backdrop-blur border-t border-slate-200">
         <div className="mx-auto max-w-4xl px-4 py-3 flex items-center justify-between gap-3">
-            <Link
-              to={from}
-              className="text-sm px-3 py-2 rounded-md border border-slate-300 hover:bg-slate-50"
-            >
-                Back
-            </Link>
-            <button
-                onClick={() => nav(from + "?acceptedEula=1")}
-                className="text-sm px-4 py-2 rounded-md bg-[#0C2E8A] text-white hover:bg-blue-800"
-            >
-                I Agree
-            </button>
+          <Link
+            to={from}
+            className="text-sm px-3 py-2 rounded-md border border-slate-300 hover:bg-slate-50"
+          >
+            Back
+          </Link>
+          <button
+            onClick={() => nav(from + "?acceptedEula=1")}
+            className="text-sm px-4 py-2 rounded-md bg-[#0C2E8A] text-white hover:bg-blue-800"
+          >
+            I Agree
+          </button>
         </div>
       </div>
     </div>
