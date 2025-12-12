@@ -58,7 +58,7 @@ const Welcome = () => {
             </p>
 
             {/* 4-column quick links row */}
-            <div className="mt-8 grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="mt-15 grid grid-cols-2 sm:grid-cols-5 gap-3">
               <Link
                 to="/privacy-policy"
                 className="text-xs font-medium text-[#0C2E8A] hover:underline"
