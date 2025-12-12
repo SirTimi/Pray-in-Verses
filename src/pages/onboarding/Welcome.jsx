@@ -57,39 +57,43 @@ const Welcome = () => {
               prayer.
             </p>
 
-            {/* 4-column quick links row */}
-            <div className="mt-15 grid grid-cols-2 sm:grid-cols-5 gap-3">
+            {/* 5-column quick links row (single line, no wrapping) */}
+            <div className="mt-6 grid grid-cols-5 gap-3">
               <Link
                 to="/privacy-policy"
-                className="text-xs font-medium text-[#0C2E8A] hover:underline"
+                className="text-xs font-medium text-[#0C2E8A] hover:underline whitespace-nowrap truncate"
+                title="Privacy Policy"
               >
                 Privacy Policy
               </Link>
               <Link
                 to="/community-guidelines"
-                className="text-xs font-medium text-[#0C2E8A] hover:underline"
+                className="text-xs font-medium text-[#0C2E8A] hover:underline whitespace-nowrap truncate"
+                title="Community Guidelines"
               >
                 Community Guidelines
               </Link>
-              <Link 
+              <Link
                 to="/terms-of-service"
-                className="text-xs font-medium text-[#0C2E8A] hover:underline"
+                className="text-xs font-medium text-[#0C2E8A] hover:underline whitespace-nowrap truncate"
+                title="Terms of Service"
               >
                 Terms Of Service
               </Link>
               <Link
                 to="/donation-policy"
-                className="text-xs font-medium text-[#0C2E8A] hover:underline"
+                className="text-xs font-medium text-[#0C2E8A] hover:underline whitespace-nowrap truncate"
+                title="Donation Policy"
               >
                 Donation Policy
               </Link>
               <Link
-                to="end-user-license"
-                className="text-xs font-medium text-[#0C2E8A] hover:underline"
+                to="/end-user-license"
+                className="text-xs font-medium text-[#0C2E8A] hover:underline whitespace-nowrap truncate"
+                title="End-User License"
               >
-                End-User License                
+                End-User License
               </Link>
-
             </div>
           </div>
         </div>
