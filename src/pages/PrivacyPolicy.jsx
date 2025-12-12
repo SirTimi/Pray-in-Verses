@@ -13,23 +13,21 @@ export default function PrivacyPolicy() {
   const sections = [
     { id: "intro", label: "Intro" },
     { id: "info-we-collect", label: "1. Information We Collect" },
-    { id: "use-of-info", label: "2. How We Use Your Information" },
-    { id: "legal-basis", label: "3. Legal Basis (GDPR)" },
-    { id: "sharing", label: "4. How We Share Information" },
-    { id: "payments", label: "5. Payment Processing" },
-    { id: "security", label: "6. Data Storage & Security" },
-    { id: "rights", label: "7. Your Rights" },
-    { id: "retention", label: "8. Data Retention" },
-    { id: "children", label: "9. Children’s Privacy" },
-    { id: "transfers", label: "10. International Transfers" },
-    { id: "links", label: "11. Third-Party Links" },
-    { id: "changes", label: "12. Changes to This Policy" },
-    { id: "contact", label: "13. Contact Us" },
+    { id: "cookies", label: "2. Cookies & Similar Technologies" },
+    { id: "use-of-info", label: "3. How We Use Your Information" },
+    { id: "sharing", label: "4. Sharing Your Information" },
+    { id: "security", label: "5. How We Store & Protect Your Data" },
+    { id: "rights", label: "6. Your Rights" },
+    { id: "children", label: "7. Children’s Privacy" },
+    { id: "donations", label: "8. Donations (Voluntary)" },
+    { id: "transfers", label: "9. International Data Transfers" },
+    { id: "changes", label: "10. Changes to This Policy" },
+    { id: "contact", label: "11. Contact Us" },
   ];
 
   return (
-    <div className="min-h-screen bg-white text-slate-800 pt-24 pl-0 lg:pl-[224px]">
-      {/* Header (sticks within content area, not under the sidebar) */}
+    <div className="min-h-screen bg-white text-slate-800">
+      {/* Header */}
       <header className="sticky top-0 z-10 bg-white/80 backdrop-blur border-b border-slate-200">
         <div className="mx-auto max-w-4xl px-4 py-4 flex items-center justify-between">
           <h1 className="text-lg md:text-xl font-semibold text-[#0C2E8A]">
@@ -41,16 +39,17 @@ export default function PrivacyPolicy() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-4xl px-4 py-8">
+      {/* Prevent overlap with any fixed global header (add top padding if needed) */}
+      <div className="pt-4 md:pt-6" />
+
+      <main className="mx-auto max-w-4xl px-4 pb-24">
         {/* Intro */}
-        <section id="intro" className="prose max-w-none scroll-mt-24">
+        <section id="intro" className="prose max-w-none">
           <p className="text-sm text-slate-600">
-            Pray in Verses (“we,” “our,” “us”) is committed to protecting your
-            privacy. This Privacy Policy explains how we collect, use, disclose,
-            and safeguard your information when you use our mobile app, website,
-            or related services (collectively, the “Service”). By accessing or
-            using Pray in Verses, you agree to the terms described in this
-            policy.
+            This Privacy Policy explains how Pray in Verses (“we,” “us,” “our”)
+            collects, uses, stores, and protects your information when you use
+            our mobile application, website, and related services (“Service”).
+            By using the Service, you agree to these terms.
           </p>
         </section>
 
@@ -69,158 +68,114 @@ export default function PrivacyPolicy() {
         </nav>
 
         {/* 1. Information We Collect */}
-        <section id="info-we-collect" className="prose max-w-none mt-8 scroll-mt-24">
+        <section id="info-we-collect" className="prose max-w-none">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
             1. Information We Collect
           </h2>
 
-          <h3 className="text-sm font-semibold mt-4">
-            A. Personal Information You Provide
-          </h3>
+          <h3 className="text-sm font-semibold mt-4">A. Information You Provide Voluntarily</h3>
           <ul className="text-sm leading-6 list-disc pl-5">
             <li>
-              <b>Account Information:</b> Name, email address, and password when
-              you create an account.
+              <b>Account Information (Optional):</b> Name, email address, and password (hashed; never
+              stored in plain text).
             </li>
             <li>
-              <b>Subscription Information:</b> If you subscribe to premium,
-              payment details are collected via secure third-party processors
-              (e.g., Paystack, Flutterwave, Stripe, Apple, Google).
+              <b>Prayer Notes & Journal Entries:</b> Personal reflections you add in the app. Stored
+              securely and accessible only to you.
             </li>
             <li>
-              <b>User Content:</b> Notes, saved verses, journal entries, prayer
-              preferences.
-            </li>
-            <li>
-              <b>Communication Data:</b> Messages you send to support.
-            </li>
-            <li>
-              We do not collect sensitive categories like health or biometric
-              identifiers.
+              <b>Donations (Voluntary):</b> If you support us, the payment provider may collect your
+              name, email, billing information, and transaction details. Pray in Verses does{" "}
+              <b>not</b> store your card or bank details.
             </li>
           </ul>
 
-          <h3 className="text-sm font-semibold mt-4">
-            B. Automatically Collected Information
-          </h3>
+          <h3 className="text-sm font-semibold mt-4">B. Information Collected Automatically</h3>
           <ul className="text-sm leading-6 list-disc pl-5">
-            <li>Device Information (device model, OS version, browser type)</li>
-            <li>Usage Data (pages viewed, time spent, navigation patterns)</li>
-            <li>Log Data (IP address, timestamps, error logs)</li>
-            <li>Cookies/Tracking (website): analytics and UX improvements</li>
-          </ul>
-
-          <h3 className="text-sm font-semibold mt-4">
-            C. Third-Party Information
-          </h3>
-          <ul className="text-sm leading-6 list-disc pl-5">
-            <li>Payment processors</li>
-            <li>Social login providers (if enabled)</li>
-            <li>Analytics providers</li>
+            <li>Device/app data (device type, OS, app version, crash logs)</li>
+            <li>Anonymous analytics (pages visited, buttons clicked, time spent, general usage)</li>
           </ul>
         </section>
 
-        {/* 2. Use of Info */}
-        <section id="use-of-info" className="prose max-w-none mt-8 scroll-mt-24">
+        {/* 2. Cookies */}
+        <section id="cookies" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
-            2. How We Use Your Information
+            2. Cookies & Similar Technologies
           </h2>
-          <ul className="text-sm leading-6 list-disc pl-5">
-            <li>Provide and personalize your devotional experience</li>
-            <li>Deliver daily verses, reminders, and notifications</li>
-            <li>Store and sync your journal, bookmarks, and prayer notes</li>
-            <li>Process payments and manage subscriptions</li>
-            <li>Improve performance and user experience</li>
-            <li>Send updates, support responses, and announcements</li>
-            <li>Monitor usage trends and develop new features</li>
-            <li>Protect the platform from fraud or misuse</li>
-          </ul>
+          <p className="text-sm">
+            Our website may use cookies for performance analytics, functionality, security, and
+            preference storage. You can manage or disable cookies via your browser settings.
+          </p>
         </section>
 
-        {/* 3. Legal Basis */}
-        <section id="legal-basis" className="prose max-w-none mt-8 scroll-mt-24">
+        {/* 3. Use of Info */}
+        <section id="use-of-info" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
-            3. Legal Basis for Processing (For GDPR Regions)
+            3. How We Use Your Information
           </h2>
           <ul className="text-sm leading-6 list-disc pl-5">
-            <li>Consent</li>
-            <li>Performance of a Contract</li>
-            <li>Legitimate Interests</li>
-            <li>Compliance with Legal Obligations</li>
+            <li>Provide, maintain, and improve the Service</li>
+            <li>Save your preferences and secure your account</li>
+            <li>Respond to support requests</li>
+            <li>Process voluntary donations</li>
+            <li>Comply with legal obligations</li>
           </ul>
+          <p className="text-sm">
+            We do <b>not</b> use your personal data for advertising or profiling.
+          </p>
         </section>
 
         {/* 4. Sharing */}
-        <section id="sharing" className="prose max-w-none mt-8 scroll-mt-24">
+        <section id="sharing" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
-            4. How We Share Information
+            4. Sharing Your Information
           </h2>
-          <p className="text-sm">We do not sell your personal information.</p>
-
+          <p className="text-sm">We do not sell, rent, trade, or distribute your personal data.</p>
           <h3 className="text-sm font-semibold mt-4">A. Service Providers</h3>
           <ul className="text-sm leading-6 list-disc pl-5">
             <li>Cloud storage</li>
-            <li>Payment gateways</li>
-            <li>Analytics platforms</li>
-            <li>Email service providers</li>
+            <li>Analytics (e.g., Google Analytics, Firebase)</li>
+            <li>Payment processors (for donations only)</li>
           </ul>
-          <p className="text-sm">
-            These partners access data only to perform services on our behalf.
-          </p>
-
           <h3 className="text-sm font-semibold mt-4">B. Legal Requirements</h3>
           <ul className="text-sm leading-6 list-disc pl-5">
-            <li>Law, court orders, or government requests</li>
-            <li>Protecting our rights, users, or the public</li>
+            <li>Law enforcement, court orders, or regulatory obligations</li>
           </ul>
-
-          <h3 className="text-sm font-semibold mt-4">C. Business Transfers</h3>
-          <p className="text-sm">
-            If Pray in Verses is merged, acquired, or restructured, user data
-            may be transferred. You will be notified.
-          </p>
+          <h3 className="text-sm font-semibold mt-4">C. Protection Against Harm</h3>
+          <ul className="text-sm leading-6 list-disc pl-5">
+            <li>User safety, platform integrity, or our legal rights</li>
+          </ul>
         </section>
 
-        {/* 5. Payments */}
-        <section id="payments" className="prose max-w-none mt-8 scroll-mt-24">
+        {/* 5. Security */}
+        <section id="security" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
-            5. Payment Processing
-          </h2>
-          <p className="text-sm">
-            Payments are handled by third parties (Paystack, Flutterwave,
-            Stripe, Google Play Billing, Apple In-App Purchases). We do not
-            store your card details.
-          </p>
-        </section>
-
-        {/* 6. Security */}
-        <section id="security" className="prose max-w-none mt-8 scroll-mt-24">
-          <h2 className="text-base font-semibold text-[#0C2E8A]">
-            6. Data Storage and Security
+            5. How We Store & Protect Your Data
           </h2>
           <ul className="text-sm leading-6 list-disc pl-5">
-            <li>Encrypted database storage</li>
-            <li>Secure authentication</li>
-            <li>Restricted access controls</li>
+            <li>Encrypted connections (HTTPS/TLS)</li>
+            <li>Encrypted database storage where applicable</li>
             <li>Regular security audits</li>
+            <li>Password hashing</li>
+            <li>Limited access to internal systems</li>
           </ul>
           <p className="text-sm">
-            While we strive to protect your data, no online system is 100%
-            secure.
+            We retain information only as long as necessary to provide the Service or comply with
+            legal obligations.
           </p>
         </section>
 
-        {/* 7. Rights */}
-        <section id="rights" className="prose max-w-none mt-8 scroll-mt-24">
-          <h2 className="text-base font-semibold text-[#0C2E8A]">
-            7. Your Rights
-          </h2>
+        {/* 6. Rights */}
+        <section id="rights" className="prose max-w-none mt-8">
+          <h2 className="text-base font-semibold text-[#0C2E8A]">6. Your Rights</h2>
+          <p className="text-sm">
+            Depending on your region (e.g., EU, UK, California), you may have the right to:
+          </p>
           <ul className="text-sm leading-6 list-disc pl-5">
-            <li>Access, correction, or deletion</li>
-            <li>Withdraw consent</li>
-            <li>Export your data</li>
-            <li>Opt-out of marketing</li>
-            <li>Restrict certain processing</li>
+            <li>Access, correct, or delete your data</li>
+            <li>Object to processing或request data portability</li>
+            <li>Withdraw consent at any time</li>
+            <li>Lodge a complaint with a data authority</li>
           </ul>
           <p className="text-sm">
             To exercise rights, contact{" "}
@@ -231,76 +186,61 @@ export default function PrivacyPolicy() {
           </p>
         </section>
 
-        {/* 8. Retention */}
-        <section id="retention" className="prose max-w-none mt-8 scroll-mt-24">
+        {/* 7. Children */}
+        <section id="children" className="prose max-w-none mt-8">
+          <h2 className="text-base font-semibold text-[#0C2E8A]">7. Children’s Privacy</h2>
+          <p className="text-sm">
+            Pray in Verses is not intended for children under 13 (or your region’s digital consent
+            age). We do not knowingly collect data from children under this age. If you believe a
+            child has provided data, please contact us so we can delete it.
+          </p>
+        </section>
+
+        {/* 8. Donations */}
+        <section id="donations" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
-            8. Data Retention
+            8. Donations (Voluntary)
           </h2>
           <ul className="text-sm leading-6 list-disc pl-5">
-            <li>While your account is active</li>
-            <li>As required by law</li>
-            <li>As necessary to provide the Service</li>
+            <li>Donations are optional and not required to access any feature.</li>
+            <li>Processing is handled by third-party payment processors.</li>
+            <li>We do not store payment card details or banking information.</li>
+            <li>
+              We may store transaction metadata (amount, date) for reporting and transparency.
+            </li>
           </ul>
-          <p className="text-sm">You may request account deletion at any time.</p>
         </section>
 
-        {/* 9. Children */}
-        <section id="children" className="prose max-w-none mt-8 scroll-mt-24">
+        {/* 9. Transfers */}
+        <section id="transfers" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
-            9. Children’s Privacy
+            9. International Data Transfers
           </h2>
           <p className="text-sm">
-            Pray in Verses is not intended for children under 13. We do not
-            knowingly collect data from children under this age. If you believe
-            a child has registered, please contact us to remove the account.
+            Your data may be transferred to servers outside your country. We use safeguards such as
+            DPAs, Standard Contractual Clauses, and secure cloud infrastructure.
           </p>
         </section>
 
-        {/* 10. Transfers */}
-        <section id="transfers" className="prose max-w-none mt-8 scroll-mt-24">
+        {/* 10. Changes */}
+        <section id="changes" className="prose max-w-none mt-8">
           <h2 className="text-base font-semibold text-[#0C2E8A]">
-            10. International Data Transfers
-          </h2>
-          <p className="text-sm">
-            Your data may be stored or processed in various countries. We ensure
-            appropriate safeguards for cross-border transfers.
-          </p>
-        </section>
-
-        {/* 11. Third-Party Links */}
-        <section id="links" className="prose max-w-none mt-8 scroll-mt-24">
-          <h2 className="text-base font-semibold text-[#0C2E8A]">
-            11. Third-Party Links
-          </h2>
-          <p className="text-sm">
-            The app may contain links to external resources. We are not
-            responsible for the privacy practices of third-party sites or
-            services.
-          </p>
-        </section>
-
-        {/* 12. Changes */}
-        <section id="changes" className="prose max-w-none mt-8 scroll-mt-24">
-          <h2 className="text-base font-semibold text-[#0C2E8A]">
-            12. Changes to This Privacy Policy
+            10. Changes to This Privacy Policy
           </h2>
           <ul className="text-sm leading-6 list-disc pl-5">
-            <li>The updated date will be revised</li>
-            <li>You may receive notification via email or app alert</li>
+            <li>We may update this policy occasionally.</li>
+            <li>We’ll notify you in-app/website and update the “Last Updated” date.</li>
           </ul>
           <p className="text-sm">
-            Your continued use of the Service constitutes acceptance of the
-            updated policy.
+            Your continued use of the Service constitutes acceptance of the updated policy.
           </p>
         </section>
 
-        {/* 13. Contact */}
-        <section id="contact" className="prose max-w-none mt-8 mb-24 scroll-mt-24">
-          <h2 className="text-base font-semibold text-[#0C2E8A]">
-            13. Contact Us
-          </h2>
+        {/* 11. Contact */}
+        <section id="contact" className="prose max-w-none mt-8">
+          <h2 className="text-base font-semibold text-[#0C2E8A]">11. Contact Us</h2>
           <p className="text-sm">
-            For questions or privacy requests, contact:
+            Questions or privacy requests? Contact:
             <br />
             Email:{" "}
             <a className="text-[#0C2E8A] underline" href="mailto:info@prayinverses.com">
@@ -320,8 +260,8 @@ export default function PrivacyPolicy() {
         </section>
       </main>
 
-      {/* Footer actions (fixed, offset so it doesn't sit under the sidebar) */}
-      <div className="fixed bottom-0 left-0 right-0 lg:left-[224px] bg-white/90 backdrop-blur border-t border-slate-200">
+      {/* Footer actions (sticky) */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur border-t border-slate-200">
         <div className="mx-auto max-w-4xl px-4 py-3 flex items-center justify-between gap-3">
           <Link
             to={from}

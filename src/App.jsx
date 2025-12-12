@@ -26,6 +26,9 @@ import ForgotPassword from "./pages/onboarding/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import CommunityGuidelines from "./pages/CommunityGuidelines";
+import DonationPolicy from "./pages/DonationPolicy";
+import TermsOfService from "./pages/Terms-of-Service";
+import Eula from "./pages/End-user-License-agreement";
 
 // Pages (app, require auth)
 import Home from "./pages/Home";
@@ -101,7 +104,9 @@ function AppContent() {
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/community-guidelines" element={<CommunityGuidelines />} />
-
+            <Route path="/donation-policy" element={<DonationPolicy />} />
+            <Route path="/terms-of-service" element={<TermsOfService />} />
+            <Route path="/eula" element={<Eula />} />
             {/* PUBLIC: Bible browse flow so search results never hit an auth gate */}
             <Route path="/book/:bookSlug" element={<BookPage />} />
             <Route

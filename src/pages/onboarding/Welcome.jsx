@@ -88,7 +88,7 @@ const Welcome = () => {
                 Donation Policy
               </Link>
               <Link
-                to="/end-user-license"
+                to="/eula"
                 className="text-xs font-medium text-[#0C2E8A] hover:underline whitespace-nowrap truncate"
                 title="End-User License"
               >
