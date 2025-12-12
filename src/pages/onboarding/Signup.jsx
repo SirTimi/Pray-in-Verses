@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Eye, EyeOff, Check, X } from "lucide-react";
 import toast from "react-hot-toast";
 import Button from "../../components/ui/Button";
@@ -9,6 +9,7 @@ import logo from "../../assets/images/prayinverse2.png";
 const Signup = () => {
   const doSignup = useAuthStore((s) => s.signup);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [form, setForm] = useState({
     name: "",
@@ -28,6 +29,9 @@ const Signup = () => {
     passwordsMatch: false,
   });
 
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
+
+  // lock viewport height for mobile UI smoothness
   useEffect(() => {
     document.body.style.overflow = "hidden";
     document.documentElement.style.overflow = "hidden";
@@ -46,6 +50,19 @@ const Signup = () => {
     };
   }, []);
 
+  // pre-check privacy if returning from /privacy?acceptedPrivacy=1
+  useEffect(() => {
+    const sp = new URLSearchParams(location.search);
+    if (sp.get("acceptedPrivacy") === "1") {
+      setAcceptedPrivacy(true);
+      localStorage.setItem("acceptedPrivacy", "1");
+    } else {
+      // fall back to remembered acceptance (optional)
+      const remembered = localStorage.getItem("acceptedPrivacy") === "1";
+      if (remembered) setAcceptedPrivacy(true);
+    }
+  }, [location.search]);
+
   useEffect(() => {
     validateFormFields();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -62,7 +79,8 @@ const Signup = () => {
     if (!/[a-z]/.test(password)) return "Password must contain a lowercase letter";
     if (!/[A-Z]/.test(password)) return "Password must contain an uppercase letter";
     if (!/\d/.test(password)) return "Password must contain a number";
-    if (!/[@$!%*?&#]/.test(password)) return "Password must contain a special character (@$!%*?&#)";
+    if (!/[@$!%*?&#]/.test(password))
+      return "Password must contain a special character (@$!%*?&#)";
     return "";
   };
 
@@ -99,13 +117,16 @@ const Signup = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!acceptedPrivacy) {
+      toast.error("Please accept the Privacy Policy to continue");
+      return;
+    }
     if (!isFormValid()) {
       toast.error("Please fix all errors before submitting");
       return;
     }
     setIsSubmitting(true);
     try {
-      // Calls API: POST /auth/signup → { id,email,displayName,role,createdAt }
       await doSignup({
         displayName: form.name.trim(),
         email: form.email.trim().toLowerCase(),
@@ -114,7 +135,6 @@ const Signup = () => {
       toast.success("Account created successfully! Please sign in.");
       navigate("/login");
     } catch (err) {
-      // useAuthStore sets error; also show toast
       toast.error(err?.message || "Failed to create account");
     } finally {
       setIsSubmitting(false);
@@ -122,7 +142,8 @@ const Signup = () => {
   };
 
   const getInputStyling = (fieldName) => {
-    const base = "w-full border rounded-lg px-3 py-2 focus:ring-2 outline-none transition-colors";
+    const base =
+      "w-full border rounded-lg px-3 py-2 focus:ring-2 outline-none transition-colors";
     if (!form[fieldName]) return `${base} border-gray-300 focus:ring-primary`;
     return validation[fieldName]?.isValid
       ? `${base} border-green-300 focus:ring-green-500 bg-green-50`
@@ -138,14 +159,14 @@ const Signup = () => {
         <div className="flex justify-center">
           <img
             src={logo}
-            alt="PrayInverse Logo"
+            alt="Pray in Verses Logo"
             className="h-42 w-32 sm:h-28 sm:w-28 m-0 p-0 object-contain"
           />
         </div>
 
         <h2 className="text-2xl sm:text-3xl font-bold mb-6 text-center">Sign Up</h2>
 
-        <form className="w-full space-y-4 " onSubmit={handleSubmit} noValidate>
+        <form className="w-full space-y-4" onSubmit={handleSubmit} noValidate>
           {/* Name */}
           <div>
             <input
@@ -244,8 +265,7 @@ const Signup = () => {
                 value={form.confirmPassword}
                 onChange={handleChange}
                 required
-                className={`${getInputStyling("confirmPassword")} pr-10"`
-                }
+                className={`${getInputStyling("confirmPassword")} pr-10`}
                 disabled={isSubmitting}
               />
               <button
@@ -274,11 +294,44 @@ const Signup = () => {
             )}
           </div>
 
+          {/* Privacy acceptance */}
+          <div className="mt-3">
+            <label className="flex items-start gap-3 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={acceptedPrivacy}
+                onChange={(e) => {
+                  setAcceptedPrivacy(e.target.checked);
+                  localStorage.setItem("acceptedPrivacy", e.target.checked ? "1" : "0");
+                }}
+                disabled={isSubmitting}
+              />
+              <span className="text-gray-700">
+                I have read and agree to the{" "}
+                <Link
+                  to="/privacy?from=/signup"
+                  className="text-primary font-semibold hover:underline"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Privacy Policy
+                </Link>
+                .
+              </span>
+            </label>
+            {!acceptedPrivacy && (
+              <p className="text-xs text-gray-500 mt-1">
+                You must accept to continue.
+              </p>
+            )}
+          </div>
+
           <Button
             type="submit"
             variant="primary"
             className="w-full py-3 text-lg"
-            disabled={!isFormValid() || isSubmitting}
+            disabled={!isFormValid() || isSubmitting || !acceptedPrivacy}
           >
             {isSubmitting ? "Creating Account..." : "Sign Up"}
           </Button>
@@ -286,7 +339,10 @@ const Signup = () => {
 
         <p className="text-center text-sm text-gray-600 mt-4">
           Already have an account?{" "}
-          <Link to="/login" className="text-primary font-semibold hover:underline transition-colors">
+          <Link
+            to="/login"
+            className="text-primary font-semibold hover:underline transition-colors"
+          >
             Login here
           </Link>
         </p>

@@ -44,18 +44,53 @@ const Welcome = () => {
       <div className="grid md:grid-cols-2 w-full max-w-6xl rounded-none md:rounded-2xl md:shadow-2xl overflow-hidden h-full md:h-auto md:my-auto">
         {/* Left info section - Hidden on mobile */}
         <div className="hidden md:flex items-center justify-center bg-gray-100 text-gray-800 p-10">
-          <div className="max-w-md text-left space-y-4">
+          <div className="max-w-md text-left space-y-4 w-full">
             <h2 className="text-3xl font-bold">ABOUT PRAY IN VERSES</h2>
             <p className="text-sm leading-relaxed opacity-80 text-justify">
               Pray in Verses is a unique devotional platform designed to help
-              you connect deeply with God's Word through prayer. Instead of
+              you connect deeply with God&apos;s Word through prayer. Instead of
               rushing through chapters or skimming familiar passages, this
-              resource guides you to pray scripture itself one verse at a
-              time. Each verse becomes not just something to read, but something
-              to internalize, declare, and live out. Our goal is to bridge the
-              gap between Bible study and prayer life by turning every verse
-              into prayer.
+              resource guides you to pray scripture itself one verse at a time.
+              Each verse becomes not just something to read, but something to
+              internalize, declare, and live out. Our goal is to bridge the gap
+              between Bible study and prayer life by turning every verse into
+              prayer.
             </p>
+
+            {/* 4-column quick links row */}
+            <div className="mt-8 grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <Link
+                to="/privacy-policy"
+                className="text-xs font-medium text-[#0C2E8A] hover:underline"
+              >
+                Privacy Policy
+              </Link>
+              <Link
+                to="/community-guidelines"
+                className="text-xs font-medium text-[#0C2E8A] hover:underline"
+              >
+                Community Guidelines
+              </Link>
+              <Link 
+                to="/terms-of-service"
+                className="text-xs font-medium text-[#0C2E8A] hover:underline"
+              >
+                Terms Of Service
+              </Link>
+              <Link
+                to="/donation-policy"
+                className="text-xs font-medium text-[#0C2E8A] hover:underline"
+              >
+                Donation Policy
+              </Link>
+              <Link
+                to="end-user-license"
+                className="text-xs font-medium text-[#0C2E8A] hover:underline"
+              >
+                End-User License                
+              </Link>
+
+            </div>
           </div>
         </div>
 

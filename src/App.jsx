@@ -24,6 +24,8 @@ import Login from "./pages/onboarding/Login";
 import SignUp from "./pages/onboarding/Signup";
 import ForgotPassword from "./pages/onboarding/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import CommunityGuidelines from "./pages/CommunityGuidelines";
 
 // Pages (app, require auth)
 import Home from "./pages/Home";
@@ -97,6 +99,8 @@ function AppContent() {
             <Route path="/signup" element={<SignUp />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/community-guidelines" element={<CommunityGuidelines />} />
 
             {/* PUBLIC: Bible browse flow so search results never hit an auth gate */}
             <Route path="/book/:bookSlug" element={<BookPage />} />
