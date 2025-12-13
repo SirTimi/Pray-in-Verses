@@ -62,35 +62,35 @@ const Welcome = () => {
               <Link
                 to="/privacy-policy"
                 title="Privacy Policy"
-                className="inline-flex items-center justify-center px-3 py-2 text-xs font-semibold rounded-md border border-[#0C2E8A] text-[#0C2E8A] hover:bg-[#0C2E8A] hover:text-white transition focus:outline-none focus:ring-2 focus:ring-[#0C2E8A]/30"
+                className="inline-flex items-center justify-center px-3 py-2 text-xs font-semibold border border-[#0C2E8A] text-[#0C2E8A] hover:bg-[#0C2E8A] hover:text-white transition focus:outline-none focus:ring-2 focus:ring-[#0C2E8A]/30"
               >
                 Privacy Policy
               </Link>
               <Link
                 to="/eula"
                 title="End-User License"
-                className="inline-flex items-center justify-center px-3 py-2 text-xs font-semibold rounded-md border border-[#0C2E8A] text-[#0C2E8A] hover:bg-[#0C2E8A] hover:text-white transition focus:outline-none focus:ring-2 focus:ring-[#0C2E8A]/30"
+                className="inline-flex items-center justify-center px-3 py-2 text-xs font-semibold  border border-[#0C2E8A] text-[#0C2E8A] hover:bg-[#0C2E8A] hover:text-white transition focus:outline-none focus:ring-2 focus:ring-[#0C2E8A]/30"
               >
                 End-User License
               </Link>
               <Link
                 to="/terms-of-service"
                 title="Terms of Service"
-                className="inline-flex items-center justify-center px-3 py-2 text-xs font-semibold rounded-md border border-[#0C2E8A] text-[#0C2E8A] hover:bg-[#0C2E8A] hover:text-white transition focus:outline-none focus:ring-2 focus:ring-[#0C2E8A]/30"
+                className="inline-flex items-center justify-center px-3 py-2 text-xs font-semibold  border border-[#0C2E8A] text-[#0C2E8A] hover:bg-[#0C2E8A] hover:text-white transition focus:outline-none focus:ring-2 focus:ring-[#0C2E8A]/30"
               >
                 Terms Of Service
               </Link>
               <Link
                 to="/donation-policy"
                 title="Donation Policy"
-                className="inline-flex items-center justify-center px-3 py-2 text-xs font-semibold rounded-md border border-[#0C2E8A] text-[#0C2E8A] hover:bg-[#0C2E8A] hover:text-white transition focus:outline-none focus:ring-2 focus:ring-[#0C2E8A]/30"
+                className="inline-flex items-center justify-center px-3 py-2 text-xs font-semibold  border border-[#0C2E8A] text-[#0C2E8A] hover:bg-[#0C2E8A] hover:text-white transition focus:outline-none focus:ring-2 focus:ring-[#0C2E8A]/30"
               >
                 Donation Policy
               </Link>
               <Link
                 to="/community-guidelines"
                 title="Community Guidelines"
-                className="inline-flex items-center justify-center px-3 py-2 text-xs font-semibold rounded-md border border-[#0C2E8A] text-[#0C2E8A] hover:bg-[#0C2E8A] hover:text-white transition focus:outline-none focus:ring-2 focus:ring-[#0C2E8A]/30"
+                className="inline-flex items-center justify-center px-3 py-2 text-xs font-semibold  border border-[#0C2E8A] text-[#0C2E8A] hover:bg-[#0C2E8A] hover:text-white transition focus:outline-none focus:ring-2 focus:ring-[#0C2E8A]/30"
               >
                 Community Guidelines
               </Link>
