@@ -77,7 +77,7 @@ export default function AdminLayout() {
               <li>{navItem("/admin/users", "Users", Users)}</li>
             )}
             {role === "SUPER_ADMIN" && (
-              <li>{navItem("/admin/broadcast", "Broadcast Notification", Bell)}</li>
+              <li>{navItem("/admin/notifications", "Broadcast Notification", Bell)}</li>
             )}  
           </ul>
         </nav>
