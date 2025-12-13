@@ -48,7 +48,7 @@ import BibleVerse from "./pages/BibleVerse";
 import Bookmarks from "./pages/Bookmark";
 import MyPrayerPoint from "./pages/MyPrayerPoint";
 import History from "./pages/History";
-
+import Notifications from "./pages/Notifications";
 // Browse flow (now public)
 import BookPage from "./pages/BookPage";
 import ChapterPage from "./pages/ChapterPage";
@@ -138,6 +138,7 @@ function AppContent() {
               <Route path="/bookmarks" element={<Bookmarks />} />
               <Route path="/my-prayer-point" element={<MyPrayerPoint />} />
               <Route path="/history" element={<History />} />
+              <Route path="/notifications" element={<Notifications />} />
             </Route>
 
             {/* Admin auth & routes */}

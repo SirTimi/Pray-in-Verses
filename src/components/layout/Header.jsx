@@ -1,3 +1,4 @@
+// src/components/layout/Header.jsx
 import React, { useState, useEffect } from "react";
 import {
   Menu,
@@ -25,13 +26,15 @@ export default function Header() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [prayerWallOpen, setPrayerWallOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+
   const [profileImage, setProfileImage] = useState(null);
   const [userName, setUserName] = useState("User");
-  const [notifications, setNotifications] = useState([]);
-  const location = useLocation();
-  const { user } = useAuthStore();
 
-  // ---------------- Donate modal state ----------------
+  // Notifications (real API)
+  const [notifications, setNotifications] = useState([]);
+  const [next, setNext] = useState(null);
+
+  // Donate modal
   const [donateOpen, setDonateOpen] = useState(false);
   const [donorName, setDonorName] = useState("");
   const [donorEmail, setDonorEmail] = useState("");
@@ -40,7 +43,10 @@ export default function Header() {
   const [donateBusy, setDonateBusy] = useState(false);
   const quickAmounts = [1000, 2000, 5000, 10000];
 
-  /** Get current user data from multiple sources with fallbacks */
+  const location = useLocation();
+  const { user } = useAuthStore();
+
+  /* ---------------- profile helpers ---------------- */
   const getCurrentUser = () => {
     if (user && user.id && (user.name || user.displayName || user.email)) {
       return {
@@ -73,132 +79,30 @@ export default function Header() {
     return null;
   };
 
-  /** Update profile data from user information */
   const updateProfileData = () => {
     const currentUser = getCurrentUser();
 
     if (currentUser) {
       setUserName(currentUser.name || "User");
 
-      // prefill donate fields once
+      // prefill donate fields
       setDonorName((prev) => prev || currentUser.name || "");
       setDonorEmail((prev) => prev || currentUser.email || "");
 
       const userId = currentUser.id || currentUser.email;
       let savedProfileImage = null;
 
-      if (userId) {
-        savedProfileImage = localStorage.getItem(`profileImage_${userId}`);
-      }
+      if (userId) savedProfileImage = localStorage.getItem(`profileImage_${userId}`);
       if (!savedProfileImage && currentUser.email) {
         savedProfileImage = localStorage.getItem(`profileImage_${currentUser.email}`);
       }
-      if (!savedProfileImage) {
-        savedProfileImage = localStorage.getItem("profileImage");
-      }
+      if (!savedProfileImage) savedProfileImage = localStorage.getItem("profileImage");
 
       setProfileImage(savedProfileImage);
     } else {
       setUserName("User");
       setProfileImage(null);
     }
-  };
-
-  /** Format time to 12-hour format */
-  const formatTime = (time24) => {
-    if (!time24) return "";
-    const [hours, minutes] = time24.split(":");
-    const hour = parseInt(hours || "0", 10);
-    const ampm = hour >= 12 ? "PM" : "AM";
-    const hour12 = hour % 12 || 12;
-    return `${hour12}:${minutes} ${ampm}`;
-  };
-
-  /** Generate notifications from reminders (local fallback) */
-  const generateNotificationsFromReminders = () => {
-    const reminders = JSON.parse(localStorage.getItem("reminders") || "[]");
-    const readNotifications = JSON.parse(
-      localStorage.getItem("readNotifications") || "[]"
-    );
-    const now = new Date();
-    const currentTime = now.getHours() * 60 + now.getMinutes();
-    const currentDay = [
-      "Sunday",
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday",
-    ][now.getDay()];
-
-    const newNotifications = [];
-    const todayReminders = reminders.filter(
-      (r) => r.isActive && r.days && r.days.includes(currentDay)
-    );
-
-    todayReminders.forEach((reminder) => {
-      if (!reminder.time) return;
-
-      const [hours, minutes] = reminder.time.split(":").map(Number);
-      const reminderTime = hours * 60 + minutes;
-      const timeDiff = reminderTime - currentTime;
-
-      if (timeDiff > 0 && timeDiff <= 60) {
-        const notifId = `reminder_${reminder.id}_${now.toDateString()}`;
-        const isRead = readNotifications.includes(notifId);
-        newNotifications.push({
-          id: notifId,
-          title: "Upcoming Prayer Reminder",
-          description: `${reminder.title} at ${formatTime(reminder.time)}`,
-          link: "/reminders",
-          time: `in ${timeDiff} min`,
-          read: isRead,
-          type: "reminder",
-        });
-      } else if (timeDiff >= -5 && timeDiff <= 0) {
-        const notifId = `reminder_now_${reminder.id}_${now.toDateString()}`;
-        const isRead = readNotifications.includes(notifId);
-        newNotifications.push({
-          id: notifId,
-          title: "Prayer Time Now!",
-          description: reminder.title,
-          link: "/reminders",
-          time: "now",
-          read: isRead,
-          type: "reminder",
-        });
-      }
-    });
-
-    const staticNotifications = [
-      {
-        id: "static_1",
-        title: "New Prayer Added",
-        description: "Check today's new prayer in Browse section.",
-        link: "/browse-prayers",
-        time: "2h ago",
-        read: readNotifications.includes("static_1"),
-        type: "general",
-      },
-      {
-        id: "static_2",
-        title: "Answered Prayer",
-        description: "Your prayer 'Faith & Strength' was answered.",
-        link: "/answered-prayers",
-        time: "1d ago",
-        read: readNotifications.includes("static_2"),
-        type: "general",
-      },
-    ];
-
-    const allNotifications = [...newNotifications, ...staticNotifications];
-    allNotifications.sort((a, b) => {
-      if (a.read !== b.read) return a.read ? 1 : -1;
-      return 0;
-    });
-
-    setNotifications(allNotifications);
   };
 
   useEffect(() => {
@@ -229,20 +133,62 @@ export default function Header() {
     };
   }, [user]);
 
+  /* ---------------- real notifications ---------------- */
+  async function fetchNotifications() {
+    try {
+      const url = new URL(apiURL("/notifications"), window.location.origin);
+      url.searchParams.set("limit", "10");
+      const res = await fetch(url.toString(), { credentials: "include" });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      const list = data?.data || data?.notifications || data || [];
+      const cursor = data?.nextCursor || data?.next || null;
+      setNotifications(list);
+      setNext(cursor);
+    } catch (e) {
+      console.error(e);
+      setNotifications([]);
+      setNext(null);
+    }
+  }
+
   useEffect(() => {
-    generateNotificationsFromReminders();
-    const interval = setInterval(generateNotificationsFromReminders, 60000);
-    const handleReminderUpdate = () => generateNotificationsFromReminders();
-
-    window.addEventListener("reminderUpdated", handleReminderUpdate);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener("reminderUpdated", handleReminderUpdate);
-    };
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 60000);
+    return () => clearInterval(interval);
   }, []);
 
-  // Close notifications when clicking outside
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  async function markAllRead() {
+    try {
+      await fetch(apiURL("/notifications/read"), {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ all: true }),
+      });
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function markOneRead(id) {
+    try {
+      await fetch(apiURL("/notifications/read"), {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [id] }),
+      });
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
@@ -253,47 +199,15 @@ export default function Header() {
         setNotifOpen(false);
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [notifOpen]);
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
-  const markAllRead = () => {
-    const readNotifications = JSON.parse(
-      localStorage.getItem("readNotifications") || "[]"
-    );
-    const allNotifIds = notifications.map((n) => n.id);
-    const updatedReadNotifs = [...new Set([...readNotifications, ...allNotifIds])];
-    localStorage.setItem("readNotifications", JSON.stringify(updatedReadNotifs));
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  };
-
-  const markAsRead = (id) => {
-    const readNotifications = JSON.parse(
-      localStorage.getItem("readNotifications") || "[]"
-    );
-    if (!readNotifications.includes(id)) {
-      readNotifications.push(id);
-      localStorage.setItem("readNotifications", JSON.stringify(readNotifications));
-    }
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
-  };
 
   const sidebarItems = [
     { id: "dashboard", title: "Dashboard", icon: Home, path: "/home" },
     { id: "browse-prayers", title: "Browse Prayers", icon: BookMarked, path: "/browse-prayers" },
     { id: "saved-prayers", title: "Saved Prayer (s)", icon: BookmarkCheck, path: "/saved-prayers" },
-    {
-      id: "prayer-wall",
-      title: "Prayer Wall",
-      icon: Users,
-      path: "#prayer-wall",
-      hasDropdown: true,
-    },
+    { id: "prayer-wall", title: "Prayer Wall", icon: Users, path: "#prayer-wall", hasDropdown: true },
     { id: "journal", title: "My Journal", icon: BookOpen, path: "/journal" },
     { id: "answered-prayers", title: "Answered Prayer", icon: BookmarkCheck, path: "/answered-prayers" },
     { id: "reminder", title: "Prayer Reminder", icon: Clock, path: "/reminders" },
@@ -304,7 +218,7 @@ export default function Header() {
     { id: "donate", title: "Donate", icon: HeartHandshake, path: "#donate" },
   ];
 
-  // ---------------- Donation actions ----------------
+  /* ---------------- donation submit ---------------- */
   async function startDonation(e) {
     e?.preventDefault?.();
     const amt = Number(amount);
@@ -351,8 +265,9 @@ export default function Header() {
 
   return (
     <>
+      {/* Top Header */}
       <header className="bg-[#2c3E91] shadow-sm border-b border-gray-200 px-4 py-3 fixed top-0 left-0 w-full z-50 flex justify-between items-center">
-        {/* Left: Logo & Menu */}
+        {/* LEFT */}
         <div className="flex items-center space-x-4">
           <button
             onClick={() => setSidebarOpen((s) => !s)}
@@ -366,9 +281,9 @@ export default function Header() {
           </Link>
         </div>
 
-        {/* Right: Donate + Notifications + User */}
+        {/* RIGHT */}
         <div className="flex items-center space-x-3 relative">
-          {/* Donate Button */}
+          {/* Donate */}
           <button
             onClick={() => setDonateOpen(true)}
             className="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#FCCF3A] text-[#0C2E8A] font-semibold hover:opacity-95 transition"
@@ -378,12 +293,11 @@ export default function Header() {
             Donate
           </button>
 
-          {/* Notification Bell (dropdown preserved) */}
+          {/* Bell */}
           <button
             onClick={() => setNotifOpen((n) => !n)}
             className="notification-button p-2 rounded-full hover:bg-white hover:bg-opacity-10 relative transition-colors duration-200"
             aria-label="Toggle notifications"
-            title="Notifications"
           >
             <Bell className="w-6 h-6 text-white" />
             {unreadCount > 0 && (
@@ -393,73 +307,82 @@ export default function Header() {
             )}
           </button>
 
-          {/* Notification Dropdown */}
+          {/* Dropdown */}
           {notifOpen && (
             <div className="notification-dropdown absolute right-0 top-12 w-80 bg-white shadow-2xl rounded-xl border border-gray-200 z-50">
               <div className="flex justify-between items-center px-4 py-3 border-b border-gray-100">
                 <h3 className="text-sm font-semibold text-gray-700">Notifications</h3>
-                <div className="flex items-center gap-3">
-                  <Link
-                    to="/notifications"
+                {unreadCount > 0 && (
+                  <button
+                    onClick={markAllRead}
                     className="text-xs text-blue-600 hover:text-blue-800 hover:underline transition-colors"
-                    onClick={() => setNotifOpen(false)}
                   >
-                    View all
-                  </Link>
-                  {unreadCount > 0 && (
-                    <button
-                      onClick={markAllRead}
-                      className="text-xs text-blue-600 hover:text-blue-800 hover:underline transition-colors"
-                    >
-                      Mark all as read
-                    </button>
-                  )}
-                </div>
+                    Mark all as read
+                  </button>
+                )}
               </div>
+
               <div className="max-h-72 overflow-y-auto">
                 {notifications.length > 0 ? (
-                  notifications.map((n) => (
-                    <Link
-                      key={n.id}
-                      to={n.link}
-                      onClick={() => {
-                        markAsRead(n.id);
-                        setNotifOpen(false);
-                      }}
-                      className={`block px-4 py-3 border-b border-gray-50 transition ${
-                        n.read
-                          ? "bg-gray-50 text-gray-600"
-                          : "bg-white font-medium text-gray-900"
-                      } hover:bg-blue-50 last:border-b-0`}
-                    >
-                      <div className="flex items-start gap-3">
-                        {!n.read ? (
-                          <Bell className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
-                        ) : (
-                          <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-sm truncate">{n.title}</h4>
-                          <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-                            {n.description}
-                          </p>
-                          <span className="text-xs text-gray-400 mt-1 block">
-                            {n.time}
-                          </span>
+                  notifications.map((n) => {
+                    const link = n.link || n.href || "/home";
+                    const title = n.title || n.subject || "Notification";
+                    const desc = n.description || n.body || "";
+                    const when = n.createdAt
+                      ? new Date(n.createdAt).toLocaleString()
+                      : n.time || "";
+
+                    return (
+                      <Link
+                        key={n.id}
+                        to={link}
+                        onClick={async () => {
+                          if (!n.read) await markOneRead(n.id);
+                          setNotifOpen(false);
+                        }}
+                        className={`block px-4 py-3 border-b border-gray-50 transition ${
+                          n.read ? "bg-gray-50 text-gray-600" : "bg-white font-medium text-gray-900"
+                        } hover:bg-blue-50 last:border-b-0`}
+                      >
+                        <div className="flex items-start gap-3">
+                          {!n.read ? (
+                            <Bell className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                          ) : (
+                            <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-sm truncate">{title}</h4>
+                            {desc && (
+                              <p className="text-xs text-gray-500 mt-1 line-clamp-2">{desc}</p>
+                            )}
+                            {when && (
+                              <span className="text-xs text-gray-400 mt-1 block">{when}</span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </Link>
-                  ))
+                      </Link>
+                    );
+                  })
                 ) : (
                   <div className="px-4 py-6 text-center text-gray-500 text-sm">
                     No notifications
                   </div>
                 )}
               </div>
+
+              <div className="px-4 py-3 border-t bg-gray-50 rounded-b-xl">
+                <Link
+                  to="/notifications"
+                  onClick={() => setNotifOpen(false)}
+                  className="block w-full text-center text-sm font-medium text-[#0C2E8A] hover:underline"
+                >
+                  View all
+                </Link>
+              </div>
             </div>
           )}
 
-          {/* User Profile Link */}
+          {/* Profile */}
           <Link to="/profile" className="relative group">
             <div className="w-10 h-10 rounded-full overflow-hidden hover:shadow-lg transition-shadow duration-200 border-2 border-transparent hover:border-blue-200">
               {profileImage ? (
@@ -619,7 +542,7 @@ export default function Header() {
         </nav>
       </aside>
 
-      {/* Sidebar Overlay for Mobile */}
+      {/* Sidebar overlay for mobile */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
