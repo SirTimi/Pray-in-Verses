@@ -1,6 +1,6 @@
 // src/pages/admin/AdminBroadcast.jsx
 import React from 'react';
-import { api } from '../../api';
+import { api } from '../api';
 import toast from 'react-hot-toast';
 
 export default function AdminBroadcast() {
