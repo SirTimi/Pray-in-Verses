@@ -67,6 +67,7 @@ import Invites from "./admin/pages/Invites";
 import AcceptInvite from "./admin/pages/AcceptInvite";
 import AdminRoute from "./admin/AdminRoute";
 import AdminUsers from "./admin/pages/AdminUsers";
+import AdminBroadcast from "./admin/pages/AdminBroadcast";
 
 import { Toaster } from "react-hot-toast";
 
@@ -163,6 +164,14 @@ function AppContent() {
                   element={
                     <AdminRequireAuth roles={["SUPER_ADMIN"]}>
                       <Invites />
+                    </AdminRequireAuth>
+                  }
+                />
+                <Route
+                  path="notifications"
+                  element={
+                    <AdminRequireAuth roles={["SUPER_ADMIN"]}>
+                      <AdminBroadcast />
                     </AdminRequireAuth>
                   }
                 />

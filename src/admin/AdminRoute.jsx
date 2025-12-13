@@ -4,6 +4,8 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { api } from "./api";
 import toast from "react-hot-toast";
 
+const ALLOWED = new Set(["EDITOR", "MODERATOR", "SUPER_ADMIN"]);
+
 export default function AdminRoute() {
   const [state, setState] = React.useState({ loading: true, ok: false });
   const loc = useLocation();
@@ -15,20 +17,33 @@ export default function AdminRoute() {
         const res = await api.me();
         const user = res?.data || res?.user || res;
         const role = user?.role;
-        const allowed = ["EDITOR", "MODERATOR", "SUPER_ADMIN"];
-        if (alive) setState({ loading: false, ok: allowed.includes(role) });
+        if (alive) setState({ loading: false, ok: ALLOWED.has(role) });
       } catch {
         if (alive) setState({ loading: false, ok: false });
       }
     })();
     return () => { alive = false; };
-  }, [loc]);
+  }, [loc.pathname]);
 
-  if (state.loading) return null; // or a spinner/skeleton
-  if (!state.ok) {
-    toast.error("Admins only");
-    // send to admin login if you have it; else fallback to main login
-    return <Navigate to="/admin/login" replace />;
+  if (state.loading) {
+    return (
+      <div className="w-full h-[50vh] grid place-items-center text-sm text-slate-500">
+        Checking admin access…
+      </div>
+    );
   }
+
+  if (!state.ok) {
+    // Fire and forget; avoid duplicate toasts by gating on pathname if you like
+    toast.error("Admins only");
+    return (
+      <Navigate
+        to="/admin/login"
+        replace
+        state={{ from: loc.pathname + loc.search }}
+      />
+    );
+  }
+
   return <Outlet />;
 }

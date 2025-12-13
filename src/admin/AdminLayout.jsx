@@ -3,7 +3,13 @@ import React from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { api } from "./api";
 import { useMe } from "./RequireAuth";
-import { LayoutDashboard, ListChecks, UserPlus, Users, Bell } from "lucide-react";
+import {
+  LayoutDashboard,
+  ListChecks,
+  UserPlus,
+  Users,
+  Bell,
+} from "lucide-react";
 
 export default function AdminLayout() {
   const { me } = useMe();
@@ -43,6 +49,18 @@ export default function AdminLayout() {
           </Link>
 
           <div className="flex items-center gap-3">
+            {/* Quick access to Broadcast (SUPER_ADMIN only) */}
+            {role === "SUPER_ADMIN" && (
+              <Link
+                to="/admin/notifications"
+                className="hidden md:inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-white hover:bg-gray-50 text-[#0C2E8A]"
+                title="Broadcast Notification"
+              >
+                <Bell className="w-4 h-4" />
+                <span className="text-sm font-medium">Broadcast</span>
+              </Link>
+            )}
+
             <span className="text-sm text-gray-700">
               {displayName}{" "}
               <span className="ml-1 text-xs font-semibold px-2 py-0.5 rounded-full border bg-gray-50 text-gray-700">
@@ -70,15 +88,24 @@ export default function AdminLayout() {
           <ul className="space-y-1">
             <li>{navItem("/admin", "Dashboard", LayoutDashboard, true)}</li>
             <li>{navItem("/admin/curated", "Curated Prayers", ListChecks)}</li>
+
             {role === "SUPER_ADMIN" && (
               <li>{navItem("/admin/invites", "Invites", UserPlus)}</li>
             )}
             {role === "SUPER_ADMIN" && (
               <li>{navItem("/admin/users", "Users", Users)}</li>
             )}
+
+            {/* Broadcast Notification (SUPER_ADMIN only) */}
             {role === "SUPER_ADMIN" && (
-              <li>{navItem("/admin/notifications", "Broadcast Notification", Bell)}</li>
-            )}  
+              <li>
+                {navItem(
+                  "/admin/notifications",
+                  "Broadcast Notification",
+                  Bell
+                )}
+              </li>
+            )}
           </ul>
         </nav>
       </aside>
