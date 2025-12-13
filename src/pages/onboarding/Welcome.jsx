@@ -67,11 +67,11 @@ const Welcome = () => {
                 Privacy Policy
               </Link>
               <Link
-                to="/community-guidelines"
-                title="Community Guidelines"
+                to="/eula"
+                title="End-User License"
                 className="inline-flex items-center justify-center px-3 py-2 text-xs font-semibold rounded-md border border-[#0C2E8A] text-[#0C2E8A] hover:bg-[#0C2E8A] hover:text-white transition focus:outline-none focus:ring-2 focus:ring-[#0C2E8A]/30"
               >
-                Community Guidelines
+                End-User License
               </Link>
               <Link
                 to="/terms-of-service"
@@ -88,11 +88,11 @@ const Welcome = () => {
                 Donation Policy
               </Link>
               <Link
-                to="/eula"
-                title="End-User License"
+                to="/community-guidelines"
+                title="Community Guidelines"
                 className="inline-flex items-center justify-center px-3 py-2 text-xs font-semibold rounded-md border border-[#0C2E8A] text-[#0C2E8A] hover:bg-[#0C2E8A] hover:text-white transition focus:outline-none focus:ring-2 focus:ring-[#0C2E8A]/30"
               >
-                End-User License
+                Community Guidelines
               </Link>
             </div>
           </div>
