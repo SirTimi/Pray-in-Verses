@@ -251,6 +251,11 @@ enum NotificationAudience {
   USER
 }
 
+enum NotificationStatus {
+  DRAFT
+  SENT
+}
+
 model Notification {
   id            String               @id @default(cuid())
   title         String
@@ -263,6 +268,8 @@ model Notification {
   roles         Role[]               @default([])
   targetUserIds String[]             @default([])
   createdAt     DateTime             @default(now())
+
+  status        NotificationStatus   @default(SENT)
 
   // reverse
   deliveries UserNotification[]

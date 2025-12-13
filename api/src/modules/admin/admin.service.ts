@@ -16,6 +16,7 @@ import {
   Role,
   UserStatus,
   Prisma,
+  NotificationStatus,
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
@@ -207,6 +208,7 @@ export class AdminService {
           link: dto.link || null,
           createdById: adminId,
           audience,
+          status: NotificationStatus.SENT,
         },
         select: { id: true },
       });
