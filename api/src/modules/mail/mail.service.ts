@@ -1,4 +1,3 @@
-// src/mail/mail.service.ts
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import * as SendGridNS from '@sendgrid/mail';
@@ -279,6 +278,41 @@ export class MailService {
       )}" style="display:inline-block;background:#0C2E8A;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;">View comment</a></p>
     `);
     await this.send({ to: ownerEmail, subject, html, text: `View comment:\n${safeLink}\n` });
+  }
+
+  // ---- NEW: Suspension emails ----
+
+  async sendSuspensionNotice(to: string, name: string, reason?: string) {
+    const subject = 'Your Pray in Verses account has been suspended';
+    const safeName = this.escape(name || to);
+    const html = this.frame(`
+      <h2 style="margin:0 0 12px 0;color:#0C2E8A">Account Suspension Notice</h2>
+      <p>Hi ${safeName},</p>
+      <p>Your Pray in Verses account has been suspended for violating our Community Guidelines.</p>
+      ${reason ? `<p><strong>Reason:</strong> ${this.escape(reason)}</p>` : ``}
+      <p>
+        Please review our guidelines here:
+        <a href="${this.escape(this.normalizeLink('/community-guidelines'))}">
+          Community Guidelines
+        </a>.
+        If you believe this was a mistake, reply to this email to request a review.
+      </p>
+      <p>— Pray in Verses Team</p>
+    `);
+    await this.send({ to, subject, html });
+  }
+
+  async sendUnsuspensionNotice(to: string, name: string) {
+    const subject = 'Your Pray in Verses account has been reinstated';
+    const safeName = this.escape(name || to);
+    const html = this.frame(`
+      <h2 style="margin:0 0 12px 0;color:#0C2E8A">Account Reinstated</h2>
+      <p>Hi ${safeName},</p>
+      <p>Your Pray in Verses account has been reinstated and your access has been restored.</p>
+      <p>Please continue to follow our <a href="${this.escape(this.normalizeLink('/community-guidelines'))}">Community Guidelines</a>.</p>
+      <p>— Pray in Verses Team</p>
+    `);
+    await this.send({ to, subject, html });
   }
 
   /* --------------------------- Helpers ---------------------------- */

@@ -1,9 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -20,14 +17,26 @@ enum Role {
   USER
 }
 
+/// NEW: account lifecycle for moderation
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String      @id @default(cuid())
+  email        String      @unique
   passwordHash String
   displayName  String?
-  role         Role     @default(USER)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  role         Role        @default(USER)
+
+  /// NEW: moderation/suspension fields
+  status           UserStatus @default(ACTIVE)
+  suspendedAt      DateTime?
+  suspendedReason  String?
+
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 
   // existing
   savedPrayers SavedPrayer[]
@@ -39,11 +48,13 @@ model User {
 
   // Back-relations for the prayer wall features:
   prayerRequests  PrayerRequest[] // requests this user created
-  prayerLikes     PrayerLike[] // requests this user liked
-  prayerBookmarks PrayerBookmark[] // requests this user bookmarked
+  prayerLikes     PrayerLike[]    // requests this user liked
+  prayerBookmarks PrayerBookmark[]// requests this user bookmarked
   prayerComments  PrayerComment[] // comments this user posted
   prayerPoints    PrayerPoint[]
   passwordResets  PasswordReset[]
+
+  @@index([status]) // helpful for admin dashboards
 }
 
 model SavedPrayer {
@@ -221,7 +232,7 @@ model Donation {
   id           String   @id @default(cuid())
   reference    String   @unique
   email        String
-  amountNGN    Int      // store kobo or naira? choose one; see note below
+  amountNGN    Int      // NOTE: currently stored as Naira integer; consider using kobo if you need exact cents-equivalent.
   currency     String   @default("NGN")
   status       String   @default("initialized") // initialized | pending | success | failed | abandoned
   metadata     Json?

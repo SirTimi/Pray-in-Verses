@@ -1,4 +1,3 @@
-// src/admin/admin.service.ts
 import {
   BadRequestException,
   Injectable,
@@ -131,9 +130,11 @@ export class AdminService {
       select: {
         id: true,
         email: true,
-        displayName: true,
+        displayName: true, // use displayName consistently
         role: true,
+        status: true,      // requires enum in schema: ACTIVE | SUSPENDED | ...
         createdAt: true,
+        updatedAt: true,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -151,6 +152,52 @@ export class AdminService {
       where: { id: userId },
       data: { role: dto.role },
     });
+    return { ok: true };
+  }
+
+  /**
+   * Suspend a user (sets status=SUSPENDED), records timestamps/reason,
+   * and emails the user.
+   */
+  async suspendUser(userId: string, reason?: string) {
+    if (!userId) throw new BadRequestException('User id is required');
+
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        status: 'SUSPENDED',
+        suspendedAt: new Date(),
+        suspendedReason: reason ?? null,
+      },
+      select: { id: true, email: true, displayName: true },
+    });
+
+    // fire-and-forget email
+    this.mailService
+      .sendSuspensionNotice(user.email, user.displayName || user.email, reason)
+      .catch(() => undefined);
+
+    return { ok: true };
+  }
+
+  /**
+   * Unsuspend a user (sets status=ACTIVE), clears suspension fields,
+   * and emails the user.
+   */
+  async unsuspendUser(userId: string) {
+    if (!userId) throw new BadRequestException('User id is required');
+
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { status: 'ACTIVE', suspendedAt: null, suspendedReason: null },
+      select: { id: true, email: true, displayName: true },
+    });
+
+    // optional notification
+    this.mailService
+      .sendUnsuspensionNotice(user.email, user.displayName || user.email)
+      .catch(() => undefined);
+
     return { ok: true };
   }
 

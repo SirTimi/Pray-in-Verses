@@ -41,13 +41,13 @@ export class AdminController {
     return this.service.listInvites(); // { data: [...] }
   }
 
-  // Public accept (no auth) — stays in this controller as requested
+  // Public accept (no auth)
   @Post('invites/accept')
   async accept(@Body() dto: AcceptInviteDto) {
     return this.service.acceptInvite(dto); // { ok, email, role }
   }
 
-  // ------- Users (list, update) -------
+  // ------- Users (list, update role, suspend/unsuspend) -------
   @UseGuards(JwtCookieAuthGuard, RolesGuard)
   @Roles(Role.SUPER_ADMIN, Role.MODERATOR)
   @Get('users')
@@ -60,6 +60,20 @@ export class AdminController {
   @Patch('users/:id/role')
   async updateRole(@Param('id') id: string, @Body() dto: UpdateUserRoleDto) {
     return this.service.updateUserRole(id, dto); // { ok: true }
+  }
+
+  @UseGuards(JwtCookieAuthGuard, RolesGuard)
+  @Roles(Role.SUPER_ADMIN)
+  @Patch('users/:id/suspend')
+  async suspendUser(@Param('id') id: string, @Body() body: { reason?: string }) {
+    return this.service.suspendUser(id, body?.reason); // { ok: true }
+  }
+
+  @UseGuards(JwtCookieAuthGuard, RolesGuard)
+  @Roles(Role.SUPER_ADMIN)
+  @Patch('users/:id/unsuspend')
+  async unsuspendUser(@Param('id') id: string) {
+    return this.service.unsuspendUser(id); // { ok: true }
   }
 
   // ------- Lightweight identity lookup for dashboard chips -------
