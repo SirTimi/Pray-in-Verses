@@ -24,19 +24,19 @@ enum UserStatus {
 }
 
 model User {
-  id           String      @id @default(cuid())
-  email        String      @unique
+  id           String  @id @default(cuid())
+  email        String  @unique
   passwordHash String
   displayName  String?
-  role         Role        @default(USER)
+  role         Role    @default(USER)
 
   /// NEW: moderation/suspension fields
-  status           UserStatus @default(ACTIVE)
-  suspendedAt      DateTime?
-  suspendedReason  String?
+  status          UserStatus @default(ACTIVE)
+  suspendedAt     DateTime?
+  suspendedReason String?
 
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // existing
   savedPrayers SavedPrayer[]
@@ -48,11 +48,14 @@ model User {
 
   // Back-relations for the prayer wall features:
   prayerRequests  PrayerRequest[] // requests this user created
-  prayerLikes     PrayerLike[]    // requests this user liked
-  prayerBookmarks PrayerBookmark[]// requests this user bookmarked
+  prayerLikes     PrayerLike[] // requests this user liked
+  prayerBookmarks PrayerBookmark[] // requests this user bookmarked
   prayerComments  PrayerComment[] // comments this user posted
   prayerPoints    PrayerPoint[]
   passwordResets  PasswordReset[]
+
+  createdNotifications Notification[]     @relation("UserCreatedNotifications")
+  inboxNotifications   UserNotification[] @relation("UserInboxNotifications")
 
   @@index([status]) // helpful for admin dashboards
 }
@@ -229,14 +232,53 @@ model PasswordReset {
 }
 
 model Donation {
-  id           String   @id @default(cuid())
-  reference    String   @unique
-  email        String
-  amountNGN    Int      // NOTE: currently stored as Naira integer; consider using kobo if you need exact cents-equivalent.
-  currency     String   @default("NGN")
-  status       String   @default("initialized") // initialized | pending | success | failed | abandoned
-  metadata     Json?
-  gatewayRaw   Json?
-  createdAt    DateTime @default(now())
-  paidAt       DateTime?
+  id         String    @id @default(cuid())
+  reference  String    @unique
+  email      String
+  amountNGN  Int // NOTE: currently stored as Naira integer; consider using kobo if you need exact cents-equivalent.
+  currency   String    @default("NGN")
+  status     String    @default("initialized") // initialized | pending | success | failed | abandoned
+  metadata   Json?
+  gatewayRaw Json?
+  createdAt  DateTime  @default(now())
+  paidAt     DateTime?
+}
+
+// --- NEW ---
+enum NotificationAudience {
+  ALL
+  ROLE
+  USER
+}
+
+model Notification {
+  id            String               @id @default(cuid())
+  title         String
+  body          String
+  link          String?
+  createdById   String
+  // 👇 explicit relation name
+  createdBy     User                 @relation("UserCreatedNotifications", fields: [createdById], references: [id])
+  audience      NotificationAudience @default(ALL)
+  roles         Role[]               @default([])
+  targetUserIds String[]             @default([])
+  createdAt     DateTime             @default(now())
+
+  // reverse
+  deliveries UserNotification[]
+}
+
+model UserNotification {
+  id             String       @id @default(cuid())
+  userId         String
+  notificationId String
+  // 👇 explicit relation name
+  user           User         @relation("UserInboxNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@unique([userId, notificationId])
+  @@index([userId, createdAt])
 }

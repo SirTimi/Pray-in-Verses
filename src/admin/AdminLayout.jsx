@@ -3,7 +3,7 @@ import React from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { api } from "./api";
 import { useMe } from "./RequireAuth";
-import { LayoutDashboard, ListChecks, UserPlus, Users } from "lucide-react";
+import { LayoutDashboard, ListChecks, UserPlus, Users, Bell } from "lucide-react";
 
 export default function AdminLayout() {
   const { me } = useMe();
@@ -76,6 +76,9 @@ export default function AdminLayout() {
             {role === "SUPER_ADMIN" && (
               <li>{navItem("/admin/users", "Users", Users)}</li>
             )}
+            {role === "SUPER_ADMIN" && (
+              <li>{navItem("/admin/broadcast", "Broadcast Notification", Bell)}</li>
+            )}  
           </ul>
         </nav>
       </aside>

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
   Menu,
-  Search,
   Bell,
   User,
   Home,
@@ -26,7 +25,6 @@ export default function Header() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [prayerWallOpen, setPrayerWallOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const [profileImage, setProfileImage] = useState(null);
   const [userName, setUserName] = useState("User");
   const [notifications, setNotifications] = useState([]);
@@ -42,9 +40,7 @@ export default function Header() {
   const [donateBusy, setDonateBusy] = useState(false);
   const quickAmounts = [1000, 2000, 5000, 10000];
 
-  /**
-   * Get current user data from multiple sources with fallbacks
-   */
+  /** Get current user data from multiple sources with fallbacks */
   const getCurrentUser = () => {
     if (user && user.id && (user.name || user.displayName || user.email)) {
       return {
@@ -77,9 +73,7 @@ export default function Header() {
     return null;
   };
 
-  /**
-   * Update profile data from user information
-   */
+  /** Update profile data from user information */
   const updateProfileData = () => {
     const currentUser = getCurrentUser();
 
@@ -110,9 +104,17 @@ export default function Header() {
     }
   };
 
-  /**
-   * Generate notifications from reminders
-   */
+  /** Format time to 12-hour format */
+  const formatTime = (time24) => {
+    if (!time24) return "";
+    const [hours, minutes] = time24.split(":");
+    const hour = parseInt(hours || "0", 10);
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
+  };
+
+  /** Generate notifications from reminders (local fallback) */
   const generateNotificationsFromReminders = () => {
     const reminders = JSON.parse(localStorage.getItem("reminders") || "[]");
     const readNotifications = JSON.parse(
@@ -199,18 +201,6 @@ export default function Header() {
     setNotifications(allNotifications);
   };
 
-  /**
-   * Format time to 12-hour format
-   */
-  const formatTime = (time24) => {
-    if (!time24) return "";
-    const [hours, minutes] = time24.split(":");
-    const hour = parseInt(hours || "0", 10);
-    const ampm = hour >= 12 ? "PM" : "AM";
-    const hour12 = hour % 12 || 12;
-    return `${hour12}:${minutes} ${ampm}`;
-  };
-
   useEffect(() => {
     updateProfileData();
 
@@ -252,6 +242,22 @@ export default function Header() {
     };
   }, []);
 
+  // Close notifications when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        notifOpen &&
+        !event.target.closest(".notification-dropdown") &&
+        !event.target.closest(".notification-button")
+      ) {
+        setNotifOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [notifOpen]);
+
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const markAllRead = () => {
@@ -277,22 +283,6 @@ export default function Header() {
     );
   };
 
-  // Close notifications when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (
-        notifOpen &&
-        !event.target.closest(".notification-dropdown") &&
-        !event.target.closest(".notification-button")
-      ) {
-        setNotifOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [notifOpen]);
-
   const sidebarItems = [
     { id: "dashboard", title: "Dashboard", icon: Home, path: "/home" },
     { id: "browse-prayers", title: "Browse Prayers", icon: BookMarked, path: "/browse-prayers" },
@@ -311,7 +301,6 @@ export default function Header() {
     { id: "history", title: "History", icon: Clock, path: "/history" },
     { id: "about", title: "About PIV", icon: Info, path: "/about" },
     { id: "profile", title: "Profile", icon: User, path: "/profile" },
-    // Optional donate entry in sidebar (opens modal)
     { id: "donate", title: "Donate", icon: HeartHandshake, path: "#donate" },
   ];
 
@@ -334,11 +323,10 @@ export default function Header() {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount: amt, // NGN
+          amount: amt,
           email: donorEmail,
           name: donorName || undefined,
           message: note || undefined,
-          // You can add a `redirectUrl` here if your backend supports it.
         }),
       });
       if (!res.ok) {
@@ -390,11 +378,12 @@ export default function Header() {
             Donate
           </button>
 
-          {/* Notification Bell */}
+          {/* Notification Bell (dropdown preserved) */}
           <button
             onClick={() => setNotifOpen((n) => !n)}
             className="notification-button p-2 rounded-full hover:bg-white hover:bg-opacity-10 relative transition-colors duration-200"
             aria-label="Toggle notifications"
+            title="Notifications"
           >
             <Bell className="w-6 h-6 text-white" />
             {unreadCount > 0 && (
@@ -409,14 +398,23 @@ export default function Header() {
             <div className="notification-dropdown absolute right-0 top-12 w-80 bg-white shadow-2xl rounded-xl border border-gray-200 z-50">
               <div className="flex justify-between items-center px-4 py-3 border-b border-gray-100">
                 <h3 className="text-sm font-semibold text-gray-700">Notifications</h3>
-                {unreadCount > 0 && (
-                  <button
-                    onClick={markAllRead}
+                <div className="flex items-center gap-3">
+                  <Link
+                    to="/notifications"
                     className="text-xs text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                    onClick={() => setNotifOpen(false)}
                   >
-                    Mark all as read
-                  </button>
-                )}
+                    View all
+                  </Link>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAllRead}
+                      className="text-xs text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                    >
+                      Mark all as read
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="max-h-72 overflow-y-auto">
                 {notifications.length > 0 ? (
