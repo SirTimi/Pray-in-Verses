@@ -18,6 +18,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CreateInviteDto, AcceptInviteDto, UpdateUserRoleDto } from './dto';
 import { Role } from '@prisma/client';
+import { CreateNotificationDto } from '../notifications/dto/create-notification.dto';
 
 @Controller('admin')
 export class AdminController {
@@ -99,5 +100,16 @@ export class AdminController {
         role: u.role,
       })),
     };
+  }
+
+  // ------- Admin Broadcast Notifications (SUPER_ADMIN) -------
+  @UseGuards(JwtCookieAuthGuard, RolesGuard)
+  @Roles(Role.SUPER_ADMIN)
+  @Post('notifications/broadcast')
+  async broadcast(@Req() req: Request, @Body() dto: CreateNotificationDto) {
+    // @ts-ignore
+    const adminId: string | undefined = req.user?.id;
+    if (!adminId) throw new BadRequestException('Invalid sender');
+    return this.service.broadcastNotification(adminId, dto); // { ok, notificationId, deliveredTo }
   }
 }
