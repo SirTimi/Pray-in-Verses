@@ -14,7 +14,7 @@ import { HealthModule } from './health/health.module';
 import { IdentityModule } from './modules/identity/identity.module';
 import { MailModule } from './modules/mail/mail.module';
 import { DonationsModule } from './modules/donations/donations.module';
-
+import { NotificationsModule } from './modules/notifications/notifications.module';
 @Module({
   imports: [
     PrismaModule,
@@ -32,6 +32,7 @@ import { DonationsModule } from './modules/donations/donations.module';
     IdentityModule,
     MailModule,
     DonationsModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}
