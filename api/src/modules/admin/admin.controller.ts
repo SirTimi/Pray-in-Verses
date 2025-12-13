@@ -17,8 +17,8 @@ import { JwtCookieAuthGuard } from '../auth/jwt.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CreateInviteDto, AcceptInviteDto, UpdateUserRoleDto } from './dto';
-import { Role } from '@prisma/client';
 import { CreateNotificationDto } from '../notifications/dto/create-notification.dto';
+import { Role } from '@prisma/client';
 
 @Controller('admin')
 export class AdminController {
@@ -29,8 +29,8 @@ export class AdminController {
   @Roles(Role.SUPER_ADMIN)
   @Post('invites')
   async createInvite(@Req() req: Request, @Body() dto: CreateInviteDto) {
-    // @ts-ignore
-    const inviterId: string | undefined = req.user?.id;
+    const inviterId =
+      (req as any)?.user?.id || (req as any)?.user?.sub || null;
     if (!inviterId) throw new BadRequestException('Invalid inviter');
     return this.service.createInvite(inviterId, dto);
   }
@@ -39,13 +39,12 @@ export class AdminController {
   @Roles(Role.SUPER_ADMIN)
   @Get('invites')
   async invites() {
-    return this.service.listInvites(); // { data: [...] }
+    return this.service.listInvites();
   }
 
-  // Public accept (no auth)
   @Post('invites/accept')
   async accept(@Body() dto: AcceptInviteDto) {
-    return this.service.acceptInvite(dto); // { ok, email, role }
+    return this.service.acceptInvite(dto);
   }
 
   // ------- Users (list, update role, suspend/unsuspend) -------
@@ -53,31 +52,46 @@ export class AdminController {
   @Roles(Role.SUPER_ADMIN, Role.MODERATOR)
   @Get('users')
   async users() {
-    return this.service.listUsers(); // { data: [...] }
+    return this.service.listUsers();
   }
 
   @UseGuards(JwtCookieAuthGuard, RolesGuard)
   @Roles(Role.SUPER_ADMIN)
   @Patch('users/:id/role')
   async updateRole(@Param('id') id: string, @Body() dto: UpdateUserRoleDto) {
-    return this.service.updateUserRole(id, dto); // { ok: true }
+    return this.service.updateUserRole(id, dto);
   }
 
   @UseGuards(JwtCookieAuthGuard, RolesGuard)
   @Roles(Role.SUPER_ADMIN)
   @Patch('users/:id/suspend')
   async suspendUser(@Param('id') id: string, @Body() body: { reason?: string }) {
-    return this.service.suspendUser(id, body?.reason); // { ok: true }
+    return this.service.suspendUser(id, body?.reason);
   }
 
   @UseGuards(JwtCookieAuthGuard, RolesGuard)
   @Roles(Role.SUPER_ADMIN)
   @Patch('users/:id/unsuspend')
   async unsuspendUser(@Param('id') id: string) {
-    return this.service.unsuspendUser(id); // { ok: true }
+    return this.service.unsuspendUser(id);
   }
 
-  // ------- Lightweight identity lookup for dashboard chips -------
+  // ------- Broadcast notifications -------
+  @UseGuards(JwtCookieAuthGuard, RolesGuard)
+  @Roles(Role.SUPER_ADMIN)
+  @Post('notifications/broadcast')
+  async broadcast(
+    @Req() req: Request,
+    @Body() dto: CreateNotificationDto,
+  ) {
+    const adminId =
+      (req as any)?.user?.id || (req as any)?.user?.sub || null;
+    if (!adminId) throw new BadRequestException('Invalid sender');
+
+    return this.service.broadcastNotification(adminId, dto);
+  }
+
+  // ------- Lightweight identity lookup -------
   @UseGuards(JwtCookieAuthGuard, RolesGuard)
   @Roles(Role.SUPER_ADMIN, Role.MODERATOR, Role.EDITOR)
   @Get('users/lookup')
@@ -86,11 +100,9 @@ export class AdminController {
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean);
-
     if (!list.length) {
       throw new BadRequestException('ids is required (comma-separated user IDs)');
     }
-
     const rows = await this.service.lookupUsersByIds(list);
     return {
       data: rows.map((u) => ({
@@ -100,16 +112,5 @@ export class AdminController {
         role: u.role,
       })),
     };
-  }
-
-  // ------- Admin Broadcast Notifications (SUPER_ADMIN) -------
-  @UseGuards(JwtCookieAuthGuard, RolesGuard)
-  @Roles(Role.SUPER_ADMIN)
-  @Post('notifications/broadcast')
-  async broadcast(@Req() req: Request, @Body() dto: CreateNotificationDto) {
-    // @ts-ignore
-    const adminId: string | undefined = req.user?.id;
-    if (!adminId) throw new BadRequestException('Invalid sender');
-    return this.service.broadcastNotification(adminId, dto); // { ok, notificationId, deliveredTo }
   }
 }

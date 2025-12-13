@@ -11,7 +11,12 @@ import {
   UpdateUserRoleDto,
 } from './dto';
 import { CreateNotificationDto } from '../notifications/dto/create-notification.dto';
-import { NotificationAudience, Role, UserStatus } from '@prisma/client';
+import {
+  NotificationAudience,
+  Role,
+  UserStatus,
+  Prisma,
+} from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { MailService } from '../mail/mail.service';
@@ -95,8 +100,8 @@ export class AdminService {
         const updates: Record<string, any> = {};
         if (newRole !== existing.role) updates.role = newRole;
         if (!existing.displayName) updates.displayName = dto.name;
-        // Optional: normalize status in case it was null historically
-        if (existing.status === null) updates.status = UserStatus.ACTIVE;
+        // normalize legacy NULL status to ACTIVE
+        if ((existing as any).status == null) updates.status = UserStatus.ACTIVE;
 
         if (Object.keys(updates).length) {
           await tx.user.update({
@@ -111,7 +116,6 @@ export class AdminService {
             passwordHash,
             displayName: dto.name,
             role: invite.role,
-            // ensure ACTIVE for newly-created admin users
             status: UserStatus.ACTIVE,
           },
         });
@@ -135,9 +139,9 @@ export class AdminService {
         email: true,
         displayName: true,
         role: true,
-        status: true,          // enum UserStatus
-        suspendedAt: true,     // nullable
-        suspendedReason: true, // nullable
+        status: true,
+        suspendedAt: true,
+        suspendedReason: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -160,10 +164,6 @@ export class AdminService {
     return { ok: true };
   }
 
-  /**
-   * Suspend a user (sets status=SUSPENDED), records timestamps/reason,
-   * and emails the user.
-   */
   async suspendUser(userId: string, reason?: string) {
     if (!userId) throw new BadRequestException('User id is required');
 
@@ -184,10 +184,6 @@ export class AdminService {
     return { ok: true };
   }
 
-  /**
-   * Unsuspend a user (sets status=ACTIVE), clears suspension fields,
-   * and emails the user.
-   */
   async unsuspendUser(userId: string) {
     if (!userId) throw new BadRequestException('User id is required');
 
@@ -204,14 +200,8 @@ export class AdminService {
     return { ok: true };
   }
 
-  /**
-   * Lightweight identity resolver for dashboard chips.
-   * Returns minimal public fields (id, displayName/email fallback, email, role).
-   */
   async lookupUsersByIds(ids: string[]) {
-    const unique = Array.from(
-      new Set((ids || []).map((s) => (s || '').trim()).filter(Boolean)),
-    );
+    const unique = Array.from(new Set((ids || []).map((s) => (s || '').trim()).filter(Boolean)));
     if (unique.length === 0) return [];
 
     const users = await this.prisma.user.findMany({
@@ -233,22 +223,18 @@ export class AdminService {
    * Create a Notification and corresponding UserNotification rows
    * based on the specified audience. Returns # of deliveries.
    *
-   * NOTE: Recipient filters include users with status ACTIVE **or** NULL
-   * to avoid skipping legacy rows before a full backfill.
+   * Includes Prisma error surfacing to avoid opaque 500s.
    */
   async broadcastNotification(adminId: string, dto: CreateNotificationDto) {
     if (!adminId) throw new BadRequestException('Invalid sender');
 
     const title = (dto.title || '').trim();
     const body = (dto.body || '').trim();
-    if (!title || !body) {
-      throw new BadRequestException('title and body are required');
-    }
+    if (!title || !body) throw new BadRequestException('title and body are required');
 
     const audience = dto.audience;
     if (!audience) throw new BadRequestException('audience is required');
 
-    // Validate audience-specific fields
     if (audience === NotificationAudience.ROLE) {
       if (!Array.isArray(dto.roles) || dto.roles.length === 0) {
         throw new BadRequestException('roles is required when audience=ROLE');
@@ -260,72 +246,76 @@ export class AdminService {
       }
     }
 
-    // Create the Notification first
-    const notification = await this.prisma.notification.create({
-      data: {
-        title,
-        body,
-        link: dto.link || null,
-        createdById: adminId,
-        audience,
-      },
-      select: { id: true },
-    });
-
-    // Resolve recipients (ACTIVE or NULL status)
-    let recipients: { id: string; email: string | null; displayName: string | null }[] = [];
-
-    if (audience === NotificationAudience.ALL) {
-      recipients = await this.prisma.user.findMany({
-        where: {
-          OR: [{ status: UserStatus.ACTIVE }, { status: null as any }],
+    try {
+      // 1) Create the Notification
+      const notification = await this.prisma.notification.create({
+        data: {
+          title,
+          body,
+          link: dto.link || null,
+          createdById: adminId,
+          audience,
         },
-        select: { id: true, email: true, displayName: true },
+        select: { id: true },
       });
-    } else if (audience === NotificationAudience.ROLE) {
-      recipients = await this.prisma.user.findMany({
-        where: {
-          AND: [
-            { role: { in: dto.roles as Role[] } },
-            { OR: [{ status: UserStatus.ACTIVE }, { status: null as any }] },
-          ],
-        },
-        select: { id: true, email: true, displayName: true },
-      });
-    } else if (audience === NotificationAudience.USER) {
-      const unique = Array.from(new Set(dto.userIds || []));
-      recipients = await this.prisma.user.findMany({
-        where: {
-          id: { in: unique },
-          OR: [{ status: UserStatus.ACTIVE }, { status: null as any }],
-        },
-        select: { id: true, email: true, displayName: true },
-      });
-    }
 
-    if (recipients.length === 0) {
-      return { ok: true, notificationId: notification.id, deliveredTo: 0 };
-    }
+      // 2) Resolve recipients (ACTIVE or legacy NULL)
+      let recipients: { id: string; email: string | null; displayName: string | null }[] = [];
 
-    // Create UserNotification join rows in batches
-    const batchSize = 500;
-    for (let i = 0; i < recipients.length; i += batchSize) {
-      const slice = recipients.slice(i, i + batchSize);
-      await this.prisma.userNotification.createMany({
-        data: slice.map((u) => ({
-          userId: u.id,
-          notificationId: notification.id,
-          readAt: null,
-        })),
-        skipDuplicates: true,
-      });
-    }
+      if (audience === NotificationAudience.ALL) {
+        recipients = await this.prisma.user.findMany({
+          where: { OR: [{ status: UserStatus.ACTIVE }, { status: null as any }] },
+          select: { id: true, email: true, displayName: true },
+        });
+      } else if (audience === NotificationAudience.ROLE) {
+        recipients = await this.prisma.user.findMany({
+          where: {
+            role: { in: dto.roles as Role[] },
+            OR: [{ status: UserStatus.ACTIVE }, { status: null as any }],
+          },
+          select: { id: true, email: true, displayName: true },
+        });
+      } else if (audience === NotificationAudience.USER) {
+        const unique = Array.from(new Set(dto.userIds || []));
+        recipients = await this.prisma.user.findMany({
+          where: {
+            id: { in: unique },
+            OR: [{ status: UserStatus.ACTIVE }, { status: null as any }],
+          },
+          select: { id: true, email: true, displayName: true },
+        });
+      }
 
-    return {
-      ok: true,
-      notificationId: notification.id,
-      deliveredTo: recipients.length,
-    };
+      if (recipients.length === 0) {
+        return { ok: true, notificationId: notification.id, deliveredTo: 0 };
+      }
+
+      // 3) Insert UserNotification rows in batches
+      const batchSize = 500;
+      for (let i = 0; i < recipients.length; i += batchSize) {
+        const slice = recipients.slice(i, i + batchSize);
+        await this.prisma.userNotification.createMany({
+          data: slice.map((u) => ({
+            userId: u.id,
+            notificationId: notification.id,
+            readAt: null,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      return {
+        ok: true,
+        notificationId: notification.id,
+        deliveredTo: recipients.length,
+      };
+    } catch (e: any) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError) {
+        // Common: P2002 (unique), P2003 (FK), etc.
+        throw new BadRequestException(`${e.code}: ${e.meta ? JSON.stringify(e.meta) : e.message}`);
+      }
+      throw e;
+    }
   }
 
   // --------------------------- Helpers ---------------------------
