@@ -1,5 +1,5 @@
 // src/notifications/notifications.controller.ts
-import { Controller, Get, Patch, Param, Query, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Patch, Param, Query, UseGuards, Req, Body } from '@nestjs/common';
 import type { Request } from 'express';
 import { JwtCookieAuthGuard } from '../auth/jwt.guard';
 import { NotificationsService } from './notifications.service';
@@ -9,10 +9,7 @@ import { NotificationsService } from './notifications.service';
 export class NotificationsController {
   constructor(private svc: NotificationsService) {}
 
-  /**
-   * NEW: alias to support GET /api/notifications?limit=10
-   * (Header.jsx expects this path.)
-   */
+  // Supports GET /api/notifications?limit=10
   @Get()
   async list(
     @Req() req: Request,
@@ -24,10 +21,7 @@ export class NotificationsController {
     return this.svc.listForUser(userId, limit ? Number(limit) : 50, cursor);
   }
 
-  /**
-   * Existing path kept for backwards compatibility:
-   * GET /api/notifications/mine?limit=50
-   */
+  // Kept for backwards compatibility: GET /api/notifications/mine
   @Get('mine')
   async mine(
     @Req() req: Request,
@@ -39,7 +33,7 @@ export class NotificationsController {
     return this.svc.listForUser(userId, limit ? Number(limit) : 50, cursor);
   }
 
-  /** Mark a single user-notification row as read */
+  // Preferred route: PATCH /api/notifications/:id/read
   @Patch(':id/read')
   async markRead(@Req() req: Request, @Param('id') id: string) {
     // @ts-ignore
@@ -47,7 +41,20 @@ export class NotificationsController {
     return this.svc.markRead(userId, id);
   }
 
-  /** Mark all notifications as read for the current user */
+  // Legacy alias to match the current frontend call:
+  // PATCH /api/notifications/read  with JSON body: { "id": "<userNotificationId>" }
+  @Patch('read')
+  async markReadLegacy(@Req() req: Request, @Body() body: { id?: string }) {
+    // @ts-ignore
+    const userId = req.user?.id as string;
+    if (!body?.id) {
+      // mirrors how markRead would behave if id missing
+      return { ok: false, message: 'id is required' };
+    }
+    return this.svc.markRead(userId, body.id);
+  }
+
+  // Mark all as read: PATCH /api/notifications/read-all
   @Patch('read-all')
   async markAll(@Req() req: Request) {
     // @ts-ignore
