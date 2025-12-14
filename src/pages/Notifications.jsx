@@ -1,7 +1,6 @@
 // src/pages/Notifications.jsx
 import React from "react";
-import { CheckCircle2, Bell, ExternalLink } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { CheckCircle2, Bell } from "lucide-react";
 
 const RAW_BASE = (import.meta.env.VITE_API_BASE ?? "/api").trim();
 const API_BASE = RAW_BASE.replace(/\/$/, "");
@@ -11,13 +10,15 @@ export default function Notifications() {
   const [items, setItems] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
-  const [selected, setSelected] = React.useState(null); // for reading content in a modal
-  const navigate = useNavigate();
+  const [selected, setSelected] = React.useState(null); // modal content
+
+  const getUserNotifId = (n) => n?.userNotificationId || n?.id;
 
   async function load() {
     setLoading(true);
     setError("");
     try {
+      // Backend exposes GET /notifications (aliased to "mine")
       const res = await fetch(apiURL("/notifications?limit=25"), {
         credentials: "include",
       });
@@ -26,8 +27,8 @@ export default function Notifications() {
         throw new Error(t || `Failed (${res.status})`);
       }
       const data = await res.json();
-      // Accept both shapes: {data:[...]} or just [...]
-      const rows = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+      const rows =
+        Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
       setItems(rows);
     } catch (e) {
       setError(e?.message || "Failed to load notifications");
@@ -36,24 +37,25 @@ export default function Notifications() {
     }
   }
 
-  React.useEffect(() => { load(); }, []);
-
-  // robust extractor: some APIs return the user-notification id as "id", others as "userNotificationId"
-  const getUserNotifId = (n) => n?.userNotificationId || n?.id;
+  React.useEffect(() => {
+    load();
+  }, []);
 
   async function markReadOne(n) {
     const id = getUserNotifId(n);
     if (!id) return;
-    // Uses the legacy alias the backend now exposes: PATCH /notifications/read  { id }
-    // If you removed the alias, switch to PATCH /notifications/:id/read
+    // Legacy alias: PATCH /notifications/read  { id }
     await fetch(apiURL("/notifications/read"), {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     }).catch(() => {});
-    // update UI optimistically
-    setItems((prev) => prev.map((x) => (getUserNotifId(x) === id ? { ...x, readAt: x.readAt || new Date().toISOString() } : x)));
+    setItems((prev) =>
+      prev.map((x) =>
+        getUserNotifId(x) === id ? { ...x, readAt: x.readAt || new Date().toISOString() } : x
+      )
+    );
   }
 
   async function markAllRead() {
@@ -64,24 +66,8 @@ export default function Notifications() {
     setItems((prev) => prev.map((x) => ({ ...x, readAt: x.readAt || new Date().toISOString() })));
   }
 
-  function openNotification(n) {
-    // 1) mark as read
+  function openModal(n) {
     markReadOne(n);
-
-    // 2) route if a link exists; else open modal to read content
-    const link = (n?.link || "").trim();
-    if (link) {
-      // support absolute and internal links
-      if (link.startsWith("http://") || link.startsWith("https://")) {
-        window.location.href = link;
-      } else if (link.startsWith("/")) {
-        navigate(link);
-      } else {
-        // treat as relative path
-        navigate(`/${link}`);
-      }
-      return;
-    }
     setSelected(n);
   }
 
@@ -126,9 +112,7 @@ export default function Notifications() {
           return (
             <li
               key={getUserNotifId(n) || `${n.title}-${n.createdAt}`}
-              className={`p-4 flex items-start gap-3 ${
-                isRead ? "bg-white" : "bg-blue-50"
-              }`}
+              className={`p-4 flex items-start gap-3 ${isRead ? "bg-white" : "bg-blue-50"}`}
             >
               {isRead ? (
                 <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5" />
@@ -137,19 +121,11 @@ export default function Notifications() {
               )}
 
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <h3 className={`text-sm font-medium ${isRead ? "text-gray-800" : "text-gray-900"}`}>
-                    {n.title || "Notification"}
-                  </h3>
-                  {n.link && (
-                    <span title="Opens a page" className="text-gray-400">
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-gray-600 line-clamp-2 mt-1">
-                  {n.body || ""}
-                </p>
+                <h3 className={`text-sm font-medium ${isRead ? "text-gray-800" : "text-gray-900"}`}>
+                  {n.title || "Notification"}
+                </h3>
+                <p className="text-xs text-gray-600 line-clamp-2 mt-1">{n.body || ""}</p>
+
                 <div className="mt-2 flex items-center gap-3">
                   {!isRead && (
                     <button
@@ -160,7 +136,7 @@ export default function Notifications() {
                     </button>
                   )}
                   <button
-                    onClick={() => openNotification(n)}
+                    onClick={() => openModal(n)}
                     className="text-xs text-[#0C2E8A] font-semibold hover:underline"
                   >
                     Open
@@ -172,35 +148,44 @@ export default function Notifications() {
         })}
       </ul>
 
-      {/* Reader Modal when there's no link */}
+      {/* Reader Modal (always used on Open) */}
       {selected && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+        <div
+          className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+        >
           <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl overflow-hidden">
             <div className="px-5 py-4 border-b bg-gray-50 flex items-center justify-between">
               <h4 className="text-sm font-semibold text-[#0C2E8A]">
                 {selected.title || "Notification"}
               </h4>
-              <button onClick={() => setSelected(null)} className="text-gray-600 hover:text-black">
+              <button
+                onClick={() => setSelected(null)}
+                className="text-gray-600 hover:text-black"
+                aria-label="Close"
+              >
                 ✕
               </button>
             </div>
+
             <div className="p-5">
-              <p className="text-sm text-gray-800 whitespace-pre-wrap">
-                {selected.body || ""}
-              </p>
+              <p className="text-sm text-gray-800 whitespace-pre-wrap">{selected.body || ""}</p>
+
               {selected.link && (
-                <div className="mt-4">
-                  <Link
-                    to={selected.link.startsWith("/") ? selected.link : `/${selected.link}`}
-                    onClick={() => setSelected(null)}
-                    className="inline-flex items-center gap-2 text-sm text-blue-700 hover:underline"
+                <div className="mt-4 flex items-center gap-2">
+                  <a
+                    href={selected.link}
+                    target={selected.link.startsWith("http") ? "_blank" : "_self"}
+                    rel="noreferrer"
+                    className="text-sm text-blue-700 hover:underline"
                   >
-                    Open link
-                    <ExternalLink className="w-4 h-4" />
-                  </Link>
+                    Open attached link
+                  </a>
                 </div>
               )}
             </div>
+
             <div className="px-5 py-3 border-t bg-gray-50 flex justify-end">
               <button
                 onClick={() => setSelected(null)}
