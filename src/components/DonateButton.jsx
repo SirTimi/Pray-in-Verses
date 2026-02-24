@@ -6,7 +6,7 @@ export default function DonateButton() {
   const [email, setEmail] = useState('');
 
   async function donate() {
-    const res = await fetch('/api/donations/init', {
+    const res = await fetch(`${import.meta.env.VITE_API_BASE || ''}/donations/init`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       credentials: 'include',
