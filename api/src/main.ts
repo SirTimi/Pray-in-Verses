@@ -10,7 +10,7 @@ import * as bodyParser from 'body-parser';    // ✅ for json/urlencoded with ve
 function parseOrigins(): (string | RegExp)[] {
   const raw =
     process.env.CORS_ORIGINS ??
-    'https://prayinverses.com,http://localhost:3000';
+    'https://prayinverses.com, http://localhost:3000, https://www.prayinverses.com';
   return raw
     .split(',')
     .map((s) => s.trim())
