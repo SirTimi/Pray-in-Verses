@@ -2,6 +2,12 @@
   "rewrites": [
     { "source": "/(.*)", "destination": "/" }
   ],
-  "ignoreCommand": "exit 0",
-  "functions": {}
+  "functions": {},
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": { "distDir": "dist" }
+    }
+  ]
 }
