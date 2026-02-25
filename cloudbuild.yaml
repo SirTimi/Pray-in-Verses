@@ -1,0 +1,62 @@
+steps:
+  # Build backend
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/pray-in-verses/pray-in-verses-api', './api']
+
+  # Push backend
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/pray-in-verses/pray-in-verses-api']
+
+  # Deploy backend to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    args:
+      - 'gcloud'
+      - 'run'
+      - 'deploy'
+      - 'pray-in-verses-api'
+      - '--image=gcr.io/pray-in-verses/pray-in-verses-api'
+      - '--region=europe-west1'
+      - '--platform=managed'
+      - '--project=pray-in-verses'
+
+  # Run migrations
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    args:
+      - 'gcloud'
+      - 'run'
+      - 'jobs'
+      - 'execute'
+      - 'migrate'
+      - '--region=europe-west1'
+      - '--project=pray-in-verses'
+      - '--wait'
+
+  # Build frontend
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/pray-in-verses/pray-in-verses-frontend'
+      - '--build-arg'
+      - 'VITE_API_BASE=https://api.prayinverses.com/api'
+      - '.'
+
+  # Push frontend
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/pray-in-verses/pray-in-verses-frontend']
+
+  # Deploy frontend to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    args:
+      - 'gcloud'
+      - 'run'
+      - 'deploy'
+      - 'pray-in-verses-frontend'
+      - '--image=gcr.io/pray-in-verses/pray-in-verses-frontend'
+      - '--region=europe-west1'
+      - '--platform=managed'
+      - '--project=pray-in-verses'
+
+images:
+  - 'gcr.io/pray-in-verses/pray-in-verses-api'
+  - 'gcr.io/pray-in-verses/pray-in-verses-frontend'
