@@ -10,26 +10,37 @@ export default function Notifications() {
   const [items, setItems] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
-  const [selected, setSelected] = React.useState(null); // modal content
+  const [selected, setSelected] = React.useState(null);
 
-  const getUserNotifId = (n) => n?.userNotificationId || n?.id;
+  const uid = (n) => n.userNotificationId || n.id || "";
 
   async function load() {
     setLoading(true);
     setError("");
     try {
-      // Backend exposes GET /notifications (aliased to "mine")
       const res = await fetch(apiURL("/notifications?limit=25"), {
         credentials: "include",
       });
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || `Failed (${res.status})`);
-      }
-      const data = await res.json();
-      const rows =
-        Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
-      setItems(rows);
+      const text = await res.text();
+      if (!res.ok) throw new Error(text || `Failed (${res.status})`);
+
+      const data = JSON.parse(text);
+      const rows = Array.isArray(data?.data)
+        ? data.data
+        : Array.isArray(data)
+        ? data
+        : [];
+
+      const normalized = rows.map((r) => ({
+        id: r.userNotificationId || r.id,
+        userNotificationId: r.userNotificationId || r.id,
+        title: r.title ?? "",
+        body: r.body ?? "",
+        link: r.link ?? null,
+        readAt: r.readAt ?? null,
+        createdAt: r.createdAt ?? undefined,
+      }));
+      setItems(normalized);
     } catch (e) {
       setError(e?.message || "Failed to load notifications");
     } finally {
@@ -42,10 +53,9 @@ export default function Notifications() {
   }, []);
 
   async function markReadOne(n) {
-    const id = getUserNotifId(n);
+    const id = uid(n);
     if (!id) return;
-    // Legacy alias: PATCH /notifications/read  { id }
-    await fetch(apiURL("/notifications/read"), {
+    fetch(apiURL("/notifications/read"), {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -53,25 +63,22 @@ export default function Notifications() {
     }).catch(() => {});
     setItems((prev) =>
       prev.map((x) =>
-        getUserNotifId(x) === id ? { ...x, readAt: x.readAt || new Date().toISOString() } : x
+        uid(x) === id ? { ...x, readAt: x.readAt || new Date().toISOString() } : x
       )
     );
   }
 
   async function markAllRead() {
-    await fetch(apiURL("/notifications/read-all"), {
+    fetch(apiURL("/notifications/read-all"), {
       method: "PATCH",
       credentials: "include",
     }).catch(() => {});
-    setItems((prev) => prev.map((x) => ({ ...x, readAt: x.readAt || new Date().toISOString() })));
+    setItems((prev) =>
+      prev.map((x) => ({ ...x, readAt: x.readAt || new Date().toISOString() }))
+    );
   }
 
-  function openModal(n) {
-    markReadOne(n);
-    setSelected(n);
-  }
-
-  const unreadCount = items.filter((i) => !i.readAt).length;
+  const unread = items.filter((i) => !i.readAt).length;
 
   return (
     <div className="min-h-[60vh]">
@@ -79,11 +86,9 @@ export default function Notifications() {
         <h1 className="text-lg font-semibold text-[#0C2E8A] flex items-center gap-2">
           <Bell className="w-5 h-5" />
           Notifications
-          {unreadCount > 0 && (
-            <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700">
-              {unreadCount} unread
-            </span>
-          )}
+          <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+            {unread} unread
+          </span>
         </h1>
         {items.length > 0 && (
           <button
@@ -95,66 +100,76 @@ export default function Notifications() {
         )}
       </div>
 
-      {loading && <div className="text-sm text-gray-500">Loading…</div>}
-      {error && (
+      {loading && (
+        <div className="space-y-2">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-16 animate-pulse bg-gray-100 rounded-lg" />
+          ))}
+        </div>
+      )}
+
+      {!loading && error && (
         <div className="text-sm text-red-600 border border-red-200 bg-red-50 p-3 rounded-lg">
           {error}
         </div>
       )}
 
       {!loading && !error && items.length === 0 && (
-        <div className="text-sm text-gray-500">No notifications yet.</div>
+        <div className="p-6 rounded-xl border bg-white text-center">
+          <p className="text-sm text-gray-600">No notifications yet.</p>
+          <p className="text-xs text-gray-500 mt-1">
+            When admins broadcast updates, they'll appear here.
+          </p>
+        </div>
       )}
 
-      <ul className="divide-y rounded-lg border overflow-hidden">
-        {items.map((n) => {
-          const isRead = Boolean(n.readAt);
-          return (
-            <li
-              key={getUserNotifId(n) || `${n.title}-${n.createdAt}`}
-              className={`p-4 flex items-start gap-3 ${isRead ? "bg-white" : "bg-blue-50"}`}
-            >
-              {isRead ? (
-                <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5" />
-              ) : (
-                <Bell className="w-5 h-5 text-blue-500 mt-0.5" />
-              )}
-
-              <div className="flex-1 min-w-0">
-                <h3 className={`text-sm font-medium ${isRead ? "text-gray-800" : "text-gray-900"}`}>
-                  {n.title || "Notification"}
-                </h3>
-                <p className="text-xs text-gray-600 line-clamp-2 mt-1">{n.body || ""}</p>
-
-                <div className="mt-2 flex items-center gap-3">
-                  {!isRead && (
+      {items.length > 0 && (
+        <ul className="divide-y rounded-lg border overflow-hidden bg-white">
+          {items.map((n) => {
+            const isRead = !!n.readAt;
+            return (
+              <li
+                key={uid(n)}
+                className={`p-4 flex items-start gap-3 ${isRead ? "bg-white" : "bg-blue-50"}`}
+              >
+                {isRead ? (
+                  <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5" />
+                ) : (
+                  <Bell className="w-5 h-5 text-blue-500 mt-0.5" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <h3 className={`text-sm font-medium ${isRead ? "text-gray-800" : "text-gray-900"}`}>
+                    {n.title || "Notification"}
+                  </h3>
+                  <p className="text-xs text-gray-600 mt-1 line-clamp-2">{n.body}</p>
+                  <div className="mt-2 flex items-center gap-3">
+                    {!isRead && (
+                      <button
+                        onClick={() => markReadOne(n)}
+                        className="text-xs text-blue-700 hover:underline"
+                      >
+                        Mark read
+                      </button>
+                    )}
                     <button
-                      onClick={() => markReadOne(n)}
-                      className="text-xs text-blue-700 hover:underline"
+                      onClick={() => {
+                        markReadOne(n);
+                        setSelected(n);
+                      }}
+                      className="text-xs text-[#0C2E8A] font-semibold hover:underline"
                     >
-                      Mark read
+                      Open
                     </button>
-                  )}
-                  <button
-                    onClick={() => openModal(n)}
-                    className="text-xs text-[#0C2E8A] font-semibold hover:underline"
-                  >
-                    Open
-                  </button>
+                  </div>
                 </div>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
-      {/* Reader Modal (always used on Open) */}
       {selected && (
-        <div
-          className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-        >
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl overflow-hidden">
             <div className="px-5 py-4 border-b bg-gray-50 flex items-center justify-between">
               <h4 className="text-sm font-semibold text-[#0C2E8A]">
@@ -168,12 +183,10 @@ export default function Notifications() {
                 ✕
               </button>
             </div>
-
             <div className="p-5">
               <p className="text-sm text-gray-800 whitespace-pre-wrap">{selected.body || ""}</p>
-
               {selected.link && (
-                <div className="mt-4 flex items-center gap-2">
+                <div className="mt-4">
                   <a
                     href={selected.link}
                     target={selected.link.startsWith("http") ? "_blank" : "_self"}
@@ -185,7 +198,6 @@ export default function Notifications() {
                 </div>
               )}
             </div>
-
             <div className="px-5 py-3 border-t bg-gray-50 flex justify-end">
               <button
                 onClick={() => setSelected(null)}
