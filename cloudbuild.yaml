@@ -1,7 +1,7 @@
 steps:
   # Build backend
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/pray-in-verses/pray-in-verses-api', './api']
+    args: ['build', '-t', 'gcr.io/pray-in-verses/pray-in-verses-api', '-f', 'api/Dockerfile', './api']
 
   # Push backend
   - name: 'gcr.io/cloud-builders/docker'
@@ -37,6 +37,8 @@ steps:
       - 'build'
       - '-t'
       - 'gcr.io/pray-in-verses/pray-in-verses-frontend'
+      - '-f'
+      - 'Dockerfile'
       - '--build-arg'
       - 'VITE_API_BASE=https://api.prayinverses.com/api'
       - '.'
