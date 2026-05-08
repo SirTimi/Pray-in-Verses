@@ -62,3 +62,6 @@ steps:
 images:
   - 'gcr.io/pray-in-verses/pray-in-verses-api'
   - 'gcr.io/pray-in-verses/pray-in-verses-frontend'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
