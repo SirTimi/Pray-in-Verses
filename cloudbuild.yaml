@@ -20,16 +20,7 @@ steps:
       - '--project=pray-in-verses'
 
   # Run migrations
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    args:
-      - 'gcloud'
-      - 'run'
-      - 'jobs'
-      - 'execute'
-      - 'migrate'
-      - '--region=europe-west1'
-      - '--project=pray-in-verses'
-      - '--wait'
+
 
   # Build frontend
   - name: 'gcr.io/cloud-builders/docker'
