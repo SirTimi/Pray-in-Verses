@@ -33,6 +33,7 @@ export default function Header() {
   // Notifications (real API)
   const [notifications, setNotifications] = useState([]);
   const [next, setNext] = useState(null);
+  const [selectedNotif, setSelectedNotif] = useState(null);
 
   // Donate modal
   const [donateOpen, setDonateOpen] = useState(false);
@@ -325,7 +326,6 @@ export default function Header() {
               <div className="max-h-72 overflow-y-auto">
                 {notifications.length > 0 ? (
                   notifications.map((n) => {
-                    const link = n.link || n.href || "/home";
                     const title = n.title || n.subject || "Notification";
                     const desc = n.description || n.body || "";
                     const when = n.createdAt
@@ -333,14 +333,20 @@ export default function Header() {
                       : n.time || "";
 
                     return (
-                      <Link
+                      <button
+                        type="button"
                         key={n.id}
-                        to={link}
-                        onClick={async () => {
-                          if (!n.read) await markOneRead(n.id);
+                        onClick={() => {
+                          if (!n.read) markOneRead(n.id);
+                          setSelectedNotif({
+                            ...n,
+                            title,
+                            body: desc,
+                            link: n.link || n.href || null,
+                          });
                           setNotifOpen(false);
                         }}
-                        className={`block px-4 py-3 border-b border-gray-50 transition ${
+                        className={`block w-full text-left px-4 py-3 border-b border-gray-50 transition ${
                           n.read ? "bg-gray-50 text-gray-600" : "bg-white font-medium text-gray-900"
                         } hover:bg-blue-50 last:border-b-0`}
                       >
@@ -360,7 +366,7 @@ export default function Header() {
                             )}
                           </div>
                         </div>
-                      </Link>
+                      </button>
                     );
                   })
                 ) : (
@@ -659,6 +665,56 @@ export default function Header() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Notification detail modal */}
+      {selectedNotif && (
+        <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl overflow-hidden">
+            <div className="px-5 py-4 border-b bg-gray-50 flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-[#0C2E8A]">
+                {selectedNotif.title || "Notification"}
+              </h4>
+              <button
+                onClick={() => setSelectedNotif(null)}
+                className="text-gray-600 hover:text-black"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-5">
+              <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                {selectedNotif.body || ""}
+              </p>
+              {selectedNotif.link && (
+                <div className="mt-4">
+                  <a
+                    href={selectedNotif.link}
+                    target={selectedNotif.link.startsWith("http") ? "_blank" : "_self"}
+                    rel="noreferrer"
+                    className="text-sm text-blue-700 hover:underline"
+                  >
+                    Open attached link
+                  </a>
+                </div>
+              )}
+              {selectedNotif.createdAt && (
+                <p className="mt-4 text-xs text-gray-400">
+                  {new Date(selectedNotif.createdAt).toLocaleString()}
+                </p>
+              )}
+            </div>
+            <div className="px-5 py-3 border-t bg-gray-50 flex justify-end">
+              <button
+                onClick={() => setSelectedNotif(null)}
+                className="px-3 py-1.5 rounded-lg border bg-white hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
