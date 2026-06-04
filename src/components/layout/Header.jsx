@@ -144,7 +144,18 @@ export default function Header() {
       const data = await res.json();
       const list = data?.data || data?.notifications || data || [];
       const cursor = data?.nextCursor || data?.next || null;
-      setNotifications(list);
+      const normalized = (Array.isArray(list) ? list : []).map((r) => {
+        const inner = r?.notification || {};
+        return {
+          id: r.id ?? inner.id,
+          title: r.title ?? inner.title ?? "",
+          body: r.body ?? inner.body ?? "",
+          link: r.link ?? inner.link ?? null,
+          createdAt: r.createdAt ?? inner.createdAt ?? null,
+          read: r.read ?? !!r.readAt,
+        };
+      });
+      setNotifications(normalized);
       setNext(cursor);
     } catch (e) {
       console.error(e);
