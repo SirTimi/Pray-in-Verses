@@ -3,7 +3,7 @@ import { useNavigate, useParams, Link } from "react-router-dom";
 import { api } from "../api";
 import toast from "react-hot-toast";
 import VERSE_COUNTS from "../../constants/verse-counts.json";
-
+import { useMe } from "../RequireAuth"
 // tiny label wrapper
 const Field = ({ label, children }) => (
   <label className="block space-y-1">
@@ -95,6 +95,9 @@ export default function CuratedEdit() {
   const nav = useNavigate();
   const { id } = useParams();
   const isCreate = id === undefined;
+
+  const { me } = useMe();
+  const canPublish = me?.role === "MODERATOR" || me?.role === "SUPER_ADMIN";
 
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
@@ -409,13 +412,15 @@ export default function CuratedEdit() {
             Back
           </Link>
 
-          <button
-            onClick={onPublishToggle}
-            className="px-3 py-2 rounded-md bg-green-600 text-white"
-            disabled={saving}
-          >
-            {isCreate ? "Publish" : (data.state === "PUBLISHED" ? "Send to Review" : "Publish")}
-          </button>
+          {canPublish && (
+            <button
+              onClick={onPublishToggle}
+              className="px-3 py-2 rounded-md bg-green-600 text-white"
+              disabled={saving}
+            >
+              {isCreate ? "Publish" : (data.state === "PUBLISHED" ? "Send to Review" : "Publish")}
+            </button>
+          )}
 
           <button
             onClick={saveOnly}
