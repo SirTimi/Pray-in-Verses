@@ -2,6 +2,7 @@
 import React from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api";
+import { useMe } from "../RequireAuth";
 import toast from "react-hot-toast";
 
 const StateBadge = ({ state }) => {
@@ -100,9 +101,14 @@ function UsersCell({ it, userMap }) {
 export default function CuratedList() {
   const [sp, setSp] = useSearchParams();
 
+  // current admin user → role gate for publish actions
+  const { me } = useMe();
+  const canPublish = me?.role === "MODERATOR" || me?.role === "SUPER_ADMIN";
+
   const [loading, setLoading] = React.useState(true);
   const [items, setItems] = React.useState([]);
   const [cursor, setCursor] = React.useState(null);
+  const [actingId, setActingId] = React.useState(null);
 
   // id -> {id, displayName, email, role}
   const [userMap, setUserMap] = React.useState(() => new Map());
@@ -110,6 +116,8 @@ export default function CuratedList() {
   const q = sp.get("q") || "";
   const state = sp.get("state") || "";
   const book = sp.get("book") || "";
+  const chapter = sp.get("chapter") || "";
+  const verse = sp.get("verse") || "";
 
   function idsNeeded(batch) {
     const ids = new Set();
@@ -163,7 +171,15 @@ export default function CuratedList() {
   async function load(listCursor = null, { append = false } = {}) {
     setLoading(true);
     try {
-      const res = await api.listCurated(q, state, book, 50, listCursor || undefined);
+      const res = await api.listCurated(
+        q,
+        state,
+        book,
+        chapter,
+        verse,
+        50,
+        listCursor || undefined
+      );
       setLoading(false);
 
       if (!res) {
@@ -198,7 +214,7 @@ export default function CuratedList() {
   React.useEffect(() => {
     load(null, { append: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, state, book]);
+  }, [q, state, book, chapter, verse]);
 
   function onFilterChange(next) {
     const nextSP = new URLSearchParams(sp);
@@ -220,6 +236,26 @@ export default function CuratedList() {
     }
   }
 
+  // Inline publish / unpublish (moderator + super admin only)
+  async function onTogglePublish(it) {
+    const target = it.state === "PUBLISHED" ? "REVIEW" : "PUBLISHED";
+    setActingId(it.id);
+    const res = await api.transitionCurated(it.id, target);
+    setActingId(null);
+
+    if (res?.ok) {
+      toast.success(target === "PUBLISHED" ? "Published" : "Sent to Review");
+      // reflect the new state in place without a full reload
+      setItems((prev) =>
+        prev.map((row) =>
+          row.id === it.id ? { ...row, state: target } : row
+        )
+      );
+    } else {
+      toast.error(res?.message || "Action failed");
+    }
+  }
+
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
@@ -233,12 +269,34 @@ export default function CuratedList() {
       </div>
 
       {/* Filters */}
-      <div className="grid gap-3 md:grid-cols-5">
+      <div className="grid gap-3 md:grid-cols-6">
         <input
-          className="border rounded-md px-3 py-2"
+          className="border rounded-md px-3 py-2 md:col-span-2"
           placeholder="Search theme or text…"
           value={q}
           onChange={(e) => onFilterChange({ q: e.target.value })}
+        />
+        <input
+          className="border rounded-md px-3 py-2"
+          placeholder="Book (e.g., Genesis)"
+          value={book}
+          onChange={(e) => onFilterChange({ book: e.target.value })}
+        />
+        <input
+          type="number"
+          min={1}
+          className="border rounded-md px-3 py-2"
+          placeholder="Chapter"
+          value={chapter}
+          onChange={(e) => onFilterChange({ chapter: e.target.value })}
+        />
+        <input
+          type="number"
+          min={1}
+          className="border rounded-md px-3 py-2"
+          placeholder="Verse"
+          value={verse}
+          onChange={(e) => onFilterChange({ verse: e.target.value })}
         />
         <select
           className="border rounded-md px-3 py-2"
@@ -251,12 +309,6 @@ export default function CuratedList() {
           <option value="PUBLISHED">Published</option>
           <option value="ARCHIVED">Archived</option>
         </select>
-        <input
-          className="border rounded-md px-3 py-2"
-          placeholder="Book (e.g., Genesis)"
-          value={book}
-          onChange={(e) => onFilterChange({ book: e.target.value })}
-        />
         <button
           className="border rounded-md px-3 py-2"
           onClick={() => setSp(new URLSearchParams(), { replace: true })}
@@ -298,6 +350,23 @@ export default function CuratedList() {
                     {it.updatedAt ? new Date(it.updatedAt).toLocaleString() : "—"}
                   </td>
                   <td className="px-4 py-3 flex gap-2 justify-end">
+                    {canPublish && (
+                      <button
+                        onClick={() => onTogglePublish(it)}
+                        disabled={actingId === it.id}
+                        className={`px-2 py-1 border rounded-md disabled:opacity-50 ${
+                          it.state === "PUBLISHED"
+                            ? "text-yellow-700 hover:bg-yellow-50"
+                            : "text-green-700 hover:bg-green-50"
+                        }`}
+                      >
+                        {actingId === it.id
+                          ? "…"
+                          : it.state === "PUBLISHED"
+                          ? "Unpublish"
+                          : "Publish"}
+                      </button>
+                    )}
                     <Link
                       to={`/admin/curated/${it.id}`}
                       className="px-2 py-1 border rounded-md hover:bg-blue-50 text-[#0C2E8A]"

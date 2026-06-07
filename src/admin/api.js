@@ -195,11 +195,13 @@ export const api = {
   },
 
   /* curated list (with identity hydration) */
-  listCurated: async (q, state, book, limit = 20, cursor) => {
+  listCurated: async (q, state, book, chapter, verse, limit = 20, cursor) => {
     const p = new URLSearchParams();
     if (q) p.set("q", q);
     if (state) p.set("state", state);
     if (book) p.set("book", book);
+    if (chapter) p.set("chapter", String(chapter));
+    if (verse) p.set("verse", String(verse));
     if (limit) p.set("limit", String(limit));
     if (cursor) p.set("cursor", cursor);
     p.set("include", "owner,contributors");

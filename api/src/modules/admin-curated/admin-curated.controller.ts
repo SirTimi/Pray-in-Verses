@@ -34,12 +34,14 @@ export class AdminCuratedController {
     @Query('q') q: string = '',
     @Query('state') state?: PublishState | string,
     @Query('book') book: string = '',
+    @Query('chapter') chapter?: string,
+    @Query('verse') verse?: string,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number = 20,
     @Query('cursor') cursor?: string,
   ) {
     // @ts-ignore
     const role = req.user.role;
-    return this.service.list(role, q, state, book, limit, cursor ?? null);
+    return this.service.list(role, q, state, book, chapter, verse, limit, cursor ?? null);
   }
 
   // ---- Create ----

@@ -27,11 +27,20 @@ export class AdminCuratedService {
     q?: string,
     state?: PublishState | string,
     book?: string,
+    chapter?: number | string,
+    verse?: number | string,
     limit = 20,
     cursor?: string | null,
   ) {
     const where: any = {};
     if (book) where.book = { equals: book, mode: 'insensitive' };
+
+    // chapter / verse exact filters (only when a valid positive int is given)
+    const chapterNum = Number(chapter);
+    if (Number.isInteger(chapterNum) && chapterNum > 0) where.chapter = chapterNum;
+    const verseNum = Number(verse);
+    if (Number.isInteger(verseNum) && verseNum > 0) where.verse = verseNum;
+
     if (q) {
       where.OR = [
         { theme: { contains: q, mode: 'insensitive' } },
@@ -69,7 +78,6 @@ export class AdminCuratedService {
       const next = rows.pop()!;
       nextCursor = next.id;
     }
-    // Return envelope your Admin UI expects
     return { items: rows, nextCursor };
   }
 
