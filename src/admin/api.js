@@ -413,4 +413,7 @@ export const api = {
       method: "DELETE",
     }),
   publishedPointsCount: () => request(`/browse/published-points-count`),
+
+  /* dashboard: curated counts grouped by state (one round-trip) */
+  curatedCounts: () => request(`/stats/curated-counts`),
 };

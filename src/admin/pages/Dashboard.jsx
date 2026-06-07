@@ -3,32 +3,38 @@ import React from "react";
 import { api } from "../api";
 import { ClipboardList, CheckCircle2, Archive, FileEdit, RefreshCw } from "lucide-react";
 
-/** Prefer server-provided totals; otherwise infer from items/data arrays */
-function extractCount(res) {
-  if (typeof res?.total === "number") return res.total;
-  if (typeof res?.count === "number") return res.count;
-  return null;
+const EMPTY = { draft: 0, review: 0, published: 0, archived: 0 };
+
+/** Map the server's { counts: { DRAFT, REVIEW, ... } } envelope to our shape. */
+function fromServerCounts(res) {
+  const c = res?.counts;
+  if (!c || typeof c !== "object") return null;
+  return {
+    draft: Number(c.DRAFT) || 0,
+    review: Number(c.REVIEW) || 0,
+    published: Number(c.PUBLISHED) || 0,
+    archived: Number(c.ARCHIVED) || 0,
+  };
 }
 
-/** Robust counter:
- * 1) If API returns total/count => use it (fast).
- * 2) Else paginate through all pages and sum lengths.
+/** Fallback only: paginate one state and sum lengths.
+ *  Uses the CURRENT listCurated signature: (q, state, book, chapter, verse, limit, cursor).
  */
 async function countAllFor(state, pageSize = 200, maxPages = 50) {
   let cursor = undefined;
   let pages = 0;
-
-  // First probe: maybe server tells us totals even with a tiny page
-  {
-    const probe = await api.listCurated(undefined, state, undefined, 1);
-    const total = extractCount(probe);
-    if (typeof total === "number") return total;
-  }
-
-  // Fallback: paginate and sum
   let totalLen = 0;
+
   do {
-    const res = await api.listCurated(undefined, state, undefined, pageSize, cursor);
+    const res = await api.listCurated(
+      undefined, // q
+      state,     // state
+      undefined, // book
+      undefined, // chapter
+      undefined, // verse
+      pageSize,  // limit
+      cursor     // cursor
+    );
     const items = Array.isArray(res?.items)
       ? res.items
       : Array.isArray(res?.data)
@@ -43,18 +49,27 @@ async function countAllFor(state, pageSize = 200, maxPages = 50) {
 }
 
 export default function Dashboard() {
-  const [counts, setCounts] = React.useState({
-    draft: null,
-    review: null,
-    published: null,
-    archived: null,
-  });
+  const [counts, setCounts] = React.useState(EMPTY);
+  const [loaded, setLoaded] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
+  const [error, setError] = React.useState(null);
 
   const load = React.useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
+      // Fast path: single grouped-count round-trip.
+      const res = await api.curatedCounts();
+      const mapped = fromServerCounts(res);
+
+      if (mapped) {
+        setCounts(mapped);
+        setLoaded(true);
+        return;
+      }
+
+      // Fallback (endpoint missing/old API): paginate per state in parallel.
       const [d, r, p, a] = await Promise.all([
         countAllFor("DRAFT"),
         countAllFor("REVIEW"),
@@ -62,6 +77,9 @@ export default function Dashboard() {
         countAllFor("ARCHIVED"),
       ]);
       setCounts({ draft: d, review: r, published: p, archived: a });
+      setLoaded(true);
+    } catch (e) {
+      setError("Couldn't load dashboard stats.");
     } finally {
       setLoading(false);
     }
@@ -92,7 +110,7 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="text-2xl font-bold">
-          {loading ? (
+          {loading && !loaded ? (
             <span className="inline-block w-12 h-6 bg-gray-200 rounded animate-pulse" />
           ) : (
             value
@@ -121,29 +139,35 @@ export default function Dashboard() {
         </button>
       </div>
 
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm px-3 py-2">
+          {error}
+        </div>
+      )}
+
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard
           title="Draft"
-          value={counts.draft ?? "—"}
+          value={loaded ? counts.draft : "—"}
           accent="gray"
           icon={<FileEdit className="w-5 h-5 text-[#0C2E8A]" />}
         />
         <StatCard
           title="In Review"
-          value={counts.review ?? "—"}
+          value={loaded ? counts.review : "—"}
           accent="blue"
           icon={<ClipboardList className="w-5 h-5 text-[#0C2E8A]" />}
         />
         <StatCard
           title="Published"
-          value={counts.published ?? "—"}
+          value={loaded ? counts.published : "—"}
           accent="green"
           icon={<CheckCircle2 className="w-5 h-5 text-green-700" />}
         />
         <StatCard
           title="Archived"
-          value={counts.archived ?? "—"}
+          value={loaded ? counts.archived : "—"}
           accent="primary"
           icon={<Archive className="w-5 h-5 text-[#0C2E8A]" />}
         />
@@ -160,7 +184,7 @@ export default function Dashboard() {
             <a href="/admin/curated/new" className="px-3 py-2 rounded-lg bg-[#0C2E8A] text-white hover:opacity-95">
               New Curated Prayer
             </a>
-            <a href="/admin/curated?state=DRAFT" className="px-3 py-2 rounded-lg border hover:bg-blue-50 text-[#0C2E8A]">
+            <a href="/admin/curated?state=REVIEW" className="px-3 py-2 rounded-lg border hover:bg-blue-50 text-[#0C2E8A]">
               Review Queue
             </a>
             <a href="/admin/curated?state=PUBLISHED" className="px-3 py-2 rounded-lg border hover:bg-blue-50 text-[#0C2E8A]">
