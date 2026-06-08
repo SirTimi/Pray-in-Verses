@@ -31,15 +31,21 @@ export default function Notifications() {
         ? data
         : [];
 
-      const normalized = rows.map((r) => ({
-        id: r.userNotificationId || r.id,
-        userNotificationId: r.userNotificationId || r.id,
-        title: r.title ?? "",
-        body: r.body ?? "",
-        link: r.link ?? null,
-        readAt: r.readAt ?? null,
-        createdAt: r.createdAt ?? undefined,
-      }));
+      const normalized = rows.map((r) => {
+        // Backend returns UserNotification rows with the Notification nested
+        // under `r.notification`. Fall back to flat fields just in case the
+        // shape ever changes.
+        const n = r.notification ?? r;
+        return {
+          id: r.id || r.userNotificationId,
+          userNotificationId: r.id || r.userNotificationId,
+          title: n.title ?? "",
+          body: n.body ?? "",
+          link: n.link ?? null,
+          readAt: r.readAt ?? null,
+          createdAt: r.createdAt ?? n.createdAt ?? undefined,
+        };
+      });
       setItems(normalized);
     } catch (e) {
       setError(e?.message || "Failed to load notifications");
