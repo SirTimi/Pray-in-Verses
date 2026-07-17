@@ -2,7 +2,8 @@ node_modules/
 dist/
 
 /generated/prisma
-.env
-.env.*
+/api/.env
+/api/.env.*
 env.*
 cookies.*
+.env.example
