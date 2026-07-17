@@ -6,7 +6,6 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
 import * as express from 'express';           // ✅ use express middlewares
 import * as bodyParser from 'body-parser';    // ✅ for json/urlencoded with verify
-
 function parseOrigins(): (string | RegExp)[] {
   const raw =
     process.env.CORS_ORIGINS ??

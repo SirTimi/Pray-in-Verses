@@ -15,8 +15,13 @@ import { IdentityModule } from './modules/identity/identity.module';
 import { MailModule } from './modules/mail/mail.module';
 import { DonationsModule } from './modules/donations/donations.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { ConfigModule } from '@nestjs/config'
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env'
+    }),
     PrismaModule,
     AuthModule,
     CuratedPrayersModule,

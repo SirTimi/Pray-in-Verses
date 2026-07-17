@@ -24,3 +24,10 @@ dist-ssr
 *.sln
 *.sw?
 env.yaml
+# secrets (root)
+env.txt
+cookies.txt
+*.pem
+*.key
+.env.*
+!.env.example
