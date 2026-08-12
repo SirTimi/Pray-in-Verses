@@ -3,48 +3,54 @@ import React, { useEffect } from "react";
 import { motion } from "framer-motion";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
-import { chapterCounts } from "../utils/bible";
+import { getBookName, getTotalChapters } from "../data/bibleStructure";
 import { usePageLogger } from "../hooks/usePageLogger";
 
 const BookPage = () => {
   const { bookSlug } = useParams();
   const navigate = useNavigate();
 
-  if (!bookSlug) {
+  // Single source of truth: slug -> { name, chapters[] }
+  const bookTitle = getBookName(bookSlug);          // null if slug is unknown
+  const chaptersTotal = getTotalChapters(bookSlug); // 0 if slug is unknown
+  const isValidBook = Boolean(bookTitle) && chaptersTotal > 0;
+
+  useEffect(() => {
+    document.title = isValidBook ? `${bookTitle} – Book` : "Book not found";
+  }, [bookTitle, isValidBook]);
+
+  // Hooks must run unconditionally — keep this above any early return.
+  usePageLogger({
+    title: isValidBook ? `${bookTitle} - Book Overview` : "Unknown Book",
+    type: "page",
+    reference: bookTitle ?? bookSlug ?? "unknown",
+    content: `Browsing chapters of ${bookTitle ?? bookSlug ?? "unknown book"}`,
+    category: "Bible Study",
+  });
+
+  if (!isValidBook) {
     return (
-      <div className="min-h-screen pt-[100px] p-4 bg-gray-50">
-        <div className="max-w-2xl mx-auto text-center">
-          <p className="text-red-600 font-semibold mb-4">Book not specified in URL.</p>
-          <button onClick={() => navigate(-1)} className="px-4 py-2 bg-white rounded-md border shadow-sm">
-            Go back
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 pt-[100px] px-4 lg:pl-[224px] lg:pr-6 lg:pb-8">
+        <div className="max-w-5xl mx-auto">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 px-3 py-1.5 mb-6 rounded-lg bg-white shadow-sm border border-gray-200 text-[#0C2E8A] font-medium transition"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back
           </button>
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+            <h2 className="text-xl font-semibold text-red-800 mb-2">Book Not Found</h2>
+            <p className="text-red-600">
+              {bookSlug ? `We couldn't find a book matching "${bookSlug}".` : "No book was specified in the URL."}
+            </p>
+          </div>
         </div>
       </div>
     );
   }
 
-  const formatTitleFromSlug = (s) =>
-    String(s || "")
-      .split("-")
-      .map((t) => (t.length ? t.charAt(0).toUpperCase() + t.slice(1).toLowerCase() : ""))
-      .join(" ");
-
-  const bookTitle = formatTitleFromSlug(bookSlug);
-  const chaptersTotal = chapterCounts[bookTitle] ?? 50;
   const chapters = Array.from({ length: chaptersTotal }, (_, i) => i + 1);
-
-  useEffect(() => {
-    if (bookTitle) document.title = `${bookTitle} – Book`;
-  }, [bookTitle]);
-
-  // Track page visit
-  usePageLogger({
-    title: `${bookTitle} - Book Overview`,
-    type: "page",
-    reference: bookTitle,
-    content: `Browsing chapters of ${bookTitle}`,
-    category: "Bible Study"
-  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 pt-[100px] px-4 lg:pl-[224px] lg:pr-6 lg:pb-8">
@@ -58,7 +64,9 @@ const BookPage = () => {
             Back
           </button>
           <h1 className="text-base font-semibold text-[#0C2E8A] text-center truncate">{bookTitle}</h1>
-          <div className="w-20" />
+          <div className="text-xs text-gray-500 w-20 text-right">
+            {chaptersTotal} {chaptersTotal === 1 ? "chapter" : "chapters"}
+          </div>
         </div>
 
         <motion.div
