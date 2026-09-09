@@ -1,10 +1,19 @@
-// apps/api/src/identity/identity.module.ts
+// api/src/modules/identity/identity.module.ts
+
 import { Module } from '@nestjs/common';
+
 import { IdentityController } from './identity.controller';
-import { PrismaService } from '../../prisma/prisma.service';
+import { AuthModule } from '../auth/auth.module';
+import { PrismaModule } from '../../prisma/prisma.module';
 
 @Module({
-  controllers: [IdentityController],
-  providers: [PrismaService],
+  imports: [
+    PrismaModule,
+    AuthModule,
+  ],
+
+  controllers: [
+    IdentityController,
+  ],
 })
 export class IdentityModule {}

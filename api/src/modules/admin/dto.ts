@@ -1,17 +1,32 @@
-import { IsEmail, IsEnum, IsString, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsEnum,
+  IsString,
+  MinLength,
+} from 'class-validator';
 import { Role } from '@prisma/client';
 
 export class CreateInviteDto {
-  @IsEmail() email: string;
-  @IsEnum(Role) role: Role; // EDITOR | MODERATOR | SUPER_ADMIN | USER
+  @IsEmail()
+  email!: string;
+
+  @IsEnum(Role)
+  role!: Role;
 }
 
 export class AcceptInviteDto {
-  @IsString() token: string;
-  @IsString() @MinLength(6) password: string;
-  @IsString() name: string;
+  @IsString()
+  token!: string;
+
+  @IsString()
+  @MinLength(8)
+  password!: string;
+
+  @IsString()
+  name!: string;
 }
 
 export class UpdateUserRoleDto {
-  @IsEnum(Role) role: Role;
+  @IsEnum(Role)
+  role!: Role;
 }
