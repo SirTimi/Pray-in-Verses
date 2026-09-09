@@ -144,7 +144,7 @@ async function lookupUsersByIds(ids) {
 
 // Build display name with strict no-email fallback
 function displayNameFromMaps(req, userMap) {
-  if (req.isAnonymous) return "Anonymous";
+  if (req.anonymous) return "Anonymous";
 
   // 1) Embedded objects (avoid email)
   const fromEmbedded =
@@ -295,7 +295,7 @@ const PrayerWalls = () => {
     } switch (sortBy) {
       case "oldest":     arr.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)); break;
       case "most-prayed":arr.sort((a, b) => (b._likesCount || 0) - (a._likesCount || 0)); break;
-      case "urgent":     arr.sort((a, b) => Number(b.isUrgent) - Number(a.isUrgent)); break;
+      case "urgent":     arr.sort((a, b) => Number(b.urgent) - Number(a.urgent)); break;
       default: break;
     }
     return arr;
@@ -449,8 +449,8 @@ const PrayerWalls = () => {
         title: formData.title.trim(),
         description: formData.content.trim(),
         category: formData.category || "Other",
-        isUrgent: !!formData.isUrgent,
-        isAnonymous: !!formData.isAnonymous,
+        urgent: !!formData.isUrgent,
+        anonymous: !!formData.isAnonymous,
       };
       if (formData.book && Number(formData.chapter) && Number(formData.verse)) {
         payload.book = formData.book.trim();
@@ -656,8 +656,10 @@ const PrayerWalls = () => {
                       >
                         {req.category || "Other"}
                       </span>
-                      {req.isUrgent && (
-                        <span className="px-3 py-1 text-xs rounded-full bg-red-200 text-red-800 font-medium">Urgent</span>
+                      {req.urgent && (
+                        <span className="px-3 py-1 text-xs rounded-full bg-red-200 text-red-800 font-medium">
+                          Urgent
+                        </span>
                       )}
                     </div>
 
