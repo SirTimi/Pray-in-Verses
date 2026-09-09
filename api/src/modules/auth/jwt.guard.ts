@@ -1,90 +1,218 @@
 // src/auth/jwt.guard.ts
+
 import {
   CanActivate,
   ExecutionContext,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+
 import { JwtService } from '@nestjs/jwt';
-import { PrismaService} from '../../prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 
 type JwtPayload = {
   sub: string;
   role: string;
   email?: string;
   displayName?: string;
+
+  /**
+   * Authentication/session version.
+   *
+   * Old tokens created before this feature
+   * will not contain `ver`. They are treated
+   * as version 0 for backwards compatibility.
+   */
+  ver?: number;
+
   iat?: number;
   exp?: number;
 };
 
 @Injectable()
-export class JwtCookieAuthGuard implements CanActivate {
+export class JwtCookieAuthGuard
+  implements CanActivate
+{
   constructor(
-    private readonly jwt: JwtService, 
-    private readonly prisma: PrismaService
+    private readonly jwt: JwtService,
+    private readonly prisma: PrismaService,
   ) {}
 
-  /** Normalize token: URL-decode & strip wrapping quotes if any */
-  private normalize(token?: string): string | undefined {
-    if (!token) return undefined;
-    let v = String(token).trim();
-    // strip optional quotes some proxies add
-    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
-      v = v.slice(1, -1);
+  /**
+   * Normalize token:
+   * URL decode and strip wrapping quotes.
+   */
+  private normalize(
+    token?: string,
+  ): string | undefined {
+    if (!token) {
+      return undefined;
     }
+
+    let value =
+      String(token).trim();
+
+    if (
+      (
+        value.startsWith('"') &&
+        value.endsWith('"')
+      ) ||
+      (
+        value.startsWith("'") &&
+        value.endsWith("'")
+      )
+    ) {
+      value =
+        value.slice(1, -1);
+    }
+
     try {
-      v = decodeURIComponent(v);
+      value =
+        decodeURIComponent(value);
     } catch {
-      /* ignore decode errors; use raw */
+      // Keep raw value if decoding fails.
     }
-    return v || undefined;
+
+    return value || undefined;
   }
 
-  /** Authorization: Bearer <token> */
-  private fromAuthHeader(req: any): string | undefined {
-    const hdr: string | undefined = req?.headers?.authorization;
-    if (!hdr) return undefined;
-    const [scheme, token] = hdr.split(' ');
-    if (scheme?.toLowerCase() === 'bearer') return this.normalize(token);
+  /**
+   * Authorization: Bearer <token>
+   */
+  private fromAuthHeader(
+    req: any,
+  ): string | undefined {
+    const header:
+      | string
+      | undefined =
+      req?.headers?.authorization;
+
+    if (!header) {
+      return undefined;
+    }
+
+    const [
+      scheme,
+      token,
+    ] =
+      header.split(' ');
+
+    if (
+      scheme?.toLowerCase() ===
+      'bearer'
+    ) {
+      return this.normalize(
+        token,
+      );
+    }
+
     return undefined;
   }
 
-  /** Custom headers (useful for mobile/edge proxies) */
-  private fromCustomHeader(req: any): string | undefined {
+  /**
+   * Useful for mobile clients / proxies.
+   */
+  private fromCustomHeader(
+    req: any,
+  ): string | undefined {
     return (
-      this.normalize(req?.headers?.['x-access-token']) ||
-      this.normalize(req?.headers?.['x-jwt']) ||
-      this.normalize(req?.headers?.['x-auth-token'])
+      this.normalize(
+        req?.headers?.[
+          'x-access-token'
+        ],
+      ) ||
+      this.normalize(
+        req?.headers?.['x-jwt'],
+      ) ||
+      this.normalize(
+        req?.headers?.[
+          'x-auth-token'
+        ],
+      )
     );
   }
 
-  /** Read the LAST occurrence of access_token from raw Cookie header (handles multiple set-cookies) */
-  private fromRawCookie(req: any): string | undefined {
-    const raw: string | undefined = req?.headers?.cookie;
-    if (!raw) return undefined;
+  /**
+   * Read the LAST access_token occurrence
+   * from the raw Cookie header.
+   */
+  private fromRawCookie(
+    req: any,
+  ): string | undefined {
+    const raw:
+      | string
+      | undefined =
+      req?.headers?.cookie;
 
-    let last: string | undefined;
-    for (const part of raw.split(';')) {
-      const [k, ...rest] = part.split('=');
-      if (!k) continue;
-      if (k.trim() === 'access_token') {
-        const value = rest.join('=').trim(); // keep dots in JWT
-        if (value) last = value;
+    if (!raw) {
+      return undefined;
+    }
+
+    let last:
+      | string
+      | undefined;
+
+    for (
+      const part of
+      raw.split(';')
+    ) {
+      const [
+        key,
+        ...rest
+      ] =
+        part.split('=');
+
+      if (!key) {
+        continue;
+      }
+
+      if (
+        key.trim() ===
+        'access_token'
+      ) {
+        const value =
+          rest
+            .join('=')
+            .trim();
+
+        if (value) {
+          last = value;
+        }
       }
     }
-    return this.normalize(last);
+
+    return this.normalize(
+      last,
+    );
   }
 
-  /** cookie-parser fallback */
-  private fromCookieObj(req: any): string | undefined {
-    const v = req?.cookies?.access_token;
-    return this.normalize(typeof v === 'string' ? v : undefined);
+  /**
+   * cookie-parser fallback.
+   */
+  private fromCookieObj(
+    req: any,
+  ): string | undefined {
+    const value =
+      req?.cookies
+        ?.access_token;
+
+    return this.normalize(
+      typeof value === 'string'
+        ? value
+        : undefined,
+    );
   }
 
-  async canActivate(ctx: ExecutionContext): Promise<boolean> {
-    const req = ctx.switchToHttp().getRequest();
+  async canActivate(
+    ctx: ExecutionContext,
+  ): Promise<boolean> {
+    const req =
+      ctx
+        .switchToHttp()
+        .getRequest();
 
-    // Priority: Bearer > custom headers > last raw cookie > cookie-parser
+    // Priority:
+    // Bearer → custom header → raw cookie → parsed cookie
     const token =
       this.fromAuthHeader(req) ||
       this.fromCustomHeader(req) ||
@@ -92,49 +220,99 @@ export class JwtCookieAuthGuard implements CanActivate {
       this.fromCookieObj(req);
 
     if (!token) {
-      throw new UnauthorizedException('Missing token');
+      throw new UnauthorizedException(
+        'Missing token',
+      );
     }
 
-    const secret = process.env.JWT_SECRET;
+    const secret =
+      process.env.JWT_SECRET;
+
     if (!secret) {
-      // Make misconfig obvious rather than returning 401
-      throw new Error('JWT_SECRET is not configured');
+      throw new Error(
+        'JWT_SECRET is not configured',
+      );
     }
 
     let payload: JwtPayload;
 
     try {
-      payload = await this.jwt.verifyAsync<JwtPayload>(token, {
-        secret,
-        clockTolerance: 5, // tolerate tiny clock skews
-      });
+      payload =
+        await this.jwt.verifyAsync<JwtPayload>(
+          token,
+          {
+            secret,
+            clockTolerance: 5,
+          },
+        );
     } catch {
-      throw new UnauthorizedException('Invalid or expired token');
+      throw new UnauthorizedException(
+        'Invalid or expired token',
+      );
     }
 
-    if (!payload?.sub){
-      throw new UnauthorizedException('Invalid token payload');
+    if (!payload?.sub) {
+      throw new UnauthorizedException(
+        'Invalid token payload',
+      );
     }
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: payload.sub },
-      select: {
-        id: true,
-        role: true,
-        status: true,
-        email: true,
-        displayName: true,
-      }
-    });
+    const user =
+      await this.prisma.user.findUnique({
+        where: {
+          id: payload.sub,
+        },
 
-    if (!user || user.status !== 'ACTIVE') {
-      throw new UnauthorizedException('Account unavailable');
+        select: {
+          id: true,
+          role: true,
+          status: true,
+          email: true,
+          displayName: true,
+          authVersion: true,
+        },
+      });
+
+    if (
+      !user ||
+      user.status !== 'ACTIVE'
+    ) {
+      throw new UnauthorizedException(
+        'Account unavailable',
+      );
     }
+
+    /**
+     * Tokens created before authVersion existed
+     * have no `ver`.
+     *
+     * Treat those as version 0.
+     *
+     * This means existing users are NOT logged
+     * out simply because this feature is deployed.
+     */
+    const tokenVersion =
+      typeof payload.ver ===
+      'number'
+        ? payload.ver
+        : 0;
+
+    if (
+      tokenVersion !==
+      user.authVersion
+    ) {
+      throw new UnauthorizedException(
+        'Session expired',
+      );
+    }
+
     (req as any).user = {
       id: user.id,
       role: user.role,
       email: user.email,
-      displayName: user.displayName ?? undefined
+      displayName:
+        user.displayName ??
+        undefined,
     };
 
     return true;

@@ -1,17 +1,21 @@
 // src/auth/auth.service.ts
+
 import {
   BadRequestException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+
 import { PrismaService } from '../../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { SignupDto, LoginDto } from './dto';
+
 import {
   createHash,
   randomBytes,
 } from 'crypto';
+
 import { MailService } from '../mail/mail.service';
 
 const RESET_TTL_MINUTES = 60;
@@ -19,14 +23,11 @@ const RESET_TTL_MINUTES = 60;
 @Injectable()
 export class AuthService {
   constructor(
-    private prisma: PrismaService,
-    private jwt: JwtService,
-    private mail: MailService,
+    private readonly prisma: PrismaService,
+    private readonly jwt: JwtService,
+    private readonly mail: MailService,
   ) {}
 
-  /**
-   * Resolve application base URL.
-   */
   private get appBase(): string {
     return (
       process.env.APP_BASE_URL ||
@@ -34,36 +35,59 @@ export class AuthService {
     );
   }
 
-  /**
-   * Issue signed JWT.
-   */
-  private async signUserToken(user: {
-    id: string;
-    role: string;
-    email: string;
-    displayName: string | null;
-  }) {
+  // =========================================================
+  // JWT
+  // =========================================================
+
+  private async signUserToken(
+    user: {
+      id: string;
+      role: string;
+      email: string;
+      displayName:
+        | string
+        | null;
+      authVersion: number;
+    },
+  ) {
     const payload = {
       sub: user.id,
       role: user.role,
       email: user.email,
+
       displayName:
-        user.displayName ?? undefined,
+        user.displayName ??
+        undefined,
+
+      /**
+       * Session revocation version.
+       */
+      ver: user.authVersion,
     };
 
-    return this.jwt.signAsync(payload, {
-      secret: process.env.JWT_SECRET,
-      expiresIn: '7d',
-    });
+    return this.jwt.signAsync(
+      payload,
+      {
+        secret:
+          process.env
+            .JWT_SECRET,
+
+        expiresIn: '7d',
+      },
+    );
   }
 
   // =========================================================
   // Signup
   // =========================================================
 
-  async signup(dto: SignupDto) {
+  async signup(
+    dto: SignupDto,
+  ) {
     const email =
-      dto.email.toLowerCase().trim();
+      dto.email
+        .toLowerCase()
+        .trim();
 
     const existing =
       await this.prisma.user.findUnique({
@@ -89,6 +113,7 @@ export class AuthService {
         data: {
           email,
           passwordHash,
+
           displayName:
             dto.displayName,
         },
@@ -102,7 +127,6 @@ export class AuthService {
         },
       });
 
-    // Soft-send welcome email.
     const loginLink =
       `${this.appBase}/login`;
 
@@ -112,7 +136,9 @@ export class AuthService {
         loginLink,
         'USER',
       )
-      .catch(() => undefined);
+      .catch(
+        () => undefined,
+      );
 
     return user;
   }
@@ -121,9 +147,13 @@ export class AuthService {
   // Login
   // =========================================================
 
-  async login(dto: LoginDto) {
+  async login(
+    dto: LoginDto,
+  ) {
     const email =
-      dto.email.toLowerCase().trim();
+      dto.email
+        .toLowerCase()
+        .trim();
 
     const user =
       await this.prisma.user.findUnique({
@@ -150,12 +180,10 @@ export class AuthService {
       );
     }
 
-    /**
-     * IMPORTANT:
-     * A suspended account must not be allowed
-     * to receive a new authentication token.
-     */
-    if (user.status !== 'ACTIVE') {
+    if (
+      user.status !==
+      'ACTIVE'
+    ) {
       throw new UnauthorizedException(
         'Account unavailable',
       );
@@ -166,8 +194,13 @@ export class AuthService {
         id: user.id,
         role: user.role,
         email: user.email,
+
         displayName:
-          user.displayName ?? null,
+          user.displayName ??
+          null,
+
+        authVersion:
+          user.authVersion,
       });
 
     const pub = {
@@ -185,14 +218,16 @@ export class AuthService {
   }
 
   // =========================================================
-  // Password reset request
+  // Forgot password
   // =========================================================
 
   async createPasswordReset(
     emailInput: string,
   ) {
     const email =
-      emailInput.toLowerCase().trim();
+      emailInput
+        .toLowerCase()
+        .trim();
 
     const user =
       await this.prisma.user
@@ -201,19 +236,20 @@ export class AuthService {
             email,
           },
         })
-        .catch(() => null);
+        .catch(
+          () => null,
+        );
 
     /**
-     * Silent success prevents attackers
-     * from discovering which emails have
-     * Pray in Verses accounts.
+     * Prevent account enumeration.
      */
     if (!user) {
       return;
     }
 
     const rawToken =
-      randomBytes(32).toString('hex');
+      randomBytes(32)
+        .toString('hex');
 
     const tokenHash =
       createHash('sha256')
@@ -228,28 +264,33 @@ export class AuthService {
             1000,
       );
 
-    await this.prisma.passwordReset.create({
-      data: {
-        userId: user.id,
-        tokenHash,
-        expiresAt,
-      },
-    });
+    await this.prisma
+      .passwordReset
+      .create({
+        data: {
+          userId:
+            user.id,
+
+          tokenHash,
+          expiresAt,
+        },
+      });
 
     const resetUrl =
       `${this.appBase}/reset-password?token=${rawToken}`;
 
-    // Soft-fail email sending.
     this.mail
       .sendPasswordReset(
         user.email,
         resetUrl,
       )
-      .catch(() => undefined);
+      .catch(
+        () => undefined,
+      );
   }
 
   // =========================================================
-  // Password reset
+  // Reset password
   // =========================================================
 
   async resetPasswordWithToken(
@@ -262,19 +303,23 @@ export class AuthService {
         .digest('hex');
 
     const reset =
-      await this.prisma.passwordReset.findFirst({
-        where: {
-          tokenHash,
-          usedAt: null,
-          expiresAt: {
-            gt: new Date(),
-          },
-        },
+      await this.prisma
+        .passwordReset
+        .findFirst({
+          where: {
+            tokenHash,
+            usedAt: null,
 
-        include: {
-          user: true,
-        },
-      });
+            expiresAt: {
+              gt: new Date(),
+            },
+          },
+
+          select: {
+            id: true,
+            userId: true,
+          },
+        });
 
     if (!reset) {
       throw new BadRequestException(
@@ -288,50 +333,100 @@ export class AuthService {
         12,
       );
 
-    await this.prisma.$transaction([
-      this.prisma.user.update({
-        where: {
-          id: reset.userId,
-        },
+    const now =
+      new Date();
 
-        data: {
-          passwordHash,
-        },
-      }),
+    await this.prisma.$transaction(
+      async (tx) => {
+        /**
+         * Atomically claim this reset token.
+         *
+         * This also protects against two requests
+         * attempting to use the same token at once.
+         */
+        const claimed =
+          await tx.passwordReset.updateMany({
+            where: {
+              id: reset.id,
+              usedAt: null,
 
-      this.prisma.passwordReset.update({
-        where: {
-          id: reset.id,
-        },
+              expiresAt: {
+                gt: now,
+              },
+            },
 
-        data: {
-          usedAt:
-            new Date(),
-        },
-      }),
-    ]);
+            data: {
+              usedAt: now,
+            },
+          });
+
+        if (
+          claimed.count !== 1
+        ) {
+          throw new BadRequestException(
+            'Invalid or expired token.',
+          );
+        }
+
+        /**
+         * Change password AND increment authVersion.
+         *
+         * Every JWT signed before this password
+         * reset now has the old version number.
+         */
+        await tx.user.update({
+          where: {
+            id: reset.userId,
+          },
+
+          data: {
+            passwordHash,
+
+            authVersion: {
+              increment: 1,
+            },
+          },
+        });
+
+        /**
+         * Invalidate every other unused reset token
+         * issued for this account.
+         */
+        await tx.passwordReset.updateMany({
+          where: {
+            userId:
+              reset.userId,
+
+            usedAt: null,
+          },
+
+          data: {
+            usedAt: now,
+          },
+        });
+      },
+    );
   }
 
   // =========================================================
   // Current user
   // =========================================================
 
-  async me(userId: string) {
-    const user =
-      await this.prisma.user.findUnique({
-        where: {
-          id: userId,
-        },
+  async me(
+    userId: string,
+  ) {
+    return this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
 
-        select: {
-          id: true,
-          email: true,
-          displayName: true,
-          role: true,
-          createdAt: true,
-        },
-      });
-
-    return user;
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        role: true,
+        createdAt: true,
+      },
+    });
   }
 }
