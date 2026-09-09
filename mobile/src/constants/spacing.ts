@@ -7,6 +7,7 @@ export const spacing = {
   xl: 24,
   xxl: 32,
   xxxl: 40,
+  huge: 56,
 } as const;
 
 export const radius = {
@@ -14,6 +15,6 @@ export const radius = {
   md: 12,
   lg: 16,
   xl: 20,
-  sheet: 24,
+  xxl: 28,
   round: 999,
 } as const;

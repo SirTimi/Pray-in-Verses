@@ -9,6 +9,7 @@ import {
   Req,
   Res,
   UseGuards,
+  ForbiddenException
 } from '@nestjs/common';
 
 import {
@@ -280,6 +281,47 @@ export class AuthController {
 
     return {
       user,
+    };
+  }
+
+  // =========================================================
+  // Mobile login
+  // =========================================================
+
+    /**
+  * Native mobile authentication.
+  *
+  * Unlike the web login flow, the JWT is returned
+  * directly to the app so it can be stored securely
+  * using Expo SecureStore.
+  *
+  * Mobile is currently for normal USER accounts only.
+  */
+  @Throttle({
+    default: {
+      limit: 10,
+      ttl: 60_000,
+    },
+  })
+  @HttpCode(200)
+  @Post('mobile/login')
+  async mobileLogin(
+    @Body() dto: LoginDto,
+  ) {
+    const {
+      token,
+      user,
+    } = await this.auth.login(dto);
+
+    if (user.role !== 'USER') {
+      throw new ForbiddenException(
+        'This account cannot access the mobile app',
+      );
+    } 
+
+    return {
+      user,
+      accessToken: token,
     };
   }
 
