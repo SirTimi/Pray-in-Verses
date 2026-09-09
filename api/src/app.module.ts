@@ -1,4 +1,11 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import {
+  ThrottlerGuard,
+  ThrottlerModule,
+} from '@nestjs/throttler';
+import { ConfigModule } from '@nestjs/config';
+
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CuratedPrayersModule } from './modules/curated-prayers/curated-prayers.module';
@@ -15,13 +22,30 @@ import { IdentityModule } from './modules/identity/identity.module';
 import { MailModule } from './modules/mail/mail.module';
 import { DonationsModule } from './modules/donations/donations.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
-import { ConfigModule } from '@nestjs/config'
+
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env'
+      envFilePath: '.env',
     }),
+
+    /**
+     * Default API protection.
+     *
+     * Each client IP can make up to
+     * 120 requests per minute per route.
+     *
+     * Sensitive authentication endpoints
+     * override this with stricter limits.
+     */
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60_000,
+        limit: 120,
+      },
+    ]),
+
     PrismaModule,
     AuthModule,
     CuratedPrayersModule,
@@ -38,6 +62,16 @@ import { ConfigModule } from '@nestjs/config'
     MailModule,
     DonationsModule,
     NotificationsModule,
+  ],
+
+  providers: [
+    /**
+     * Apply throttling globally.
+     */
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}

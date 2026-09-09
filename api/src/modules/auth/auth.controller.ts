@@ -1,30 +1,74 @@
 // src/auth/auth.controller.ts
+
 import {
-  Body, Controller, Get, HttpCode, Post, Req, Res, UseGuards,
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Post,
+  Req,
+  Res,
+  UseGuards,
 } from '@nestjs/common';
-import type { Response, Request } from 'express';
+
+import {
+  Throttle,
+} from '@nestjs/throttler';
+
+import type {
+  Request,
+  Response,
+} from 'express';
+
 import { AuthService } from './auth.service';
-import { SignupDto, LoginDto } from './dto';
+import {
+  SignupDto,
+  LoginDto,
+} from './dto';
+
 import { JwtCookieAuthGuard } from './jwt.guard';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 
 const COOKIE_NAME = 'access_token';
 
-function cookieOptionsFromReq(req: Request) {
-  const host = String(req.headers.host || '').toLowerCase();
-  const isHttps =
-    (req.headers['x-forwarded-proto'] || '').toString().toLowerCase() === 'https' ||
-    process.env.NODE_ENV === 'production';
+function cookieOptionsFromReq(
+  req: Request,
+) {
+  const host = String(
+    req.headers.host || '',
+  ).toLowerCase();
 
-  let domain: string | undefined;
-  if (host.endsWith('prayinverses.com')) {
-    domain = '.prayinverses.com'; // cover apex + subdomains
+  const isHttps =
+    (
+      req.headers[
+        'x-forwarded-proto'
+      ] || ''
+    )
+      .toString()
+      .toLowerCase() === 'https' ||
+    process.env.NODE_ENV ===
+      'production';
+
+  let domain:
+    | string
+    | undefined;
+
+  if (
+    host.endsWith(
+      'prayinverses.com',
+    )
+  ) {
+    domain =
+      '.prayinverses.com';
   } else {
-    domain = undefined; // localhost/dev
+    domain = undefined;
   }
 
-  const sameSite: 'lax' | 'strict' | 'none' = 'lax';
+  const sameSite:
+    | 'lax'
+    | 'strict'
+    | 'none' = 'lax';
 
   return {
     httpOnly: true,
@@ -32,80 +76,262 @@ function cookieOptionsFromReq(req: Request) {
     sameSite,
     domain,
     path: '/',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
+    maxAge:
+      7 *
+      24 *
+      60 *
+      60 *
+      1000,
   } as const;
 }
 
-/** Aggressively remove any legacy cookie variants that might still exist. */
-function clearAuthCookies(res: Response) {
-  const BASE = { httpOnly: true, sameSite: 'lax' as const, path: '/' };
+/**
+ * Remove legacy cookie variants
+ * that may exist from older deployments.
+ */
+function clearAuthCookies(
+  res: Response,
+) {
+  const BASE = {
+    httpOnly: true,
+    sameSite:
+      'lax' as const,
+    path: '/',
+  };
 
-  // host-only (no domain attr)
-  res.clearCookie(COOKIE_NAME, { ...BASE, secure: true });
-  res.clearCookie(COOKIE_NAME, { ...BASE, secure: false });
+  // Host-only cookies
+  res.clearCookie(
+    COOKIE_NAME,
+    {
+      ...BASE,
+      secure: true,
+    },
+  );
 
-  // explicit domains we may have used before
-  for (const d of ['.prayinverses.com', 'prayinverses.com', 'www.prayinverses.com']) {
-    res.clearCookie(COOKIE_NAME, { ...BASE, secure: true, domain: d });
-    res.clearCookie(COOKIE_NAME, { ...BASE, secure: false, domain: d });
+  res.clearCookie(
+    COOKIE_NAME,
+    {
+      ...BASE,
+      secure: false,
+    },
+  );
+
+  // Explicit domains previously used
+  for (const domain of [
+    '.prayinverses.com',
+    'prayinverses.com',
+    'www.prayinverses.com',
+  ]) {
+    res.clearCookie(
+      COOKIE_NAME,
+      {
+        ...BASE,
+        secure: true,
+        domain,
+      },
+    );
+
+    res.clearCookie(
+      COOKIE_NAME,
+      {
+        ...BASE,
+        secure: false,
+        domain,
+      },
+    );
   }
 }
 
 @Controller('auth')
 export class AuthController {
-  constructor(private auth: AuthService) {}
+  constructor(
+    private auth: AuthService,
+  ) {}
 
+  // =========================================================
+  // Forgot password
+  // =========================================================
+
+  /**
+   * Maximum:
+   * 3 password reset requests
+   * from the same IP every 10 minutes.
+   */
+  @Throttle({
+    default: {
+      limit: 3,
+      ttl: 10 * 60_000,
+    },
+  })
   @Post('forgot-password')
-  async forgotPassword(@Body() dto: ForgotPasswordDto) {
-    await this.auth.createPasswordReset(dto.email);
-    return { ok: true };
+  async forgotPassword(
+    @Body()
+    dto: ForgotPasswordDto,
+  ) {
+    await this.auth.createPasswordReset(
+      dto.email,
+    );
+
+    return {
+      ok: true,
+    };
   }
 
+  // =========================================================
+  // Reset password
+  // =========================================================
+
+  /**
+   * Protect the reset endpoint from
+   * automated repeated attempts.
+   */
+  @Throttle({
+    default: {
+      limit: 5,
+      ttl: 10 * 60_000,
+    },
+  })
   @Post('reset-password')
-  async resetPassword(@Body() dto: ResetPasswordDto) {
-    await this.auth.resetPasswordWithToken(dto.token, dto.newPassword);
-    return { ok: true };
+  async resetPassword(
+    @Body()
+    dto: ResetPasswordDto,
+  ) {
+    await this.auth.resetPasswordWithToken(
+      dto.token,
+      dto.newPassword,
+    );
+
+    return {
+      ok: true,
+    };
   }
 
+  // =========================================================
+  // Signup
+  // =========================================================
+
+  /**
+   * Prevent automated mass account creation.
+   *
+   * 5 signup attempts per 10 minutes
+   * from a single IP.
+   */
+  @Throttle({
+    default: {
+      limit: 5,
+      ttl: 10 * 60_000,
+    },
+  })
   @Post('signup')
-  async signup(@Body() dto: SignupDto) {
+  async signup(
+    @Body() dto: SignupDto,
+  ) {
     return this.auth.signup(dto);
   }
 
+  // =========================================================
+  // Login
+  // =========================================================
+
+  /**
+   * Brute-force protection.
+   *
+   * Maximum 10 login attempts per minute
+   * from a single IP.
+   */
+  @Throttle({
+    default: {
+      limit: 10,
+      ttl: 60_000,
+    },
+  })
   @HttpCode(200)
   @Post('login')
   async login(
     @Body() dto: LoginDto,
     @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
+    @Res({
+      passthrough: true,
+    })
+    res: Response,
   ) {
-    const { token, user } = await this.auth.login(dto);
+    const {
+      token,
+      user,
+    } =
+      await this.auth.login(
+        dto,
+      );
 
-    // 1) nuke all legacy cookies to avoid duplicates
+    // Remove old variants first
     clearAuthCookies(res);
 
-    // 2) set the canonical cookie with stable attributes
-    const opts = cookieOptionsFromReq(req);
-    res.cookie(COOKIE_NAME, token, opts);
+    // Set canonical cookie
+    const opts =
+      cookieOptionsFromReq(
+        req,
+      );
 
-    return { user };
+    res.cookie(
+      COOKIE_NAME,
+      token,
+      opts,
+    );
+
+    return {
+      user,
+    };
   }
+
+  // =========================================================
+  // Logout
+  // =========================================================
 
   @HttpCode(200)
   @Post('logout')
-  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    // Clear everything aggressively
+  async logout(
+    @Req() req: Request,
+    @Res({
+      passthrough: true,
+    })
+    res: Response,
+  ) {
     clearAuthCookies(res);
-    return { ok: true };
+
+    return {
+      ok: true,
+    };
   }
+
+  // =========================================================
+  // Current user
+  // =========================================================
 
   @UseGuards(JwtCookieAuthGuard)
   @Get('me')
   async me(@Req() req: Request) {
-    // @ts-ignore – JwtCookieAuthGuard sets req.user
-    const { id } = req.user || {};
-    if (!id) return { status: 401, message: 'Unauthorized' };
-    const user = await this.auth.me(id);
-    return { data: user };
+    const authReq = req as Request & {
+      user?: {
+        id?: string;
+        role?: string;
+        email?: string;
+        displayName?: string;
+      };
+    };
+
+    const userId = authReq.user?.id;
+
+    if (!userId) {
+      return {
+        status: 401,
+        message: 'Unauthorized',
+      };
+    }
+
+    const user = await this.auth.me(userId);
+
+    return {
+      data: user,
+    };
   }
 }
