@@ -1,107 +1,311 @@
-// src/donations/donations.controller.ts
-import { Body, Controller, Headers, HttpCode, Post, Req, Res } from '@nestjs/common';
-import type { Request, Response } from 'express';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Headers,
+  HttpCode,
+  Post,
+  Req,
+  Res,
+} from '@nestjs/common';
+import { Prisma } from '@prisma/client'
+import {
+  SkipThrottle,
+  Throttle,
+} from '@nestjs/throttler';
+
+import type {
+  Request,
+  Response,
+} from 'express';
+
 import { DonationsService } from './donations.service';
 
 type InitBody = {
   email: string;
-  amount: number;              // NGN from client
+  amount: number;
   name?: string;
   message?: string;
-  metadata?: Record<string, any>;
-  callbackPath?: string;       // e.g. "/donations/thank-you"
-  redirectUrl?: string;        // absolute URL; if a path, we’ll prefix APP_BASE_URL
+  metadata?: Record<string, unknown>;
+  callbackPath?: string;
+  redirectUrl?: string;
 };
 
 @Controller('donations')
 export class DonationsController {
-  constructor(private svc: DonationsService) {}
+  constructor(
+    private readonly svc: DonationsService,
+  ) {}
 
   /**
-   * Initialize a Paystack transaction and return authorization_url
-   * Frontend calls: POST /api/donations/initialize
+   * Only permit donation redirects back to
+   * Pray in Verses.
+   *
+   * This prevents the Paystack callback from
+   * being turned into an arbitrary external
+   * redirect.
    */
+  private normalizeRedirect(
+    value?: string,
+  ): string | undefined {
+    if (!value) {
+      return undefined;
+    }
+
+    const baseString =
+      (
+        process.env.APP_BASE_URL ||
+        'https://prayinverses.com'
+      ).replace(/\/+$/, '');
+
+    const base =
+      new URL(baseString);
+
+    let target: URL;
+
+    try {
+      target =
+        new URL(value, base);
+    } catch {
+      throw new BadRequestException(
+        'Invalid redirect URL',
+      );
+    }
+
+    if (
+      target.origin !==
+      base.origin
+    ) {
+      throw new BadRequestException(
+        'Invalid redirect URL',
+      );
+    }
+
+    return target.toString();
+  }
+
+  /**
+   * POST /api/donations/initialize
+   */
+  @Throttle({
+    default: {
+      limit: 10,
+      ttl: 60_000,
+    },
+  })
   @HttpCode(200)
   @Post('initialize')
-  async initialize(@Req() req: Request, @Body() body: InitBody) {
-    // ---- sanitize inputs
-    const email = String(body.email || '').trim().toLowerCase();
-    const amountNaira = Number(body.amount || 0);
-    if (!email || !/\S+@\S+\.\S+/.test(email)) {
-      return { status: 400, message: 'Invalid email' };
-    }
-    if (!Number.isFinite(amountNaira) || amountNaira < 100) {
-      return { status: 400, message: 'Amount must be at least ₦100' };
+  async initialize(
+    @Req() req: Request,
+    @Body() body: InitBody,
+  ) {
+    const email =
+      String(
+        body.email || '',
+      )
+        .trim()
+        .toLowerCase();
+
+    const amountNaira =
+      Number(
+        body.amount || 0,
+      );
+
+    if (
+      !email ||
+      !/\S+@\S+\.\S+/.test(
+        email,
+      )
+    ) {
+      throw new BadRequestException(
+        'Invalid email',
+      );
     }
 
-    // Normalize redirect target:
-    // - redirectUrl beats callbackPath
-    // - if a path is provided, prefix with APP_BASE_URL
-    const appBase = (process.env.APP_BASE_URL || 'https://prayinverses.com').replace(/\/+$/, '');
-    const normalizeUrl = (u?: string) => {
-      if (!u) return undefined;
-      try {
-        // if absolute, keep it
-        const url = new URL(u);
-        return url.toString();
-      } catch {
-        // treat as path
-        const path = u.startsWith('/') ? u : `/${u}`;
-        return `${appBase}${path}`;
-      }
-    };
+    if (
+      !Number.isFinite(
+        amountNaira,
+      ) ||
+      amountNaira < 100
+    ) {
+      throw new BadRequestException(
+        'Amount must be at least ₦100',
+      );
+    }
 
-    const redirectUrl =
-      normalizeUrl(body.redirectUrl) ||
-      normalizeUrl(body.callbackPath) ||
+    const appBase =
+      (
+        process.env.APP_BASE_URL ||
+        'https://prayinverses.com'
+      ).replace(/\/+$/, '');
+
+    /**
+     * redirectUrl takes priority for
+     * backwards compatibility.
+     *
+     * But it MUST resolve to the same origin
+     * as APP_BASE_URL.
+     */
+    const callbackUrl =
+      this.normalizeRedirect(
+        body.redirectUrl,
+      ) ||
+      this.normalizeRedirect(
+        body.callbackPath,
+      ) ||
       `${appBase}/donations/thank-you`;
 
-    // enrich metadata
-    const baseMeta = {
-      name: body.name || undefined,
-      message: body.message || undefined,
+    /**
+     * Keep client-controlled metadata separated
+     * from server-controlled metadata.
+     */
+    const clientMetadata: Prisma.InputJsonObject =
+      body.metadata &&
+      typeof body.metadata === 'object' &&
+      !Array.isArray(body.metadata)
+        ? JSON.parse(
+            JSON.stringify(body.metadata),
+          )
+        : {};
+
+    const forwardedFor =
+      req.headers[
+        'x-forwarded-for'
+      ];
+
+    const ip =
+      typeof forwardedFor ===
+      'string'
+        ? forwardedFor
+            .split(',')[0]
+            ?.trim()
+        : req.socket
+            .remoteAddress;
+
+    const name =
+      String(
+        body.name || '',
+      )
+        .trim()
+        .slice(0, 150);
+
+    const message =
+      String(
+        body.message || '',
+      )
+        .trim()
+        .slice(0, 2000);
+
+    const metadata = {
+      clientMetadata,
+
+      ...(name
+        ? { name }
+        : {}),
+
+      ...(message
+        ? { message }
+        : {}),
+
       source: 'web',
-      ua: req.headers['user-agent'],
-      ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress,
-      ...body.metadata,
+
+      ...(req.headers[
+        'user-agent'
+      ]
+        ? {
+            ua: String(
+              req.headers[
+                'user-agent'
+              ],
+            ),
+          }
+        : {}),
+
+      ...(ip
+        ? { ip }
+        : {}),
     };
 
-    // Delegate to service
-    const init = await this.svc.initDonation({
+    return this.svc.initDonation({
       email,
       amountNaira,
-      metadata: baseMeta,
-      callbackPath: redirectUrl, // service can pass this to Paystack as callback_url
+      metadata,
+      callbackUrl,
     });
-
-    // Expecting { authorization_url, reference, access_code, ... }
-    return init;
   }
 
   /**
-   * Legacy alias if you already shipped /donations/init
+   * Legacy alias.
    */
+  @Throttle({
+    default: {
+      limit: 10,
+      ttl: 60_000,
+    },
+  })
   @HttpCode(200)
   @Post('init')
-  async initAlias(@Req() req: Request, @Body() body: InitBody) {
-    return this.initialize(req, body);
+  async initAlias(
+    @Req() req: Request,
+    @Body() body: InitBody,
+  ) {
+    return this.initialize(
+      req,
+      body,
+    );
   }
 
   /**
-   * Paystack webhook: must receive RAW body and compare HMAC-SHA512 signature.
-   * Your main.ts sets raw body only for this route.
+   * Paystack webhook.
+   *
+   * Do NOT apply the normal IP rate limiter
+   * here. The HMAC signature is what authenticates
+   * the request, and Paystack may deliver many
+   * events from shared infrastructure.
    */
-  @Post('/webhooks/paystack')
+  @SkipThrottle()
+  @Post('webhooks/paystack')
   async webhook(
     @Req() req: Request,
     @Res() res: Response,
-    @Headers('x-paystack-signature') signature?: string,
+    @Headers(
+      'x-paystack-signature',
+    )
+    signature?: string,
   ) {
-    // raw body from raw-body middleware (Buffer)
-    const raw = (req as any).rawBody ?? (req as any).bodyRaw;
-    // DonationsService will verify using PAYSTACK_SECRET_KEY
-    const result = await this.svc.handleWebhook(raw, signature);
-    if (!result.ok) return res.status(400).send('invalid');
-    return res.status(200).send('ok');
+    /**
+     * main.ts uses express.raw() on this route,
+     * which puts the raw payload in req.body
+     * as a Buffer.
+     */
+    const rawBody =
+      Buffer.isBuffer(
+        req.body,
+      )
+        ? req.body
+        : (req as any)
+            .rawBody;
+
+    if (!rawBody) {
+      return res
+        .status(400)
+        .send('invalid');
+    }
+
+    const result =
+      await this.svc.handleWebhook(
+        rawBody,
+        signature,
+      );
+
+    if (!result.ok) {
+      return res
+        .status(400)
+        .send('invalid');
+    }
+
+    return res
+      .status(200)
+      .send('ok');
   }
 }
