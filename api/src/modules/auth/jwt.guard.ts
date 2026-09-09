@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { PrismaService} from '../../prisma/prisma.service';
 
 type JwtPayload = {
   sub: string;
@@ -18,7 +19,10 @@ type JwtPayload = {
 
 @Injectable()
 export class JwtCookieAuthGuard implements CanActivate {
-  constructor(private readonly jwt: JwtService) {}
+  constructor(
+    private readonly jwt: JwtService, 
+    private readonly prisma: PrismaService
+  ) {}
 
   /** Normalize token: URL-decode & strip wrapping quotes if any */
   private normalize(token?: string): string | undefined {
@@ -97,23 +101,42 @@ export class JwtCookieAuthGuard implements CanActivate {
       throw new Error('JWT_SECRET is not configured');
     }
 
+    let payload: JwtPayload;
+
     try {
-      const payload = await this.jwt.verifyAsync<JwtPayload>(token, {
+      payload = await this.jwt.verifyAsync<JwtPayload>(token, {
         secret,
         clockTolerance: 5, // tolerate tiny clock skews
       });
-
-      // Attach rich user info downstream
-      (req as any).user = {
-        id: payload.sub,
-        role: payload.role,
-        email: payload.email,
-        displayName: payload.displayName,
-      };
-
-      return true;
     } catch {
       throw new UnauthorizedException('Invalid or expired token');
     }
+
+    if (!payload?.sub){
+      throw new UnauthorizedException('Invalid token payload');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: {
+        id: true,
+        role: true,
+        status: true,
+        email: true,
+        displayName: true,
+      }
+    });
+
+    if (!user || user.status !== 'ACTIVE') {
+      throw new UnauthorizedException('Account unavailable');
+    }
+    (req as any).user = {
+      id: user.id,
+      role: user.role,
+      email: user.email,
+      displayName: user.displayName ?? undefined
+    };
+
+    return true;
   }
 }

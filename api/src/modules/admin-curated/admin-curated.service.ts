@@ -11,7 +11,9 @@ import { PublishState, Role } from '@prisma/client';
 
 function asPublishState(val?: string): PublishState | undefined {
   if (!val) return undefined;
+
   const up = String(val).toUpperCase().trim();
+
   return (Object.keys(PublishState) as string[]).includes(up)
     ? (up as PublishState)
     : undefined;
@@ -21,7 +23,10 @@ function asPublishState(val?: string): PublishState | undefined {
 export class AdminCuratedService {
   constructor(private prisma: PrismaService) {}
 
-  // ---------- list / create / read / update / transition / remove ----------
+  // =========================================================
+  // List / Create / Read / Update / Transition / Remove
+  // =========================================================
+
   async list(
     userRole: Role,
     q?: string,
@@ -33,32 +38,84 @@ export class AdminCuratedService {
     cursor?: string | null,
   ) {
     const where: any = {};
-    if (book) where.book = { equals: book, mode: 'insensitive' };
 
-    // chapter / verse exact filters (only when a valid positive int is given)
+    if (book) {
+      where.book = {
+        equals: book,
+        mode: 'insensitive',
+      };
+    }
+
+    // chapter / verse exact filters
     const chapterNum = Number(chapter);
-    if (Number.isInteger(chapterNum) && chapterNum > 0) where.chapter = chapterNum;
+
+    if (Number.isInteger(chapterNum) && chapterNum > 0) {
+      where.chapter = chapterNum;
+    }
+
     const verseNum = Number(verse);
-    if (Number.isInteger(verseNum) && verseNum > 0) where.verse = verseNum;
+
+    if (Number.isInteger(verseNum) && verseNum > 0) {
+      where.verse = verseNum;
+    }
 
     if (q) {
       where.OR = [
-        { theme: { contains: q, mode: 'insensitive' } },
-        { scriptureText: { contains: q, mode: 'insensitive' } },
-        { insight: { contains: q, mode: 'insensitive' } },
+        {
+          theme: {
+            contains: q,
+            mode: 'insensitive',
+          },
+        },
+        {
+          scriptureText: {
+            contains: q,
+            mode: 'insensitive',
+          },
+        },
+        {
+          insight: {
+            contains: q,
+            mode: 'insensitive',
+          },
+        },
       ];
     }
-    const st = asPublishState(state as string | undefined);
-    if (st) where.state = st;
 
-    // defend limit
-    const take = Math.min(Math.max(Number(limit) || 20, 1), 100);
+    const st = asPublishState(state as string | undefined);
+
+    if (st) {
+      where.state = st;
+    }
+
+    // Defend limit
+    const take = Math.min(
+      Math.max(Number(limit) || 20, 1),
+      100,
+    );
 
     const rows = await this.prisma.curatedPrayer.findMany({
       where,
       take: take + 1,
-      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-      orderBy: [{ state: 'asc' }, { updatedAt: 'desc' }],
+
+      ...(cursor
+        ? {
+            cursor: {
+              id: cursor,
+            },
+            skip: 1,
+          }
+        : {}),
+
+      orderBy: [
+        {
+          state: 'asc',
+        },
+        {
+          updatedAt: 'desc',
+        },
+      ],
+
       select: {
         id: true,
         book: true,
@@ -74,14 +131,26 @@ export class AdminCuratedService {
     });
 
     let nextCursor: string | null = null;
+
     if (rows.length > take) {
       const next = rows.pop()!;
       nextCursor = next.id;
     }
-    return { items: rows, nextCursor };
+
+    return {
+      items: rows,
+      nextCursor,
+    };
   }
 
-  async create(userId: string, dto: CreateCuratedPrayerDto) {
+  // =========================================================
+  // Create
+  // =========================================================
+
+  async create(
+    userId: string,
+    dto: CreateCuratedPrayerDto,
+  ) {
     try {
       const data = await this.prisma.curatedPrayer.create({
         data: {
@@ -91,48 +160,114 @@ export class AdminCuratedService {
           updatedById: userId,
         },
       });
-      return { data };
+
+      return {
+        data,
+      };
     } catch (e: any) {
       if (e.code === 'P2002') {
         throw new BadRequestException(
           'A curated entry already exists for this book/chapter/verse.',
         );
       }
+
       throw e;
     }
   }
 
+  // =========================================================
+  // Read
+  // =========================================================
+
   async get(id: string) {
-    const row = await this.prisma.curatedPrayer.findUnique({ where: { id } });
-    if (!row) throw new NotFoundException();
-    return { data: row };
+    const row =
+      await this.prisma.curatedPrayer.findUnique({
+        where: {
+          id,
+        },
+      });
+
+    if (!row) {
+      throw new NotFoundException();
+    }
+
+    return {
+      data: row,
+    };
   }
 
-  private assertCanEditRow(row: any, userId: string, userRole: Role) {
-    const isElevated = userRole === 'MODERATOR' || userRole === 'SUPER_ADMIN';
+  // =========================================================
+  // Authorization
+  // =========================================================
+
+  private assertCanEditRow(
+    row: any,
+    userId: string,
+    userRole: Role,
+  ) {
+    const isElevated =
+      userRole === 'MODERATOR' ||
+      userRole === 'SUPER_ADMIN';
+
     const owns = row.createdById === userId;
 
     if (!isElevated) {
       if (!owns) {
-        throw new ForbiddenException('You can only edit your own drafts');
+        throw new ForbiddenException(
+          'You can only edit your own drafts',
+        );
       }
-      if (!(row.state === 'DRAFT' || row.state === 'REVIEW')) {
+
+      if (
+        !(
+          row.state === 'DRAFT' ||
+          row.state === 'REVIEW'
+        )
+      ) {
         throw new ForbiddenException(
           'Only DRAFT/REVIEW items can be edited by editors',
         );
       }
     }
-    if (row.state === 'ARCHIVED' && !isElevated) {
-      throw new ForbiddenException('Archived item cannot be edited by editor');
+
+    if (
+      row.state === 'ARCHIVED' &&
+      !isElevated
+    ) {
+      throw new ForbiddenException(
+        'Archived item cannot be edited by editor',
+      );
     }
   }
 
-  private async getRowForEdit(id: string, userId: string, userRole: Role) {
-    const row = await this.prisma.curatedPrayer.findUnique({ where: { id } });
-    if (!row) throw new NotFoundException();
-    this.assertCanEditRow(row, userId, userRole);
+  private async getRowForEdit(
+    id: string,
+    userId: string,
+    userRole: Role,
+  ) {
+    const row =
+      await this.prisma.curatedPrayer.findUnique({
+        where: {
+          id,
+        },
+      });
+
+    if (!row) {
+      throw new NotFoundException();
+    }
+
+    this.assertCanEditRow(
+      row,
+      userId,
+      userRole,
+    );
+
     return row;
   }
+
+  // =========================================================
+  // Update main fields
+  // =========================================================
 
   async update(
     userId: string,
@@ -140,43 +275,80 @@ export class AdminCuratedService {
     id: string,
     dto: UpdateCuratedPrayerDto,
   ) {
-    const row = await this.getRowForEdit(id, userId, userRole);
+    const row = await this.getRowForEdit(
+      id,
+      userId,
+      userRole,
+    );
 
-    // keep reference unique if changing
-    if (dto.book || dto.chapter || dto.verse) {
+    // Keep reference unique if changing
+    if (
+      dto.book ||
+      dto.chapter ||
+      dto.verse
+    ) {
       const book = dto.book ?? row.book;
       const chapter = dto.chapter ?? row.chapter;
       const verse = dto.verse ?? row.verse;
-      const dupe = await this.prisma.curatedPrayer.findFirst({
-        where: {
-          book: { equals: book, mode: 'insensitive' },
-          chapter,
-          verse,
-          NOT: { id },
-        },
-        select: { id: true },
-      });
-      if (dupe)
+
+      const dupe =
+        await this.prisma.curatedPrayer.findFirst({
+          where: {
+            book: {
+              equals: book,
+              mode: 'insensitive',
+            },
+            chapter,
+            verse,
+            NOT: {
+              id,
+            },
+          },
+          select: {
+            id: true,
+          },
+        });
+
+      if (dupe) {
         throw new BadRequestException(
           'Another entry already exists for that reference',
         );
+      }
     }
 
-    // IMPORTANT: String[] fields must use { set: [...] } when replacing
-    const dataUpdate: any = { ...dto, updatedById: userId };
+    // String[] fields must use { set: [...] } when replacing
+    const dataUpdate: any = {
+      ...dto,
+      updatedById: userId,
+    };
+
     if (dto.prayerPoints) {
-      const cleaned = dto.prayerPoints.map((s) => s?.trim()).filter(Boolean);
-      dataUpdate.prayerPoints = { set: cleaned };
+      const cleaned = dto.prayerPoints
+        .map((s) => s?.trim())
+        .filter(Boolean);
+
+      dataUpdate.prayerPoints = {
+        set: cleaned,
+      };
     }
 
-    const updated = await this.prisma.curatedPrayer.update({
-      where: { id },
-      data: dataUpdate,
-    });
-    return { data: updated };
+    const updated =
+      await this.prisma.curatedPrayer.update({
+        where: {
+          id,
+        },
+        data: dataUpdate,
+      });
+
+    return {
+      data: updated,
+    };
   }
 
-  /** Preconditions for publishing */
+  // =========================================================
+  // Publish validation
+  // =========================================================
+
   private ensurePublishPreconditions(row: {
     book?: string;
     chapter?: number;
@@ -188,15 +360,44 @@ export class AdminCuratedService {
     prayerPoints?: string[];
   }) {
     const errs: string[] = [];
-    if (!row.book) errs.push('book');
-    if (!row.chapter) errs.push('chapter');
-    if (!row.verse) errs.push('verse');
-    if (!row.theme?.trim()) errs.push('theme');
-    if (!row.scriptureText?.trim()) errs.push('scriptureText');
-    if (!row.insight?.trim()) errs.push('insight');
-    if (!row.closing?.trim()) errs.push('closing');
-    if (!row.prayerPoints || row.prayerPoints.length === 0)
-      errs.push('prayerPoints (at least one)');
+
+    if (!row.book) {
+      errs.push('book');
+    }
+
+    if (!row.chapter) {
+      errs.push('chapter');
+    }
+
+    if (!row.verse) {
+      errs.push('verse');
+    }
+
+    if (!row.theme?.trim()) {
+      errs.push('theme');
+    }
+
+    if (!row.scriptureText?.trim()) {
+      errs.push('scriptureText');
+    }
+
+    if (!row.insight?.trim()) {
+      errs.push('insight');
+    }
+
+    if (!row.closing?.trim()) {
+      errs.push('closing');
+    }
+
+    if (
+      !row.prayerPoints ||
+      row.prayerPoints.length === 0
+    ) {
+      errs.push(
+        'prayerPoints (at least one)',
+      );
+    }
+
     if (errs.length) {
       throw new BadRequestException(
         `Cannot publish: missing/empty fields → ${errs.join(', ')}`,
@@ -204,80 +405,171 @@ export class AdminCuratedService {
     }
   }
 
+  // =========================================================
+  // State transitions
+  // =========================================================
+
   async transition(
     userId: string,
     userRole: Role,
     id: string,
     target: PublishState,
   ) {
-    const row = await this.prisma.curatedPrayer.findUnique({ where: { id } });
-    if (!row) throw new NotFoundException();
+    const row =
+      await this.prisma.curatedPrayer.findUnique({
+        where: {
+          id,
+        },
+      });
 
-    const isElevated = userRole === 'MODERATOR' || userRole === 'SUPER_ADMIN';
-    const owns = row.createdById === userId;
+    if (!row) {
+      throw new NotFoundException();
+    }
 
+    const isElevated =
+      userRole === 'MODERATOR' ||
+      userRole === 'SUPER_ADMIN';
+
+    const owns =
+      row.createdById === userId;
+
+    // =========================
     // REVIEW
+    // =========================
+
     if (target === 'REVIEW') {
       if (row.state === 'DRAFT') {
-        if (!owns && !isElevated)
+        if (
+          !owns &&
+          !isElevated
+        ) {
           throw new ForbiddenException(
             'Only the owner can submit draft to review',
           );
-        return this._setState(id, 'REVIEW', userId);
+        }
+
+        return this._setState(
+          id,
+          'REVIEW',
+          userId,
+        );
       }
+
       if (row.state === 'PUBLISHED') {
-        if (!isElevated)
+        if (!isElevated) {
           throw new ForbiddenException(
             'Only moderator/super admin can unpublish',
           );
-        return this._setState(id, 'REVIEW', userId, false);
+        }
+
+        return this._setState(
+          id,
+          'REVIEW',
+          userId,
+          false,
+        );
       }
-      if (row.state === 'REVIEW') return { data: row, ok: true };
+
+      if (row.state === 'REVIEW') {
+        return {
+          data: row,
+          ok: true,
+        };
+      }
+
       if (row.state === 'ARCHIVED') {
-        if (!isElevated)
+        if (!isElevated) {
           throw new ForbiddenException(
             'Only moderator/super admin can restore from archive',
           );
-        return this._setState(id, 'REVIEW', userId);
+        }
+
+        return this._setState(
+          id,
+          'REVIEW',
+          userId,
+        );
       }
-      throw new BadRequestException(`Invalid transition: ${row.state} → REVIEW`);
+
+      throw new BadRequestException(
+        `Invalid transition: ${row.state} → REVIEW`,
+      );
     }
 
+    // =========================
     // PUBLISHED
+    // =========================
+
     if (target === 'PUBLISHED') {
-      if (!isElevated)
-        throw new ForbiddenException('Only moderator/super admin can publish');
-      if (!(row.state === 'REVIEW' || row.state === 'DRAFT')) {
-        throw new BadRequestException('Only DRAFT/REVIEW can be published');
+      if (!isElevated) {
+        throw new ForbiddenException(
+          'Only moderator/super admin can publish',
+        );
+      }
+
+      if (
+        !(
+          row.state === 'REVIEW' ||
+          row.state === 'DRAFT'
+        )
+      ) {
+        throw new BadRequestException(
+          'Only DRAFT/REVIEW can be published',
+        );
       }
 
       this.ensurePublishPreconditions(row);
 
-      // uniqueness among PUBLISHED
-      const conflict = await this.prisma.curatedPrayer.findFirst({
-        where: {
-          state: 'PUBLISHED',
-          book: { equals: row.book, mode: 'insensitive' },
-          chapter: row.chapter,
-          verse: row.verse,
-          NOT: { id: row.id },
-        },
-        select: { id: true },
-      });
+      // Uniqueness among PUBLISHED
+      const conflict =
+        await this.prisma.curatedPrayer.findFirst({
+          where: {
+            state: 'PUBLISHED',
+            book: {
+              equals: row.book,
+              mode: 'insensitive',
+            },
+            chapter: row.chapter,
+            verse: row.verse,
+            NOT: {
+              id: row.id,
+            },
+          },
+          select: {
+            id: true,
+          },
+        });
+
       if (conflict) {
         throw new BadRequestException(
           `Another published entry already exists for ${row.book} ${row.chapter}:${row.verse}. Unpublish it first.`,
         );
       }
 
-      return this._setState(id, 'PUBLISHED', userId, true);
+      return this._setState(
+        id,
+        'PUBLISHED',
+        userId,
+        true,
+      );
     }
 
+    // =========================
     // ARCHIVED
+    // =========================
+
     if (target === 'ARCHIVED') {
-      if (!isElevated)
-        throw new ForbiddenException('Only moderator/super admin can archive');
-      return this._setState(id, 'ARCHIVED', userId);
+      if (!isElevated) {
+        throw new ForbiddenException(
+          'Only moderator/super admin can archive',
+        );
+      }
+
+      return this._setState(
+        id,
+        'ARCHIVED',
+        userId,
+      );
     }
 
     throw new BadRequestException(
@@ -291,127 +583,364 @@ export class AdminCuratedService {
     userId: string,
     publish = false,
   ) {
-    const data: any = { state, updatedById: userId, updatedAt: new Date() };
-    if (publish) data.publishedAt = new Date();
-    const updated = await this.prisma.curatedPrayer.update({ where: { id }, data });
-    return { data: updated, ok: true };
+    const data: any = {
+      state,
+      updatedById: userId,
+      updatedAt: new Date(),
+    };
+
+    if (publish) {
+      data.publishedAt = new Date();
+    }
+
+    const updated =
+      await this.prisma.curatedPrayer.update({
+        where: {
+          id,
+        },
+        data,
+      });
+
+    return {
+      data: updated,
+      ok: true,
+    };
   }
 
-  async remove(userId: string, userRole: Role, id: string) {
-    const row = await this.prisma.curatedPrayer.findUnique({ where: { id } });
-    if (!row) throw new NotFoundException();
+  // =========================================================
+  // Delete
+  // =========================================================
 
-    const isElevated = userRole === 'MODERATOR' || userRole === 'SUPER_ADMIN';
-    const owns = row.createdById === userId;
+  async remove(
+    userId: string,
+    userRole: Role,
+    id: string,
+  ) {
+    const row =
+      await this.prisma.curatedPrayer.findUnique({
+        where: {
+          id,
+        },
+      });
+
+    if (!row) {
+      throw new NotFoundException();
+    }
+
+    const isElevated =
+      userRole === 'MODERATOR' ||
+      userRole === 'SUPER_ADMIN';
+
+    const owns =
+      row.createdById === userId;
 
     // Editors can delete only their own DRAFTs
     if (!isElevated) {
-      if (!owns) throw new ForbiddenException('You can only delete your own drafts');
+      if (!owns) {
+        throw new ForbiddenException(
+          'You can only delete your own drafts',
+        );
+      }
+
       if (row.state !== 'DRAFT') {
-        throw new ForbiddenException('Only DRAFT can be deleted by editor');
+        throw new ForbiddenException(
+          'Only DRAFT can be deleted by editor',
+        );
       }
     }
 
-    await this.prisma.savedPrayer.deleteMany({ where: { curatedPrayerId: id } });
-    await this.prisma.curatedPrayer.delete({ where: { id } });
-    return { ok: true };
+    await this.prisma.savedPrayer.deleteMany({
+      where: {
+        curatedPrayerId: id,
+      },
+    });
+
+    await this.prisma.curatedPrayer.delete({
+      where: {
+        id,
+      },
+    });
+
+    return {
+      ok: true,
+    };
   }
 
-  // ---------- Per-point editing (PRISMA array operators) ----------
+  // =========================================================
+  // Per-point editing
+  // =========================================================
 
-  /** Replace the entire prayerPoints array (may be empty). */
-  async replacePrayerPoints(id: string, items: string[]) {
+  /**
+   * Replace the entire prayerPoints array.
+   * May be empty.
+   */
+  async replacePrayerPoints(
+    userId: string,
+    userRole: Role,
+    id: string,
+    items: string[],
+  ) {
+    await this.getRowForEdit(
+      id,
+      userId,
+      userRole,
+    );
+
     const clean = (items || [])
       .map((s) => (s ?? '').trim())
       .filter(Boolean);
-    const updated = await this.prisma.curatedPrayer.update({
-      where: { id },
-      data: { prayerPoints: { set: clean } },
-      select: { id: true, prayerPoints: true, updatedAt: true },
-    });
-    return { ok: true, data: updated };
+
+    const updated =
+      await this.prisma.curatedPrayer.update({
+        where: {
+          id,
+        },
+        data: {
+          prayerPoints: {
+            set: clean,
+          },
+          updatedById: userId,
+        },
+        select: {
+          id: true,
+          prayerPoints: true,
+          updatedAt: true,
+        },
+      });
+
+    return {
+      ok: true,
+      data: updated,
+    };
   }
 
-  /** Append a new point to the end of the list. */
-  async appendPrayerPoint(id: string, text: string) {
+  /**
+   * Append a new prayer point.
+   */
+  async appendPrayerPoint(
+    userId: string,
+    userRole: Role,
+    id: string,
+    text: string,
+  ) {
+    await this.getRowForEdit(
+      id,
+      userId,
+      userRole,
+    );
+
     const t = (text ?? '').trim();
-    if (!t) throw new BadRequestException('Text is required');
-    const updated = await this.prisma.curatedPrayer.update({
-      where: { id },
-      data: { prayerPoints: { push: t } },
-      select: { id: true, prayerPoints: true },
-    });
-    return { ok: true, data: updated };
+
+    if (!t) {
+      throw new BadRequestException(
+        'Text is required',
+      );
+    }
+
+    const updated =
+      await this.prisma.curatedPrayer.update({
+        where: {
+          id,
+        },
+        data: {
+          prayerPoints: {
+            push: t,
+          },
+          updatedById: userId,
+        },
+        select: {
+          id: true,
+          prayerPoints: true,
+          updatedAt: true,
+        },
+      });
+
+    return {
+      ok: true,
+      data: updated,
+    };
   }
 
-  /** Update a specific index (0-based). */
-  async updatePrayerPointAt(id: string, index: number, text: string) {
+  /**
+   * Update a prayer point at a specific index.
+   */
+  async updatePrayerPointAt(
+    userId: string,
+    userRole: Role,
+    id: string,
+    index: number,
+    text: string,
+  ) {
+    const row = await this.getRowForEdit(
+      id,
+      userId,
+      userRole,
+    );
+
     const t = (text ?? '').trim();
-    if (!t) throw new BadRequestException('Text is required');
 
-    const row = await this.prisma.curatedPrayer.findUnique({
-      where: { id },
-      select: { prayerPoints: true },
-    });
-    if (!row) throw new NotFoundException();
+    if (!t) {
+      throw new BadRequestException(
+        'Text is required',
+      );
+    }
 
-    const pts = [...(row.prayerPoints || [])];
-    if (index < 0 || index >= pts.length)
-      throw new BadRequestException('Index out of range');
+    const pts = [
+      ...(row.prayerPoints || []),
+    ];
+
+    if (
+      index < 0 ||
+      index >= pts.length
+    ) {
+      throw new BadRequestException(
+        'Index out of range',
+      );
+    }
 
     pts[index] = t;
 
-    const updated = await this.prisma.curatedPrayer.update({
-      where: { id },
-      data: { prayerPoints: { set: pts } },
-      select: { id: true, prayerPoints: true },
-    });
-    return { ok: true, data: updated };
+    const updated =
+      await this.prisma.curatedPrayer.update({
+        where: {
+          id,
+        },
+        data: {
+          prayerPoints: {
+            set: pts,
+          },
+          updatedById: userId,
+        },
+        select: {
+          id: true,
+          prayerPoints: true,
+          updatedAt: true,
+        },
+      });
+
+    return {
+      ok: true,
+      data: updated,
+    };
   }
 
-  /** Remove a point at index. */
-  async removePrayerPointAt(id: string, index: number) {
-    const row = await this.prisma.curatedPrayer.findUnique({
-      where: { id },
-      select: { prayerPoints: true },
-    });
-    if (!row) throw new NotFoundException();
+  /**
+   * Remove a prayer point at a specific index.
+   */
+  async removePrayerPointAt(
+    userId: string,
+    userRole: Role,
+    id: string,
+    index: number,
+  ) {
+    const row = await this.getRowForEdit(
+      id,
+      userId,
+      userRole,
+    );
 
-    const pts = [...(row.prayerPoints || [])];
-    if (index < 0 || index >= pts.length)
-      throw new BadRequestException('Index out of range');
+    const pts = [
+      ...(row.prayerPoints || []),
+    ];
+
+    if (
+      index < 0 ||
+      index >= pts.length
+    ) {
+      throw new BadRequestException(
+        'Index out of range',
+      );
+    }
 
     pts.splice(index, 1);
 
-    const updated = await this.prisma.curatedPrayer.update({
-      where: { id },
-      data: { prayerPoints: { set: pts } },
-      select: { id: true, prayerPoints: true },
-    });
-    return { ok: true, data: updated };
+    const updated =
+      await this.prisma.curatedPrayer.update({
+        where: {
+          id,
+        },
+        data: {
+          prayerPoints: {
+            set: pts,
+          },
+          updatedById: userId,
+        },
+        select: {
+          id: true,
+          prayerPoints: true,
+          updatedAt: true,
+        },
+      });
+
+    return {
+      ok: true,
+      data: updated,
+    };
   }
 
-  /** Move a point from index `from` to `to`. */
-  async reorderPrayerPoints(id: string, from: number, to: number) {
-    const row = await this.prisma.curatedPrayer.findUnique({
-      where: { id },
-      select: { prayerPoints: true },
-    });
-    if (!row) throw new NotFoundException();
+  /**
+   * Move a prayer point from `from` to `to`.
+   */
+  async reorderPrayerPoints(
+    userId: string,
+    userRole: Role,
+    id: string,
+    from: number,
+    to: number,
+  ) {
+    const row = await this.getRowForEdit(
+      id,
+      userId,
+      userRole,
+    );
 
-    const pts = [...(row.prayerPoints || [])];
-    if (from < 0 || from >= pts.length || to < 0 || to >= pts.length) {
-      throw new BadRequestException('Index out of range');
+    const pts = [
+      ...(row.prayerPoints || []),
+    ];
+
+    if (
+      from < 0 ||
+      from >= pts.length ||
+      to < 0 ||
+      to >= pts.length
+    ) {
+      throw new BadRequestException(
+        'Index out of range',
+      );
     }
 
-    const [moved] = pts.splice(from, 1);
-    pts.splice(to, 0, moved);
+    const [moved] = pts.splice(
+      from,
+      1,
+    );
 
-    const updated = await this.prisma.curatedPrayer.update({
-      where: { id },
-      data: { prayerPoints: { set: pts } },
-      select: { id: true, prayerPoints: true },
-    });
-    return { ok: true, data: updated };
+    pts.splice(
+      to,
+      0,
+      moved,
+    );
+
+    const updated =
+      await this.prisma.curatedPrayer.update({
+        where: {
+          id,
+        },
+        data: {
+          prayerPoints: {
+            set: pts,
+          },
+          updatedById: userId,
+        },
+        select: {
+          id: true,
+          prayerPoints: true,
+          updatedAt: true,
+        },
+      });
+
+    return {
+      ok: true,
+      data: updated,
+    };
   }
 }
