@@ -1,10 +1,11 @@
 import * as SecureStore from 'expo-secure-store';
 
 const API_URL =
-  process.env.EXPO_PUBLIC_API_URL ||
+  process.env.EXPO_PUBLIC_API_URL ??
   'https://api.prayinverses.com/api';
 
-const TOKEN_KEY = 'piv_access_token';
+const TOKEN_KEY =
+  'piv.access_token';
 
 export class ApiError extends Error {
   status: number;
@@ -16,6 +17,7 @@ export class ApiError extends Error {
     data: unknown,
   ) {
     super(message);
+
     this.name = 'ApiError';
     this.status = status;
     this.data = data;
@@ -28,7 +30,7 @@ export async function getAccessToken() {
   );
 }
 
-export async function setAccessToken(
+export async function saveAccessToken(
   token: string,
 ) {
   await SecureStore.setItemAsync(
@@ -37,24 +39,25 @@ export async function setAccessToken(
   );
 }
 
-export async function clearAccessToken() {
+export async function removeAccessToken() {
   await SecureStore.deleteItemAsync(
     TOKEN_KEY,
   );
 }
 
-type ApiOptions = RequestInit & {
-  authenticated?: boolean;
-};
+type ApiRequestOptions =
+  RequestInit & {
+    authenticated?: boolean;
+  };
 
 export async function apiRequest<T>(
   path: string,
-  options: ApiOptions = {},
+  options: ApiRequestOptions = {},
 ): Promise<T> {
   const {
     authenticated = true,
     headers,
-    ...requestOptions
+    ...rest
   } = options;
 
   const token =
@@ -65,12 +68,17 @@ export async function apiRequest<T>(
   const response = await fetch(
     `${API_URL}${path}`,
     {
-      ...requestOptions,
+      ...rest,
 
       headers: {
         Accept: 'application/json',
-        'Content-Type':
-          'application/json',
+
+        ...(rest.body
+          ? {
+              'Content-Type':
+                'application/json',
+            }
+          : {}),
 
         ...(token
           ? {
@@ -79,7 +87,7 @@ export async function apiRequest<T>(
             }
           : {}),
 
-        ...(headers || {}),
+        ...(headers ?? {}),
       },
     },
   );
@@ -102,13 +110,13 @@ export async function apiRequest<T>(
       response.status === 401 &&
       authenticated
     ) {
-      await clearAccessToken();
+      await removeAccessToken();
     }
 
     const message =
       Array.isArray(data?.message)
         ? data.message.join(', ')
-        : data?.message ||
+        : data?.message ??
           'Something went wrong';
 
     throw new ApiError(
