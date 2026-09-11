@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Platform,
   Pressable,
   ScrollView,
@@ -64,6 +63,18 @@ export default function VerseSelectionScreen() {
     [selectedVerse, verses],
   );
 
+  function openPrayer(verse: number) {
+    setSelectedVerse(verse);
+    router.push({
+      pathname: '/(app)/prayer/[book]/[chapter]/[verse]',
+      params: {
+        book,
+        chapter: String(chapter),
+        verse: String(verse),
+      },
+    });
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -99,13 +110,7 @@ export default function VerseSelectionScreen() {
               return (
                 <Pressable
                   key={verse}
-                  onPress={() => {
-                    setSelectedVerse(verse);
-                    Alert.alert(
-                      `${book} ${chapter}:${verse}`,
-                      'Prayer Detail is the next screen in the build plan. This selection is ready for that flow.',
-                    );
-                  }}
+                  onPress={() => openPrayer(verse)}
                   style={[styles.verseRow, selected && styles.verseRowSelected]}
                 >
                   <View style={[styles.verseNumberBox, selected && styles.verseNumberSelected]}>
