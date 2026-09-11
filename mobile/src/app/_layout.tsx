@@ -18,6 +18,11 @@ import {
 } from 'react';
 
 import {
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+
+import {
   colors,
 } from '@/constants/colors';
 
@@ -64,16 +69,21 @@ export default function RootLayout() {
     <>
       <StatusBar style="dark" />
 
-      <Stack
-        screenOptions={{
-          headerShown: false,
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'android' ? 'height' : undefined}
+      >
+        <Stack
+          screenOptions={{
+            headerShown: false,
 
-          contentStyle: {
-            backgroundColor:
-              colors.background,
-          },
-        }}
-      />
+            contentStyle: {
+              backgroundColor:
+                colors.background,
+            },
+          }}
+        />
+      </KeyboardAvoidingView>
     </>
   );
 }
