@@ -30,7 +30,7 @@ This slice includes:
 - Profile → Help & Support opens a native mobile Support screen instead of the old website About fallback.
 - The Support screen uses the existing official `info@prayinverses.com` contact address and links to the Pray in Verses website and Donation Policy.
 - Profile has a dedicated Support the Mission entry.
-- Home now also contains a prominent full-width Support the Mission card above Recent Prayer Wall Requests, linking directly to the native donation screen.
+- Home contains a prominent full-width Support the Mission card above Recent Prayer Wall Requests, linking directly to the native donation screen.
 - The mobile donation flow uses the existing Paystack-backed `/api/donations/initialize` contract.
 - Signed-in account email/display name prefill the donation form but can be adjusted for the donation.
 - Preset and custom NGN amounts are supported, with the server minimum of ₦100 enforced client-side and server-side.
@@ -43,7 +43,10 @@ This slice includes:
 - Confirmed success and failed/abandoned states clear the persisted pending reference.
 - The public web `/donations/thank-you` callback page exists so Paystack does not return donors to an undefined SPA route.
 - The web thank-you page does not independently claim transaction success; it tells the donor that server confirmation may take a moment and mobile donors can return to the app.
-- After the user supplied an Android screenshot, the bottom tab bar was changed from a fixed 70px layout to an Expo SDK 57 safe-area-aware layout using `useSafeAreaInsets()` so tab icons/labels sit above the phone navigation area.
+- The bottom tab bar uses the runtime bottom safe-area inset so it stays above Android system navigation controls.
+- The bottom tab bar now hides while the keyboard is open, giving form fields more usable space.
+- The app root now applies Android `KeyboardAvoidingView` height behavior so the application viewport shrinks above the software keyboard instead of allowing the keyboard to cover the lower form area.
+- My Prayers no longer shows three duplicate Add Prayer controls. An entirely empty prayer list shows only the empty-state Add Prayer button; once the user has prayers, the header `+` is the single create action. The floating duplicate button was removed.
 
 ## Completed
 
@@ -57,11 +60,11 @@ This slice includes:
 - Duplicate mobile-only login endpoint removed.
 - Cloud Run startup repaired: Debian/OpenSSL runtime, runtime-safe Nest imports, non-blocking mail verification, and aligned Nest runtime packages.
 - Support + Donation implementation completed and awaiting test acceptance.
-- Home Support the Mission visibility and Android bottom-tab safe-area polish completed and awaiting device acceptance.
+- Home Support the Mission visibility, Android bottom-safe-area tab layout, Add Prayer de-duplication, and keyboard-avoidance polish completed and awaiting device acceptance.
 
 ## Next Tasks
 
-After Support + Donation passes device/payment testing:
+After Support + Donation and the current mobile UX repair pass device/payment testing:
 
 1. Complete remaining About/Mission/Legal product screens and native navigation.
 2. Finish Android polish, verified password-reset App Links, release build checks, and Play Store readiness.
@@ -84,17 +87,16 @@ After Support + Donation passes device/payment testing:
 
 Previous Account / deployment-repair cycle: PASSED per user confirmation that the repaired Cloud Run API works.
 
-Current Support + Donation cycle:
+Current Support + Donation / UX-polish cycle:
 
-- Latest `main`, `mobile/AGENTS.md`, Expo SDK 57 safe-area documentation, donation controller/service/schema, existing web donation component, Donation Policy, mobile API client, Profile screen, Home screen, and tab layout were inspected before the latest polish.
-- The existing backend creates high-entropy `PIV_...` Paystack references, stores donation state, verifies webhook signatures with SHA-512 HMAC, validates successful gateway amount/currency/status, and records successful/failed results.
-- The donation status endpoint is rate-limited and accepts only Pray in Verses-shaped references; it returns a minimal non-PII projection of the database row.
-- Mobile transaction success is never inferred from a WebBrowser result.
-- The user-provided Android screenshot showed the custom tab bar sitting under the phone navigation area; the fixed 70px tab-bar height was confirmed in `mobile/src/app/(app)/(tabs)/_layout.tsx` and replaced with bottom-inset-aware height/padding.
-- Expo SDK 57 `react-native-safe-area-context` documentation confirms `useSafeAreaInsets()` exposes the device bottom inset for positioning content around OS interface elements.
-- Home now exposes Support the Mission directly without removing the Profile entry.
-- No Prisma schema change or migration is part of the UI polish.
-- No new native package or app configuration change is required, so a new APK is not required for these JS/TS changes.
+- Latest `main`, `mobile/AGENTS.md`, Expo SDK 57 safe-area guidance, current tab layout, My Prayers screen, and the mobile forms that use `TextInput` were inspected before the latest repair.
+- The user-provided Android screenshots confirmed the safe-area tab fix works and exposed the redundant My Prayers Add Prayer controls.
+- My Prayers previously had a header `+`, an empty-state Add Prayer button, and a floating Add Prayer button for the same action. The floating button is removed and the remaining CTA is conditional on list state.
+- Multiple form screens already use `KeyboardAvoidingView`, but their Android behavior was intentionally left undefined. A root Android height-based keyboard avoidance layer now provides consistent viewport resizing across those routes.
+- `tabBarHideOnKeyboard: true` prevents the tab bar from competing for vertical space while typing on tab screens.
+- Device retest should cover My Prayers search, New/Edit My Prayer, Journal Entry, Create Prayer Request, Prayer Request comments, Reminder editor, Account password fields, Donation message/form, and authentication forms.
+- No Prisma schema change, migration, new package, EAS profile, or native app configuration change is part of this UX repair.
+- No APK rebuild is required for these JS/TS changes; restart Metro with a clear cache.
 - API and web changes from the donation slice still require deployment before the complete production donation flow can be accepted.
 
 ## Architecture Decisions
@@ -107,7 +109,9 @@ Current Support + Donation cycle:
 - Payment card/bank details remain entirely outside Pray in Verses and are handled by Paystack.
 - The app uses the existing HTTPS Pray in Verses callback origin rather than adding an unverified custom-scheme payment callback.
 - Bottom-tab layout must respect the runtime device bottom safe-area inset rather than relying on a fixed bar height.
+- Primary creation actions should not be duplicated on the same screen when they perform the same operation.
+- Android keyboard handling should be consistent at the app shell, while screen-level scroll views remain responsible for allowing focused content to move into view.
 
 ## Last Commit
 
-Latest implementation commits: `fix(mobile): respect bottom safe area in tab bar` and `feat(mobile): surface mission support on home`.
+Latest UX-repair commits: `fix(mobile): keep inputs visible above Android keyboard`, `fix(mobile): hide tabs while typing`, and `polish(mobile): simplify My Prayers actions`.
