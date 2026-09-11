@@ -26,6 +26,10 @@ import {
   colors,
 } from '@/constants/colors';
 
+SplashScreen.setOptions({
+  duration: 450,
+  fade: true,
+});
 SplashScreen.preventAutoHideAsync();
 
 Notifications.setNotificationHandler({

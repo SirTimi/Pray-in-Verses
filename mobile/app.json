@@ -29,9 +29,9 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#0C2E8A",
-          "image": "./assets/images/icon.png",
-          "imageWidth": 110,
+          "backgroundColor": "#FFFEF8",
+          "image": "./assets/images/prayinverse-logo.png",
+          "imageWidth": 190,
           "resizeMode": "contain"
         }
       ],

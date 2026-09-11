@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react-native';
 
 import AppButton from '@/components/ui/AppButton';
 import { colors } from '@/constants/colors';
@@ -74,6 +75,7 @@ export default function LoginScreen() {
 
       <View style={styles.blueCorner} />
       <View style={styles.goldCorner} />
+      <View style={styles.blueDot} />
 
       <KeyboardAvoidingView
         style={styles.keyboard}
@@ -86,12 +88,10 @@ export default function LoginScreen() {
         >
           <View style={styles.brandBlock}>
             <Image
-              source={require('../../../assets/images/icon.png')}
+              source={require('../../../assets/images/prayinverse-logo.png')}
               resizeMode="contain"
               style={styles.logo}
             />
-            <Text style={styles.brandName}>Pray in Verses</Text>
-            <Text style={styles.brandTagline}>Pray the Bible Verse by Verse</Text>
           </View>
 
           <View style={styles.headingBlock}>
@@ -103,7 +103,7 @@ export default function LoginScreen() {
 
           <View style={styles.form}>
             <View style={styles.inputShell}>
-              <Text style={styles.inputGlyph}>@</Text>
+              <Mail size={19} color={colors.primary} />
               <TextInput
                 value={email}
                 onChangeText={setEmail}
@@ -120,7 +120,7 @@ export default function LoginScreen() {
             </View>
 
             <View style={styles.inputShell}>
-              <Text style={styles.inputGlyph}>●</Text>
+              <LockKeyhole size={19} color={colors.primary} />
               <TextInput
                 value={password}
                 onChangeText={setPassword}
@@ -143,7 +143,11 @@ export default function LoginScreen() {
                 onPress={() => setShowPassword((visible) => !visible)}
                 style={styles.showButton}
               >
-                <Text style={styles.showText}>{showPassword ? 'Hide' : 'Show'}</Text>
+                {showPassword ? (
+                  <EyeOff size={19} color={colors.textSecondary} />
+                ) : (
+                  <Eye size={19} color={colors.textSecondary} />
+                )}
               </Pressable>
             </View>
 
@@ -195,7 +199,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: '#FFFEF8',
   },
   keyboard: {
     flex: 1,
@@ -203,51 +207,49 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.base,
     paddingBottom: spacing.xxl,
   },
   blueCorner: {
     position: 'absolute',
-    top: -95,
+    top: -118,
     right: -110,
-    width: 250,
-    height: 250,
-    borderRadius: 125,
-    backgroundColor: colors.primarySoft,
+    width: 268,
+    height: 268,
+    borderRadius: 134,
+    backgroundColor: '#E4ECFF',
   },
   goldCorner: {
     position: 'absolute',
-    bottom: -125,
-    left: -115,
-    width: 255,
-    height: 255,
-    borderRadius: 128,
-    backgroundColor: colors.goldSoft,
+    bottom: -152,
+    left: -132,
+    width: 286,
+    height: 286,
+    borderRadius: 143,
+    backgroundColor: '#FFF0B8',
+    opacity: 0.88,
+  },
+  blueDot: {
+    position: 'absolute',
+    top: 132,
+    right: 22,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#C7D6FF',
+    opacity: 0.65,
   },
   brandBlock: {
     alignItems: 'center',
-    marginTop: spacing.lg,
+    marginTop: spacing.md,
   },
   logo: {
-    width: 98,
-    height: 98,
-  },
-  brandName: {
-    marginTop: 2,
-    color: colors.primaryDark,
-    fontFamily: SERIF_FONT,
-    fontSize: 25,
-    fontWeight: '700',
-  },
-  brandTagline: {
-    marginTop: 2,
-    color: colors.textMuted,
-    fontSize: 9,
-    letterSpacing: 0.3,
+    width: 158,
+    height: 116,
   },
   headingBlock: {
     alignItems: 'center',
-    marginTop: spacing.xxl,
+    marginTop: spacing.lg,
   },
   title: {
     color: colors.primaryDark,
@@ -260,49 +262,44 @@ const styles = StyleSheet.create({
   subtitle: {
     marginTop: spacing.sm,
     maxWidth: 315,
-    color: colors.textSecondary,
+    color: '#5F6B7C',
     fontSize: 15,
     lineHeight: 22,
     textAlign: 'center',
   },
   form: {
-    marginTop: spacing.xxxl,
+    marginTop: spacing.xxl,
   },
   inputShell: {
     minHeight: 58,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#D8E1F0',
     borderRadius: radius.lg,
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.base,
-  },
-  inputGlyph: {
-    width: 26,
-    color: colors.textSecondary,
-    fontSize: 16,
-    fontWeight: '700',
-    textAlign: 'center',
+    shadowColor: '#0B1F4D',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.035,
+    shadowRadius: 10,
+    elevation: 1,
   },
   input: {
     flex: 1,
     minHeight: 56,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: 2,
     color: colors.text,
     fontSize: 16,
   },
   showButton: {
-    minWidth: 52,
-    minHeight: 44,
-    alignItems: 'flex-end',
+    width: 44,
+    height: 44,
+    alignItems: 'center',
     justifyContent: 'center',
-  },
-  showText: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: '700',
+    borderRadius: 22,
   },
   forgotButton: {
     alignSelf: 'flex-end',
@@ -339,11 +336,11 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: colors.border,
+    backgroundColor: '#E0E6EF',
   },
   dividerText: {
     marginHorizontal: 10,
-    color: colors.textMuted,
+    color: '#8792A5',
     fontSize: 9,
     fontWeight: '700',
     letterSpacing: 1.1,

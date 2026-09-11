@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import {
-  Image,
+  Animated,
+  Easing,
   Platform,
   StyleSheet,
   Text,
@@ -19,7 +20,7 @@ const SERIF_FONT = Platform.select({
   default: 'serif',
 });
 
-const MIN_SPLASH_MS = 1200;
+const MIN_SPLASH_MS = 1300;
 
 function sleep(ms: number) {
   return new Promise<void>((resolve) => {
@@ -31,6 +32,51 @@ export default function LaunchScreen() {
   const router = useRouter();
   const setUser = useAuthStore((state) => state.setUser);
 
+  const logoOpacity = useRef(new Animated.Value(0)).current;
+  const logoScale = useRef(new Animated.Value(0.9)).current;
+  const copyOpacity = useRef(new Animated.Value(0)).current;
+  const copyTranslateY = useRef(new Animated.Value(10)).current;
+
+  useEffect(() => {
+    const animation = Animated.sequence([
+      Animated.parallel([
+        Animated.timing(logoOpacity, {
+          toValue: 1,
+          duration: 480,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.spring(logoScale, {
+          toValue: 1,
+          damping: 12,
+          stiffness: 110,
+          mass: 0.8,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.parallel([
+        Animated.timing(copyOpacity, {
+          toValue: 1,
+          duration: 320,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(copyTranslateY, {
+          toValue: 0,
+          duration: 320,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]),
+    ]);
+
+    animation.start();
+
+    return () => {
+      animation.stop();
+    };
+  }, [copyOpacity, copyTranslateY, logoOpacity, logoScale]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -39,9 +85,6 @@ export default function LaunchScreen() {
       let destination: '/(app)' | '/(auth)/welcome' = '/(auth)/welcome';
 
       try {
-        // Reuse the exact same server session contract as the web app.
-        // If the HTTP-only auth cookie is still valid, /auth/me restores
-        // the user without requiring a second mobile-only token store.
         const user = await getMe();
         setUser(user);
         destination = '/(app)';
@@ -68,34 +111,46 @@ export default function LaunchScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
 
-      <View style={styles.sunGlow} />
-      <View style={styles.hillBack} />
-      <View style={styles.hillMid} />
-      <View style={styles.hillFront} />
+      <View style={styles.blueOrb} />
+      <View style={styles.goldOrb} />
+      <View style={styles.smallBlueOrb} />
 
-      <View style={styles.brandBlock}>
-        <Image
-          source={require('../../assets/images/logo-glow.png')}
+      <View style={styles.centerContent}>
+        <Animated.Image
+          source={require('../../assets/images/prayinverse-logo.png')}
           resizeMode="contain"
-          style={styles.logo}
+          style={[
+            styles.logo,
+            {
+              opacity: logoOpacity,
+              transform: [{ scale: logoScale }],
+            },
+          ]}
         />
 
-        <Text style={styles.brandName}>Pray in Verses</Text>
-        <Text style={styles.brandTagline}>Pray the Bible Verse by Verse</Text>
+        <Animated.View
+          style={[
+            styles.copyBlock,
+            {
+              opacity: copyOpacity,
+              transform: [{ translateY: copyTranslateY }],
+            },
+          ]}
+        >
+          <Text style={styles.statement}>Pray Scripture.</Text>
+          <Text style={styles.statement}>Live Scripture.</Text>
+          <Text style={styles.supportingText}>
+            Turn God&apos;s Word into prayer, reflection and a closer walk with Him.
+          </Text>
+        </Animated.View>
       </View>
 
-      <View style={styles.statementBlock}>
-        <Text style={styles.statement}>Pray Scripture.</Text>
-        <Text style={styles.statement}>Live Scripture.</Text>
-      </View>
-
-      <View style={styles.footerBlock}>
+      <Animated.View style={[styles.footerBlock, { opacity: copyOpacity }]}> 
         <View style={styles.goldRule} />
-        <Text style={styles.footerText}>A CLOSER WALK</Text>
-        <Text style={styles.footerText}>A BRIGHTER TOMORROW</Text>
-      </View>
+        <Text style={styles.footerText}>SCRIPTURE • PRAYER • REFLECTION</Text>
+      </Animated.View>
     </View>
   );
 }
@@ -104,106 +159,85 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     overflow: 'hidden',
-    backgroundColor: colors.primaryDark,
+    backgroundColor: '#FFFEF8',
   },
-  sunGlow: {
+  blueOrb: {
     position: 'absolute',
-    width: 320,
-    height: 320,
-    borderRadius: 160,
-    bottom: 70,
-    left: '50%',
-    marginLeft: -160,
-    backgroundColor: '#F6C453',
-    opacity: 0.28,
+    width: 310,
+    height: 310,
+    borderRadius: 155,
+    top: -150,
+    right: -120,
+    backgroundColor: '#E4ECFF',
   },
-  hillBack: {
+  goldOrb: {
     position: 'absolute',
-    width: 520,
-    height: 230,
-    borderRadius: 260,
-    left: -150,
-    bottom: 50,
-    backgroundColor: '#315B8E',
-    transform: [{ rotate: '-10deg' }],
-    opacity: 0.78,
+    width: 330,
+    height: 330,
+    borderRadius: 165,
+    left: -195,
+    bottom: -165,
+    backgroundColor: '#FFF0B8',
+    opacity: 0.82,
   },
-  hillMid: {
+  smallBlueOrb: {
     position: 'absolute',
-    width: 560,
-    height: 250,
-    borderRadius: 280,
-    right: -190,
-    bottom: 5,
-    backgroundColor: '#183F73',
-    transform: [{ rotate: '8deg' }],
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    right: -32,
+    bottom: '28%',
+    backgroundColor: '#EFF4FF',
   },
-  hillFront: {
-    position: 'absolute',
-    width: 620,
-    height: 250,
-    borderRadius: 310,
-    left: -170,
-    bottom: -115,
-    backgroundColor: '#0A2855',
-    transform: [{ rotate: '-4deg' }],
-  },
-  brandBlock: {
-    position: 'absolute',
-    top: '17%',
-    left: 24,
-    right: 24,
+  centerContent: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    paddingBottom: 52,
   },
   logo: {
-    width: 132,
-    height: 132,
+    width: 210,
+    height: 160,
   },
-  brandName: {
-    marginTop: 6,
-    color: colors.white,
+  copyBlock: {
+    alignItems: 'center',
+    marginTop: 26,
+  },
+  statement: {
+    color: colors.primaryDark,
     fontFamily: SERIF_FONT,
-    fontSize: 30,
+    fontSize: 29,
     lineHeight: 36,
     fontWeight: '700',
     textAlign: 'center',
   },
-  brandTagline: {
-    marginTop: 5,
-    color: 'rgba(255,255,255,0.76)',
-    fontSize: 12,
-    lineHeight: 18,
+  supportingText: {
+    maxWidth: 310,
+    marginTop: 14,
+    color: colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 20,
     textAlign: 'center',
-  },
-  statementBlock: {
-    position: 'absolute',
-    left: 36,
-    bottom: '27%',
-  },
-  statement: {
-    color: colors.white,
-    fontFamily: SERIF_FONT,
-    fontSize: 26,
-    lineHeight: 34,
   },
   footerBlock: {
     position: 'absolute',
-    left: 0,
-    right: 0,
+    left: 24,
+    right: 24,
     bottom: 38,
     alignItems: 'center',
   },
   goldRule: {
-    width: 38,
-    height: 2,
+    width: 36,
+    height: 3,
     marginBottom: 12,
+    borderRadius: 2,
     backgroundColor: colors.gold,
   },
   footerText: {
-    color: 'rgba(255,255,255,0.78)',
+    color: colors.primary,
     fontSize: 9,
-    lineHeight: 15,
-    fontWeight: '700',
-    letterSpacing: 2.4,
+    fontWeight: '800',
+    letterSpacing: 1.8,
   },
 });
