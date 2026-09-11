@@ -10,78 +10,80 @@ AWAITING USER TEST
 
 ## Last Accepted Task
 
-Reference Screens 6–10 were accepted by the user on 2026-09-11 after local/device testing.
+Reference Screens 11–14 were accepted by the user on 2026-09-11 after local/device testing.
 
 Accepted behavior now includes:
 
 - Screens 1–5: launch, onboarding, sign in, shared web/mobile authentication endpoints, and session restoration.
 - Screens 6–10: Home, Bible Books, Chapter Selection, Verse Selection, and Search.
-- Real `/api/browse` data is used for Scripture discovery.
-- Main mobile navigation uses Home, Browse, Pray, Community, and More.
+- Screens 11–14: Prayer Detail, Prayer Wall, Request Detail, and Create Prayer Request.
+- Real curated-prayer, Saved Prayers, Journals, Prayer Wall, and identity endpoints are used across the implemented flows.
 
 ## Current Implementation
 
-This development increment implements reference Screens 11–14 as one connected prayer/community slice:
+This development increment implements reference Screens 15–19 as the final reference-board slice:
 
-- Screen 11: Prayer Detail driven by `/api/browse/verse/:book/:chapter/:verse`.
-- Prayer Detail supports saving/unsaving the whole prayer and individual prayer points through the existing Saved Prayers API.
-- Prayer Detail can share the Scripture/prayer using the native share sheet.
-- Prayer Detail can create a reflective Journal entry directly through the existing Journals API.
-- Screen 12: Prayer Wall replaces the Community placeholder and uses the real `/api/prayer-wall` list, category filtering, likes/prayer count, comments navigation, bookmarks, creator-name hydration, pull-to-refresh, and request creation navigation.
-- Screen 13: Prayer Request Detail uses the existing request-detail endpoint, real comments, creator identity, prayer/like toggle, bookmark toggle, and comment creation.
-- Screen 14: Create Prayer Request uses the real backend DTO fields: title, description, category, urgent, and anonymous.
-- Verse Selection now opens the real Prayer Detail screen instead of the temporary alert.
+- Screen 15: Saved Prayers, driven by `/api/saved-prayers`, with search, real theme filters, grouped whole-prayer/prayer-point saves, prayer-detail navigation, pull-to-refresh, and complete removal of all saved records for a verse.
+- Screen 16: Journal list, driven by `/api/journals`, with search, supported filters, pull-to-refresh, and navigation to create/edit entries.
+- Screen 17: Journal Entry create/edit flow using the real journal DTO fields: title, body, and mood. Existing entries can also be deleted.
+- Screen 18: Profile & Settings replaces the former More placeholder. It uses the authenticated account state, links to Saved Prayers and Journal, opens existing web legal/help pages, and performs real logout.
+- Screen 19: reusable Empty, Loading, and Error state component plus a development-only App States review screen.
+- Main bottom navigation now labels the fifth tab `Profile` while retaining the existing route name for navigation stability.
 
 ## Completed
 
 - Shared web/mobile authentication accepted on Android.
 - Expo dev client, react-native-svg, and EAS profiles configured.
-- Reference Screens 1–10 accepted.
-- Reference Screens 11–14 are engineering-complete and awaiting user test.
-- Prayer detail service layer added for curated prayer, Saved Prayers, prayer-point saves, and direct Journal creation.
-- Prayer Wall mobile service layer added for list/detail/create/like/bookmark/comment and identity lookup.
+- Reference Screens 1–14 accepted.
+- Reference Screens 15–19 are engineering-complete and awaiting user test.
+- Saved Prayers mobile service added with grouped saved-state handling.
+- Journal mobile service added for list/get/create/update/delete.
+- Reusable app-state component added and used by the new library/journal screens.
+- All 19 numbered reference-board screens now have an implemented mobile counterpart.
 
 ## Next Tasks
 
 After user acceptance of this increment:
 
-1. Rework reference Screens 15–19: Saved Prayers, Journal, Journal Entry, Profile/Settings, and reusable app states.
-2. Bring Signup, Forgot Password, and Reset Password into the same final visual system where needed.
-3. Complete My Prayers, reminders, notifications, support/donation, legal screens, and release polish.
+1. Bring Signup, Forgot Password, and Reset Password into the final visual system where needed.
+2. Complete My Prayers.
+3. Complete reminders and notifications.
+4. Complete support/donation and remaining legal/about/mission screens.
+5. Finish Android polish, App Links verification, release build checks, and store readiness before iOS work.
 
 ## Known Issues
 
-- The Prayer Wall backend has no answered-state field, so the reference `Answered` tab is represented by `Urgent`; `All Requests` and `My Requests` are supported by real data.
-- The Prayer Wall list/detail responses do not expose the current user's existing like/bookmark state. Buttons therefore start visually neutral and reflect the authoritative server state after the user taps them. Counts are adjusted from the server toggle result.
-- Anonymous requests intentionally have `createdById` removed by the backend. Because of that privacy rule, an anonymous request created by the current user cannot be identified client-side as `My Request` in the list.
-- Create Prayer Request does not include the reference design's optional Scripture field because the current backend DTO does not support Scripture fields on PrayerRequest.
-- Prayer Detail's Add to Journal action creates a real `Reflective` journal entry directly; the full Journal browsing/editing UX is part of the next screen cycle.
-- The current chapter-verses API returns verse numbers only, not Scripture text. Screen 9 continues to show each available verse plus its real prayer-point count.
-- Pray and More tabs remain support placeholders for features outside this cycle.
+- The backend still has no persisted profile-update endpoint. Profile & Settings therefore displays real account data but intentionally does not offer a fake local-only profile editor. The existing web Profile page has the same backend TODO.
+- Journal entries do not have a structured Scripture-reference field in the current database/DTO. The mobile Journal Entry screen therefore stores only title, body, and mood rather than pretending the reference design's optional verse field is persisted.
+- The Journal API has no favorite flag, so the reference `Favorites` filter is represented by the real supported `Reflective` mood filter.
+- Saved Prayers may contain both whole-prayer and individual-prayer-point rows. Mobile groups those rows by curated prayer so the user sees one card per verse; removing that card removes the whole save and all saved-point rows for that verse.
+- Notifications remain scheduled for the next completion cycle. The Profile row clearly reports that instead of navigating to fake content.
+- Help & Support currently opens the existing public About page because the repository has no dedicated support endpoint/screen yet.
+- The Prayer Wall backend limitations from the previous cycle remain: no answered state, no request Scripture metadata, and no current-user existing like/bookmark state in list/detail responses.
 
 ## Testing Status
 
-Previous Screens 6–10 cycle: PASSED per user confirmation.
+Previous Screens 11–14 cycle: PASSED per user confirmation.
 
-Current Screens 11–14 cycle:
+Current Screens 15–19 cycle:
 
 - Latest `main`, recent commits, `mobile/AGENTS.md`, and this build-state file were inspected before implementation.
-- Exact Expo SDK 57 reference documentation was reviewed before mobile changes.
-- Backend source contracts were inspected for Curated Prayer detail, Saved Prayers, Journals, Prayer Wall DTO/service/controller, and identity lookup.
-- The final diff was reviewed to avoid backend/database/native-build changes in this cycle.
+- Exact Expo SDK 57 Router documentation was reviewed; `useFocusEffect` is used from `expo-router` for data refresh when returning to Saved Prayers and Journal.
+- Backend source contracts were inspected for Saved Prayers, Journals, authenticated user data, My Prayers stats, and the current web Profile/Settings behavior.
+- TypeScript/TSX syntax validation was performed in the available execution environment before commit.
 - Full Expo runtime/device validation is not available from the GitHub connector environment; physical Android testing is the acceptance gate.
 
 ## Architecture Decisions
 
 - GitHub `main` is the source of truth and active integration branch.
 - Expo SDK 57 versioned documentation is authoritative for mobile implementation decisions.
-- Main tab routes remain inside `(app)/(tabs)`; Prayer Detail and Prayer Request Detail/Create routes live outside the Tabs navigator so pushed detail screens do not carry the bottom tab bar.
-- Mobile authentication reuses the web auth endpoints and server-managed HTTP-only session cookie.
+- Main tab routes remain Home, Browse, Pray, Community, and the existing `more` route, now presented to users as Profile for navigation stability.
+- Saved Prayers, Journal, Journal Entry, and App States are stack routes outside the Tabs navigator so they can use full-screen flows.
+- Mobile authentication continues to reuse web auth endpoints and the server-managed HTTP-only session cookie.
 - Existing backend endpoints are reused rather than creating mobile-specific duplicates.
-- Identity display names are resolved through `/api/identity/lookup`; anonymous creator identity is never reconstructed.
-- Backend response/DTO shapes are respected as-is. Unsupported answered-state and request Scripture metadata are not fabricated.
-- Reference boards guide hierarchy, visual composition, and interaction while real backend capabilities determine behavior.
+- Backend response/DTO shapes determine behavior; unsupported profile persistence, journal verse metadata, and journal favorites are not fabricated.
+- Screen 19 is implemented as a reusable state component, with a development-only visual review route so production users are not exposed to a design-system test page.
 
 ## Last Commit
 
-Current cycle commit message: `feat(mobile): build prayer detail and community flow`.
+Current cycle finalization: Screens 15–19 implementation on `main`.
