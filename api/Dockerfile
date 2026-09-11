@@ -1,8 +1,14 @@
-FROM node:22-alpine AS builder
+FROM node:22-bookworm-slim AS builder
 
 WORKDIR /app
 
 ENV NODE_ENV=development
+
+# Prisma requires OpenSSL at generation/runtime. Keep build and runtime
+# on the same Debian/OpenSSL family so the native engine matches.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install deterministically from lockfile
 COPY package.json package-lock.json ./
@@ -22,12 +28,16 @@ RUN npm run build
 # Production runtime
 # ============================================================
 
-FROM node:22-alpine AS runner
+FROM node:22-bookworm-slim AS runner
 
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV PORT=4000
+
+# Prisma's native query engine requires OpenSSL in the runtime image.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 # Only package metadata first
 COPY package.json package-lock.json ./
@@ -53,6 +63,7 @@ RUN chown -R node:node /app
 
 USER node
 
-EXPOSE 4000
+# Cloud Run defaults to 8080 and injects PORT at runtime.
+EXPOSE 8080
 
 CMD ["node", "dist/main.js"]

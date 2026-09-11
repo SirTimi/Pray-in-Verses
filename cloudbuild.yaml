@@ -18,6 +18,7 @@ steps:
       - '--region=europe-west1'
       - '--platform=managed'
       - '--project=pray-in-verses'
+      - '--port=8080'
 
   # Run migrations
 
