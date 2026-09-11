@@ -4,7 +4,7 @@ import * as SecureStore from 'expo-secure-store';
 
 const INDEX_KEY = 'piv.reminders.index';
 const REMINDER_KEY_PREFIX = 'piv.reminder.';
-const REMINDER_CHANNEL_ID = 'prayer-reminders';
+const REMINDER_CHANNEL_ID = 'prayer-reminders-v2';
 
 export type PrayerReminder = {
   id: string;
@@ -75,7 +75,6 @@ export async function configureReminderNotifications() {
       name: 'Prayer reminders',
       description: 'Recurring reminders for your personal prayer times',
       importance: Notifications.AndroidImportance.HIGH,
-      sound: 'default',
       vibrationPattern: [0, 250, 180, 250],
       showBadge: false,
     });
@@ -187,7 +186,7 @@ async function scheduleReminder(reminder: PrayerReminder) {
         content: {
           title: reminder.title,
           body: reminder.prayer || 'It’s time to pause and pray.',
-          sound: 'default',
+          sound: true,
           data: {
             kind: 'prayer-reminder',
             reminderId: reminder.id,
@@ -292,7 +291,7 @@ export async function sendTestPrayerReminder() {
     content: {
       title: 'Prayer reminder',
       body: 'This is how your Pray in Verses reminders will appear.',
-      sound: 'default',
+      sound: true,
       data: { kind: 'prayer-reminder-test' },
     },
     trigger: {
