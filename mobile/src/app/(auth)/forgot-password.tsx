@@ -1,6 +1,6 @@
 import { useState } from 'react';
-
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -9,133 +9,76 @@ import {
   TextInput,
   View,
 } from 'react-native';
-
-import {
-  SafeAreaView,
-} from 'react-native-safe-area-context';
-
-import {
-  useRouter,
-} from 'expo-router';
-
-import {
-  Mail,
-  ArrowLeft,
-  CheckCircle2,
-} from 'lucide-react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { ArrowLeft, CheckCircle2, Mail } from 'lucide-react-native';
 
 import AppButton from '@/components/ui/AppButton';
-
 import { colors } from '@/constants/colors';
-import {
-  radius,
-  spacing,
-} from '@/constants/spacing';
+import { radius, spacing } from '@/constants/spacing';
+import { forgotPassword } from '@/services/auth';
 
-import {
-  forgotPassword,
-} from '@/services/auth';
+const SERIF_FONT = Platform.select({
+  ios: 'Georgia',
+  android: 'serif',
+  default: 'serif',
+});
 
-const EMAIL_REGEX =
-  /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState('');
 
-  const [email, setEmail] =
-    useState('');
-
-  const [loading, setLoading] =
-    useState(false);
-
-  const [sent, setSent] =
-    useState(false);
-
-  const emailValid =
-    EMAIL_REGEX.test(
-      email.trim(),
-    );
+  const emailValid = EMAIL_REGEX.test(email.trim());
 
   async function handleSubmit() {
-    if (!emailValid || loading) {
-      return;
-    }
+    if (!emailValid || loading) return;
 
+    setError('');
     setLoading(true);
 
     try {
-      await forgotPassword(
-        email
-          .trim()
-          .toLowerCase(),
-      );
+      await forgotPassword(email.trim().toLowerCase());
+      setSent(true);
     } catch {
-      // Intentionally do not reveal
-      // whether an account exists.
+      setError('We could not send a reset email right now. Check your connection and try again.');
     } finally {
       setLoading(false);
-      setSent(true);
     }
   }
 
   if (sent) {
     return (
-      <SafeAreaView
-        style={styles.safeArea}
-      >
-        <View
-          style={
-            styles.successContainer
-          }
-        >
-          <View
-            style={styles.successIcon}
-          >
-            <CheckCircle2
-              size={36}
-              color={colors.primary}
-              strokeWidth={1.8}
-            />
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="dark" />
+        <View style={styles.blueCorner} />
+        <View style={styles.goldCorner} />
+        <View style={styles.successContainer}>
+          <View style={styles.successIcon}>
+            <CheckCircle2 size={38} color={colors.primary} strokeWidth={1.8} />
           </View>
-
-          <Text
-            style={styles.successTitle}
-          >
-            Check your email
+          <Text style={styles.successTitle}>Check your email</Text>
+          <Text style={styles.successBody}>
+            If an account exists for {email.trim()}, we&apos;ve sent a secure password reset link.
           </Text>
-
-          <Text
-            style={styles.successBody}
-          >
-            If an account exists for
-            {` ${email.trim()}, `}
-            we’ve sent a secure link
-            to reset your password.
-          </Text>
-
           <AppButton
-            label="Back to sign in"
-            onPress={() =>
-              router.replace(
-                '/(auth)/login',
-              )
-            }
-            style={{
-              marginTop: spacing.xxl,
-            }}
+            label="Back to Sign In"
+            onPress={() => router.replace('/(auth)/login')}
+            style={styles.successButton}
           />
-
           <Pressable
-            onPress={() =>
-              setSent(false)
-            }
-            style={styles.resend}
+            onPress={() => {
+              setSent(false);
+              setError('');
+            }}
+            style={styles.secondaryLink}
           >
-            <Text
-              style={styles.resendText}
-            >
-              Try another email
-            </Text>
+            <Text style={styles.secondaryLinkText}>Use another email</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -143,146 +86,68 @@ export default function ForgotPasswordScreen() {
   }
 
   return (
-    <SafeAreaView
-      style={styles.safeArea}
-    >
-      <KeyboardAvoidingView
-        style={styles.keyboard}
-        behavior={
-          Platform.OS === 'ios'
-            ? 'padding'
-            : undefined
-        }
-      >
-        <View
-          style={styles.container}
-        >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Back"
-            onPress={() =>
-              router.back()
-            }
-            style={styles.backButton}
-          >
-            <ArrowLeft
-              size={22}
-              color={colors.primary}
-            />
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar style="dark" />
+      <View style={styles.blueCorner} />
+      <View style={styles.goldCorner} />
+
+      <KeyboardAvoidingView style={styles.keyboard} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={styles.page}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={styles.backButton}>
+            <ArrowLeft size={22} color={colors.primary} />
           </Pressable>
 
-          <View
-            style={styles.content}
-          >
-            <View
-              style={styles.iconBox}
-            >
-              <Mail
-                size={28}
-                color={colors.primary}
-                strokeWidth={1.8}
-              />
-            </View>
+          <View style={styles.brandBlock}>
+            <Image source={require('../../../assets/images/icon.png')} resizeMode="contain" style={styles.logo} />
+            <Text style={styles.brandName}>Pray in Verses</Text>
+            <Text style={styles.brandTagline}>Pray the Bible Verse by Verse</Text>
+          </View>
 
-            <Text
-              style={styles.eyebrow}
-            >
-              ACCOUNT RECOVERY
+          <View style={styles.content}>
+            <Text style={styles.title}>Reset Your Password</Text>
+            <Text style={styles.subtitle}>
+              Enter the email connected to your account and we&apos;ll send you a secure reset link.
             </Text>
 
-            <Text
-              style={styles.title}
-            >
-              Forgot your password?
-            </Text>
+            <View style={styles.form}>
+              <View style={[styles.inputShell, email.length > 0 && !emailValid && styles.inputShellError]}>
+                <Mail size={19} color={colors.textSecondary} />
+                <TextInput
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="Email address"
+                  placeholderTextColor={colors.textMuted}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="email"
+                  textContentType="emailAddress"
+                  editable={!loading}
+                  returnKeyType="send"
+                  onSubmitEditing={() => void handleSubmit()}
+                  style={styles.input}
+                />
+              </View>
+              {email.length > 0 && !emailValid && <Text style={styles.fieldError}>Enter a valid email address.</Text>}
 
-            <Text
-              style={styles.description}
-            >
-              Enter the email linked to
-              your account and we’ll send
-              you a secure reset link.
-            </Text>
-
-            <View
-              style={styles.form}
-            >
-              <Text
-                style={styles.label}
-              >
-                Email address
-              </Text>
-
-              <TextInput
-                value={email}
-                onChangeText={
-                  setEmail
-                }
-                placeholder="you@example.com"
-                placeholderTextColor={
-                  colors.textMuted
-                }
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoComplete="email"
-                textContentType="emailAddress"
-                returnKeyType="send"
-                onSubmitEditing={
-                  handleSubmit
-                }
-                style={[
-                  styles.input,
-
-                  email.length > 0 &&
-                    !emailValid &&
-                    styles.inputError,
-                ]}
-              />
-
-              {email.length > 0 &&
-                !emailValid && (
-                  <Text
-                    style={
-                      styles.fieldError
-                    }
-                  >
-                    Enter a valid email
-                    address.
-                  </Text>
-                )}
+              {!!error && (
+                <View style={styles.errorBox}>
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              )}
 
               <AppButton
-                label="Send reset link"
+                label="Send Reset Link"
                 loading={loading}
-                disabled={
-                  !emailValid
-                }
-                onPress={
-                  handleSubmit
-                }
-                style={
-                  styles.submitButton
-                }
+                disabled={!emailValid}
+                onPress={() => void handleSubmit()}
+                style={styles.primaryButton}
               />
             </View>
           </View>
 
-          <Pressable
-            onPress={() =>
-              router.replace(
-                '/(auth)/login',
-              )
-            }
-            style={styles.loginLink}
-          >
-            <Text
-              style={
-                styles.loginLinkText
-              }
-            >
-              Back to sign in
-            </Text>
+          <Pressable onPress={() => router.replace('/(auth)/login')} style={styles.bottomLink}>
+            <Text style={styles.bottomLinkText}>Back to Sign In</Text>
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -291,239 +156,34 @@ export default function ForgotPasswordScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor:
-      colors.background,
-  },
-
-  keyboard: {
-    flex: 1,
-  },
-
-  container: {
-    flex: 1,
-    paddingHorizontal:
-      spacing.xl,
-    paddingBottom:
-      spacing.xl,
-  },
-
-  backButton: {
-    width: 44,
-    height: 44,
-
-    marginTop: spacing.sm,
-
-    alignItems: 'center',
-    justifyContent: 'center',
-
-    borderRadius:
-      radius.round,
-
-    alignSelf: 'flex-start',
-
-    marginLeft: -10,
-  },
-
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingBottom: 40,
-  },
-
-  iconBox: {
-    width: 60,
-    height: 60,
-
-    borderRadius:
-      radius.lg,
-
-    alignItems: 'center',
-    justifyContent: 'center',
-
-    backgroundColor:
-      colors.primarySoft,
-
-    marginBottom:
-      spacing.xl,
-  },
-
-  eyebrow: {
-    color: colors.primary,
-
-    fontSize: 11,
-    fontWeight: '800',
-
-    letterSpacing: 1.4,
-
-    marginBottom:
-      spacing.md,
-  },
-
-  title: {
-    color:
-      colors.primaryDark,
-
-    fontSize: 34,
-    lineHeight: 40,
-
-    fontWeight: '800',
-
-    letterSpacing: -0.8,
-
-    maxWidth: 340,
-  },
-
-  description: {
-    color:
-      colors.textSecondary,
-
-    fontSize: 16,
-    lineHeight: 25,
-
-    marginTop:
-      spacing.md,
-
-    maxWidth: 340,
-  },
-
-  form: {
-    marginTop:
-      spacing.xxxl,
-  },
-
-  label: {
-    color: colors.text,
-
-    fontSize: 14,
-    fontWeight: '700',
-
-    marginBottom:
-      spacing.sm,
-  },
-
-  input: {
-    minHeight: 56,
-
-    borderWidth: 1,
-    borderColor:
-      colors.border,
-
-    borderRadius:
-      radius.md,
-
-    backgroundColor:
-      colors.surface,
-
-    paddingHorizontal:
-      spacing.base,
-
-    color: colors.text,
-
-    fontSize: 16,
-  },
-
-  inputError: {
-    borderColor:
-      colors.error,
-  },
-
-  fieldError: {
-    color:
-      colors.error,
-
-    fontSize: 12,
-
-    marginTop:
-      spacing.xs,
-  },
-
-  submitButton: {
-    marginTop:
-      spacing.xl,
-  },
-
-  loginLink: {
-    alignItems: 'center',
-
-    paddingVertical:
-      spacing.md,
-  },
-
-  loginLinkText: {
-    color: colors.primary,
-
-    fontSize: 14,
-    fontWeight: '700',
-  },
-
-  successContainer: {
-    flex: 1,
-
-    paddingHorizontal:
-      spacing.xl,
-
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  successIcon: {
-    width: 72,
-    height: 72,
-
-    borderRadius: 36,
-
-    backgroundColor:
-      colors.primarySoft,
-
-    alignItems: 'center',
-    justifyContent: 'center',
-
-    marginBottom:
-      spacing.xl,
-  },
-
-  successTitle: {
-    color:
-      colors.primaryDark,
-
-    fontSize: 30,
-    lineHeight: 36,
-
-    fontWeight: '800',
-
-    textAlign: 'center',
-  },
-
-  successBody: {
-    color:
-      colors.textSecondary,
-
-    fontSize: 16,
-    lineHeight: 25,
-
-    textAlign: 'center',
-
-    marginTop:
-      spacing.md,
-
-    maxWidth: 340,
-  },
-
-  resend: {
-    minHeight: 48,
-
-    alignItems: 'center',
-    justifyContent: 'center',
-
-    paddingHorizontal: 20,
-  },
-
-  resendText: {
-    color: colors.primary,
-
-    fontSize: 14,
-    fontWeight: '700',
-  },
+  safeArea: { flex: 1, backgroundColor: colors.surface },
+  keyboard: { flex: 1 },
+  page: { flex: 1, paddingHorizontal: spacing.xl, paddingBottom: spacing.xl },
+  blueCorner: { position: 'absolute', top: -95, right: -110, width: 250, height: 250, borderRadius: 125, backgroundColor: colors.primarySoft },
+  goldCorner: { position: 'absolute', bottom: -125, left: -115, width: 255, height: 255, borderRadius: 128, backgroundColor: colors.goldSoft },
+  backButton: { width: 44, height: 44, marginLeft: -10, marginTop: spacing.sm, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  brandBlock: { alignItems: 'center', marginTop: spacing.xl },
+  logo: { width: 82, height: 82 },
+  brandName: { color: colors.primaryDark, fontFamily: SERIF_FONT, fontSize: 23, fontWeight: '700' },
+  brandTagline: { marginTop: 1, color: colors.textMuted, fontSize: 8.5, letterSpacing: 0.3 },
+  content: { flex: 1, justifyContent: 'center', paddingBottom: 30 },
+  title: { color: colors.primaryDark, fontFamily: SERIF_FONT, fontSize: 32, lineHeight: 38, fontWeight: '700', textAlign: 'center' },
+  subtitle: { maxWidth: 330, alignSelf: 'center', marginTop: spacing.md, color: colors.textSecondary, fontSize: 15, lineHeight: 23, textAlign: 'center' },
+  form: { marginTop: spacing.xxxl },
+  inputShell: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, paddingHorizontal: spacing.base },
+  inputShellError: { borderColor: colors.error },
+  input: { flex: 1, minHeight: 56, color: colors.text, fontSize: 16, paddingVertical: 0 },
+  fieldError: { marginTop: 6, marginLeft: 4, color: colors.error, fontSize: 11, lineHeight: 16 },
+  errorBox: { marginTop: spacing.lg, padding: spacing.md, borderRadius: radius.md, backgroundColor: '#FFF1F0' },
+  errorText: { color: colors.error, fontSize: 13, lineHeight: 19 },
+  primaryButton: { minHeight: 58, marginTop: spacing.xl, borderRadius: radius.lg },
+  bottomLink: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  bottomLinkText: { color: colors.primary, fontSize: 14, fontWeight: '800' },
+  successContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xl },
+  successIcon: { width: 76, height: 76, borderRadius: 38, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft, marginBottom: spacing.xl },
+  successTitle: { color: colors.primaryDark, fontFamily: SERIF_FONT, fontSize: 31, lineHeight: 37, fontWeight: '700', textAlign: 'center' },
+  successBody: { maxWidth: 335, marginTop: spacing.md, color: colors.textSecondary, fontSize: 15, lineHeight: 23, textAlign: 'center' },
+  successButton: { marginTop: spacing.xxl, borderRadius: radius.lg },
+  secondaryLink: { minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.md },
+  secondaryLinkText: { color: colors.primary, fontSize: 14, fontWeight: '700' },
 });

@@ -1,8 +1,6 @@
+import { useState } from 'react';
 import {
-  useState,
-} from 'react';
-
-import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -11,133 +9,59 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { ArrowLeft, CheckCircle2, KeyRound, LockKeyhole } from 'lucide-react-native';
 
-import {
-  SafeAreaView,
-} from 'react-native-safe-area-context';
-
-import {
-  useLocalSearchParams,
-  useRouter,
-} from 'expo-router';
-
-import {
-  ArrowLeft,
-  CheckCircle2,
-  KeyRound,
-} from 'lucide-react-native';
-
-import AppButton
-  from '@/components/ui/AppButton';
-
+import AppButton from '@/components/ui/AppButton';
 import { colors } from '@/constants/colors';
+import { radius, spacing } from '@/constants/spacing';
+import { ApiError } from '@/services/api';
+import { resetPassword } from '@/services/auth';
 
-import {
-  radius,
-  spacing,
-} from '@/constants/spacing';
-
-import {
-  resetPassword,
-} from '@/services/auth';
-
-import {
-  ApiError,
-} from '@/services/api';
+const SERIF_FONT = Platform.select({
+  ios: 'Georgia',
+  android: 'serif',
+  default: 'serif',
+});
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ token?: string | string[] }>();
+  const rawToken = params.token;
+  const token = Array.isArray(rawToken) ? rawToken[0] ?? '' : rawToken ?? '';
 
-  const params =
-    useLocalSearchParams<{
-      token?: string;
-    }>();
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
 
-  const token =
-    typeof params.token === 'string'
-      ? params.token
-      : '';
-
-  const [
-    newPassword,
-    setNewPassword,
-  ] = useState('');
-
-  const [
-    confirmPassword,
-    setConfirmPassword,
-  ] = useState('');
-
-  const [
-    showPassword,
-    setShowPassword,
-  ] = useState(false);
-
-  const [
-    showConfirm,
-    setShowConfirm,
-  ] = useState(false);
-
-  const [loading, setLoading] =
-    useState(false);
-
-  const [error, setError] =
-    useState('');
-
-  const [success, setSuccess] =
-    useState(false);
-
-  const passwordValid =
-    newPassword.length >= 8;
-
-  const passwordsMatch =
-    confirmPassword.length > 0 &&
-    newPassword ===
-      confirmPassword;
-
-  const canSubmit =
-    !!token &&
-    passwordValid &&
-    passwordsMatch;
+  const passwordValid = newPassword.length >= 8;
+  const passwordsMatch = confirmPassword.length > 0 && newPassword === confirmPassword;
+  const canSubmit = !!token && passwordValid && passwordsMatch;
 
   async function handleReset() {
-    if (
-      !canSubmit ||
-      loading
-    ) {
-      return;
-    }
+    if (!canSubmit || loading) return;
 
     setError('');
     setLoading(true);
 
     try {
-      await resetPassword(
-        token,
-        newPassword,
-      );
-
+      await resetPassword(token, newPassword);
       setSuccess(true);
     } catch (err) {
-      if (
-        err instanceof ApiError
-      ) {
-        if (
-          err.status === 429
-        ) {
-          setError(
-            'Too many attempts. Please try again shortly.',
-          );
-        } else {
-          setError(
-            err.message ||
-              'This reset link may be invalid or expired.',
-          );
-        }
-      } else {
+      if (err instanceof ApiError) {
         setError(
-          'Unable to reset your password. Check your connection and try again.',
+          err.status === 429
+            ? 'Too many reset attempts. Please wait a few minutes and try again.'
+            : err.message || 'This reset link may be invalid or expired.',
         );
+      } else {
+        setError('Unable to reset your password. Check your connection and try again.');
       }
     } finally {
       setLoading(false);
@@ -146,343 +70,142 @@ export default function ResetPasswordScreen() {
 
   if (success) {
     return (
-      <SafeAreaView
-        style={styles.safeArea}
-      >
-        <View
-          style={
-            styles.successContainer
-          }
-        >
-          <View
-            style={styles.successIcon}
-          >
-            <CheckCircle2
-              size={38}
-              color={colors.primary}
-              strokeWidth={1.8}
-            />
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="dark" />
+        <View style={styles.blueCorner} />
+        <View style={styles.goldCorner} />
+        <View style={styles.successContainer}>
+          <View style={styles.successIcon}>
+            <CheckCircle2 size={38} color={colors.primary} strokeWidth={1.8} />
           </View>
-
-          <Text
-            style={styles.successTitle}
-          >
-            Password changed
+          <Text style={styles.successTitle}>Password changed</Text>
+          <Text style={styles.successBody}>
+            Your password has been reset successfully. You can now sign in with your new password.
           </Text>
-
-          <Text
-            style={styles.successBody}
-          >
-            Your password has been
-            reset successfully. You can
-            now sign in with your new
-            password.
-          </Text>
-
           <AppButton
-            label="Continue to sign in"
-            onPress={() =>
-              router.replace(
-                '/(auth)/login',
-              )
-            }
-            style={{
-              marginTop:
-                spacing.xxl,
-            }}
+            label="Continue to Sign In"
+            onPress={() => router.replace('/(auth)/login')}
+            style={styles.successButton}
           />
         </View>
       </SafeAreaView>
     );
   }
 
+  if (!token) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="dark" />
+        <View style={styles.blueCorner} />
+        <View style={styles.goldCorner} />
+        <View style={styles.missingContainer}>
+          <View style={styles.keyIcon}>
+            <KeyRound size={34} color={colors.primary} strokeWidth={1.8} />
+          </View>
+          <Text style={styles.successTitle}>Reset link incomplete</Text>
+          <Text style={styles.successBody}>
+            Open the secure reset link from your email, or request a new one to continue.
+          </Text>
+          <AppButton
+            label="Request a New Link"
+            onPress={() => router.replace('/(auth)/forgot-password')}
+            style={styles.successButton}
+          />
+          <Pressable onPress={() => router.replace('/(auth)/login')} style={styles.secondaryLink}>
+            <Text style={styles.secondaryLinkText}>Back to Sign In</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <SafeAreaView
-      style={styles.safeArea}
-    >
-      <KeyboardAvoidingView
-        style={styles.keyboard}
-        behavior={
-          Platform.OS === 'ios'
-            ? 'padding'
-            : undefined
-        }
-      >
-        <View
-          style={styles.container}
-        >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Back"
-            onPress={() =>
-              router.back()
-            }
-            style={
-              styles.backButton
-            }
-          >
-            <ArrowLeft
-              size={22}
-              color={colors.primary}
-            />
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar style="dark" />
+      <View style={styles.blueCorner} />
+      <View style={styles.goldCorner} />
+
+      <KeyboardAvoidingView style={styles.keyboard} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={styles.page}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={styles.backButton}>
+            <ArrowLeft size={22} color={colors.primary} />
           </Pressable>
 
-          <View
-            style={styles.content}
-          >
-            <View
-              style={styles.iconBox}
-            >
-              <KeyRound
-                size={28}
-                color={colors.primary}
-                strokeWidth={1.8}
-              />
-            </View>
+          <View style={styles.brandBlock}>
+            <Image source={require('../../../assets/images/icon.png')} resizeMode="contain" style={styles.logo} />
+            <Text style={styles.brandName}>Pray in Verses</Text>
+            <Text style={styles.brandTagline}>Pray the Bible Verse by Verse</Text>
+          </View>
 
-            <Text
-              style={styles.eyebrow}
-            >
-              ACCOUNT RECOVERY
-            </Text>
+          <View style={styles.content}>
+            <Text style={styles.title}>Create a New Password</Text>
+            <Text style={styles.subtitle}>Choose a new password for your Pray in Verses account.</Text>
 
-            <Text
-              style={styles.title}
-            >
-              Create a new password.
-            </Text>
-
-            <Text
-              style={
-                styles.description
-              }
-            >
-              Choose a password you
-              haven’t used before.
-            </Text>
-
-            {!token && (
-              <View
-                style={
-                  styles.warningBox
-                }
-              >
-                <Text
-                  style={
-                    styles.warningTitle
-                  }
-                >
-                  Reset link missing
-                </Text>
-
-                <Text
-                  style={
-                    styles.warningText
-                  }
-                >
-                  Open the secure reset
-                  link from your email,
-                  or request a new one.
-                </Text>
-
+            <View style={styles.form}>
+              <View style={[styles.inputShell, newPassword.length > 0 && !passwordValid && styles.inputShellError]}>
+                <LockKeyhole size={19} color={colors.textSecondary} />
+                <TextInput
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  placeholder="New password"
+                  placeholderTextColor={colors.textMuted}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="new-password"
+                  editable={!loading}
+                  style={styles.input}
+                />
                 <Pressable
-                  onPress={() =>
-                    router.replace(
-                      '/(auth)/forgot-password',
-                    )
-                  }
+                  accessibilityRole="button"
+                  accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                  onPress={() => setShowPassword((current) => !current)}
+                  style={styles.showButton}
                 >
-                  <Text
-                    style={
-                      styles.requestLink
-                    }
-                  >
-                    Request new link
-                  </Text>
+                  <Text style={styles.showText}>{showPassword ? 'Hide' : 'Show'}</Text>
                 </Pressable>
               </View>
-            )}
+              {newPassword.length > 0 && !passwordValid && <Text style={styles.fieldError}>Use at least 8 characters.</Text>}
 
-            <View
-              style={styles.form}
-            >
-              <View>
-                <Text
-                  style={styles.label}
+              <View style={[styles.inputShell, confirmPassword.length > 0 && !passwordsMatch && styles.inputShellError]}>
+                <LockKeyhole size={19} color={colors.textSecondary} />
+                <TextInput
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  placeholder="Confirm new password"
+                  placeholderTextColor={colors.textMuted}
+                  secureTextEntry={!showConfirm}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="new-password"
+                  editable={!loading}
+                  returnKeyType="done"
+                  onSubmitEditing={() => void handleReset()}
+                  style={styles.input}
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={showConfirm ? 'Hide password confirmation' : 'Show password confirmation'}
+                  onPress={() => setShowConfirm((current) => !current)}
+                  style={styles.showButton}
                 >
-                  New password
-                </Text>
-
-                <View
-                  style={[
-                    styles.passwordBox,
-
-                    newPassword.length >
-                      0 &&
-                      !passwordValid &&
-                      styles.inputError,
-                  ]}
-                >
-                  <TextInput
-                    value={
-                      newPassword
-                    }
-                    onChangeText={
-                      setNewPassword
-                    }
-                    placeholder="Enter new password"
-                    placeholderTextColor={
-                      colors.textMuted
-                    }
-                    secureTextEntry={
-                      !showPassword
-                    }
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    autoComplete="new-password"
-                    style={
-                      styles.passwordInput
-                    }
-                  />
-
-                  <Pressable
-                    onPress={() =>
-                      setShowPassword(
-                        (current) =>
-                          !current,
-                      )
-                    }
-                    style={
-                      styles.showButton
-                    }
-                  >
-                    <Text
-                      style={
-                        styles.showText
-                      }
-                    >
-                      {showPassword
-                        ? 'Hide'
-                        : 'Show'}
-                    </Text>
-                  </Pressable>
-                </View>
-
-                {newPassword.length >
-                  0 &&
-                  !passwordValid && (
-                    <Text
-                      style={
-                        styles.fieldError
-                      }
-                    >
-                      Password must be at
-                      least 8 characters.
-                    </Text>
-                  )}
+                  <Text style={styles.showText}>{showConfirm ? 'Hide' : 'Show'}</Text>
+                </Pressable>
               </View>
-
-              <View>
-                <Text
-                  style={styles.label}
-                >
-                  Confirm password
-                </Text>
-
-                <View
-                  style={[
-                    styles.passwordBox,
-
-                    confirmPassword.length >
-                      0 &&
-                      !passwordsMatch &&
-                      styles.inputError,
-                  ]}
-                >
-                  <TextInput
-                    value={
-                      confirmPassword
-                    }
-                    onChangeText={
-                      setConfirmPassword
-                    }
-                    placeholder="Repeat new password"
-                    placeholderTextColor={
-                      colors.textMuted
-                    }
-                    secureTextEntry={
-                      !showConfirm
-                    }
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    autoComplete="new-password"
-                    style={
-                      styles.passwordInput
-                    }
-                  />
-
-                  <Pressable
-                    onPress={() =>
-                      setShowConfirm(
-                        (current) =>
-                          !current,
-                      )
-                    }
-                    style={
-                      styles.showButton
-                    }
-                  >
-                    <Text
-                      style={
-                        styles.showText
-                      }
-                    >
-                      {showConfirm
-                        ? 'Hide'
-                        : 'Show'}
-                    </Text>
-                  </Pressable>
-                </View>
-
-                {confirmPassword.length >
-                  0 &&
-                  !passwordsMatch && (
-                    <Text
-                      style={
-                        styles.fieldError
-                      }
-                    >
-                      Passwords do not
-                      match.
-                    </Text>
-                  )}
-              </View>
+              {confirmPassword.length > 0 && !passwordsMatch && <Text style={styles.fieldError}>Passwords do not match.</Text>}
 
               {!!error && (
-                <View
-                  style={
-                    styles.errorBox
-                  }
-                >
-                  <Text
-                    style={
-                      styles.errorText
-                    }
-                  >
-                    {error}
-                  </Text>
+                <View style={styles.errorBox}>
+                  <Text style={styles.errorText}>{error}</Text>
                 </View>
               )}
 
               <AppButton
-                label="Reset password"
+                label="Reset Password"
                 loading={loading}
-                disabled={
-                  !canSubmit
-                }
-                onPress={
-                  handleReset
-                }
+                disabled={!canSubmit}
+                onPress={() => void handleReset()}
+                style={styles.primaryButton}
               />
             </View>
           </View>
@@ -493,296 +216,36 @@ export default function ResetPasswordScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor:
-      colors.background,
-  },
-
-  keyboard: {
-    flex: 1,
-  },
-
-  container: {
-    flex: 1,
-
-    paddingHorizontal:
-      spacing.xl,
-  },
-
-  backButton: {
-    width: 44,
-    height: 44,
-
-    alignItems: 'center',
-    justifyContent: 'center',
-
-    borderRadius:
-      radius.round,
-
-    alignSelf: 'flex-start',
-
-    marginTop: spacing.sm,
-    marginLeft: -10,
-  },
-
-  content: {
-    flex: 1,
-
-    justifyContent:
-      'center',
-
-    paddingBottom: 50,
-  },
-
-  iconBox: {
-    width: 60,
-    height: 60,
-
-    borderRadius:
-      radius.lg,
-
-    backgroundColor:
-      colors.primarySoft,
-
-    alignItems: 'center',
-    justifyContent: 'center',
-
-    marginBottom:
-      spacing.xl,
-  },
-
-  eyebrow: {
-    color:
-      colors.primary,
-
-    fontSize: 11,
-    fontWeight: '800',
-
-    letterSpacing: 1.4,
-
-    marginBottom:
-      spacing.md,
-  },
-
-  title: {
-    color:
-      colors.primaryDark,
-
-    fontSize: 34,
-    lineHeight: 40,
-
-    fontWeight: '800',
-
-    letterSpacing: -0.8,
-
-    maxWidth: 340,
-  },
-
-  description: {
-    color:
-      colors.textSecondary,
-
-    fontSize: 16,
-    lineHeight: 25,
-
-    marginTop:
-      spacing.md,
-  },
-
-  form: {
-    marginTop:
-      spacing.xxl,
-
-    gap: spacing.lg,
-  },
-
-  label: {
-    color:
-      colors.text,
-
-    fontSize: 14,
-    fontWeight: '700',
-
-    marginBottom:
-      spacing.sm,
-  },
-
-  passwordBox: {
-    minHeight: 56,
-
-    flexDirection: 'row',
-    alignItems: 'center',
-
-    borderWidth: 1,
-    borderColor:
-      colors.border,
-
-    borderRadius:
-      radius.md,
-
-    backgroundColor:
-      colors.surface,
-
-    paddingLeft:
-      spacing.base,
-  },
-
-  passwordInput: {
-    flex: 1,
-
-    fontSize: 16,
-
-    color:
-      colors.text,
-
-    paddingVertical: 0,
-  },
-
-  showButton: {
-    minWidth: 60,
-    minHeight: 54,
-
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  showText: {
-    color:
-      colors.primary,
-
-    fontSize: 13,
-    fontWeight: '700',
-  },
-
-  inputError: {
-    borderColor:
-      colors.error,
-  },
-
-  fieldError: {
-    color:
-      colors.error,
-
-    fontSize: 12,
-
-    marginTop:
-      spacing.xs,
-  },
-
-  errorBox: {
-    padding:
-      spacing.md,
-
-    borderRadius:
-      radius.md,
-
-    backgroundColor:
-      '#FFF1F0',
-  },
-
-  errorText: {
-    color:
-      colors.error,
-
-    fontSize: 14,
-    lineHeight: 20,
-  },
-
-  warningBox: {
-    marginTop:
-      spacing.xl,
-
-    padding:
-      spacing.base,
-
-    borderRadius:
-      radius.md,
-
-    backgroundColor:
-      colors.goldSoft,
-  },
-
-  warningTitle: {
-    color:
-      colors.text,
-
-    fontSize: 14,
-    fontWeight: '800',
-  },
-
-  warningText: {
-    color:
-      colors.textSecondary,
-
-    fontSize: 13,
-    lineHeight: 20,
-
-    marginTop:
-      spacing.xs,
-  },
-
-  requestLink: {
-    color:
-      colors.primary,
-
-    fontSize: 13,
-    fontWeight: '800',
-
-    marginTop:
-      spacing.md,
-  },
-
-  successContainer: {
-    flex: 1,
-
-    alignItems: 'center',
-    justifyContent: 'center',
-
-    paddingHorizontal:
-      spacing.xl,
-  },
-
-  successIcon: {
-    width: 74,
-    height: 74,
-
-    borderRadius: 37,
-
-    alignItems: 'center',
-    justifyContent: 'center',
-
-    backgroundColor:
-      colors.primarySoft,
-
-    marginBottom:
-      spacing.xl,
-  },
-
-  successTitle: {
-    color:
-      colors.primaryDark,
-
-    fontSize: 30,
-    lineHeight: 36,
-
-    fontWeight: '800',
-
-    textAlign: 'center',
-  },
-
-  successBody: {
-    color:
-      colors.textSecondary,
-
-    fontSize: 16,
-    lineHeight: 25,
-
-    textAlign: 'center',
-
-    maxWidth: 340,
-
-    marginTop:
-      spacing.md,
-  },
+  safeArea: { flex: 1, backgroundColor: colors.surface },
+  keyboard: { flex: 1 },
+  page: { flex: 1, paddingHorizontal: spacing.xl, paddingBottom: spacing.xl },
+  blueCorner: { position: 'absolute', top: -95, right: -110, width: 250, height: 250, borderRadius: 125, backgroundColor: colors.primarySoft },
+  goldCorner: { position: 'absolute', bottom: -125, left: -115, width: 255, height: 255, borderRadius: 128, backgroundColor: colors.goldSoft },
+  backButton: { width: 44, height: 44, marginLeft: -10, marginTop: spacing.sm, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  brandBlock: { alignItems: 'center', marginTop: spacing.xl },
+  logo: { width: 82, height: 82 },
+  brandName: { color: colors.primaryDark, fontFamily: SERIF_FONT, fontSize: 23, fontWeight: '700' },
+  brandTagline: { marginTop: 1, color: colors.textMuted, fontSize: 8.5, letterSpacing: 0.3 },
+  content: { flex: 1, justifyContent: 'center', paddingBottom: 28 },
+  title: { color: colors.primaryDark, fontFamily: SERIF_FONT, fontSize: 31, lineHeight: 37, fontWeight: '700', textAlign: 'center' },
+  subtitle: { maxWidth: 320, alignSelf: 'center', marginTop: spacing.md, color: colors.textSecondary, fontSize: 15, lineHeight: 23, textAlign: 'center' },
+  form: { marginTop: spacing.xxxl },
+  inputShell: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, paddingHorizontal: spacing.base },
+  inputShellError: { borderColor: colors.error },
+  input: { flex: 1, minHeight: 56, color: colors.text, fontSize: 16, paddingVertical: 0 },
+  showButton: { minWidth: 52, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center' },
+  showText: { color: colors.primary, fontSize: 12, fontWeight: '700' },
+  fieldError: { marginTop: 6, marginLeft: 4, color: colors.error, fontSize: 11, lineHeight: 16 },
+  errorBox: { marginTop: spacing.lg, padding: spacing.md, borderRadius: radius.md, backgroundColor: '#FFF1F0' },
+  errorText: { color: colors.error, fontSize: 13, lineHeight: 19 },
+  primaryButton: { minHeight: 58, marginTop: spacing.xl, borderRadius: radius.lg },
+  successContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xl },
+  missingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xl },
+  successIcon: { width: 76, height: 76, borderRadius: 38, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft, marginBottom: spacing.xl },
+  keyIcon: { width: 76, height: 76, borderRadius: 38, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.goldSoft, marginBottom: spacing.xl },
+  successTitle: { color: colors.primaryDark, fontFamily: SERIF_FONT, fontSize: 31, lineHeight: 37, fontWeight: '700', textAlign: 'center' },
+  successBody: { maxWidth: 335, marginTop: spacing.md, color: colors.textSecondary, fontSize: 15, lineHeight: 23, textAlign: 'center' },
+  successButton: { marginTop: spacing.xxl, borderRadius: radius.lg },
+  secondaryLink: { minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.md },
+  secondaryLinkText: { color: colors.primary, fontSize: 14, fontWeight: '700' },
 });
