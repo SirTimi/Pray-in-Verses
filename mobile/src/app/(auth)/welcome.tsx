@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -12,233 +12,186 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import Svg, { Circle, Path } from 'react-native-svg';
 import {
-  Book,
+  ArrowDown,
+  ArrowDownRight,
   BookOpen,
-  ChevronDown,
   ChevronRight,
+  FileText,
   Globe2,
-  Hash,
   Heart,
+  List,
   MessageCircle,
-  Quote,
   Sparkles,
-  Users,
+  UserRound,
 } from 'lucide-react-native';
 
-import AppButton from '@/components/ui/AppButton';
-import { colors } from '@/constants/colors';
-import { radius, spacing } from '@/constants/spacing';
-
-const SERIF_FONT = Platform.select({
-  ios: 'Georgia',
-  android: 'serif',
-  default: 'serif',
-});
+const NAVY = '#071C50';
+const BLUE = '#0B3BA7';
+const BLUE_SOFT = '#EAF2FF';
+const GOLD = '#F4B400';
+const GOLD_SOFT = '#FFF8DF';
+const MUTED = '#66758D';
+const BORDER = '#E2E8F0';
+const SERIF_FONT = Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' });
 
 const PAGES = [
   {
-    eyebrow: 'SCRIPTURE TO PRAYER',
     title: 'Turn Scripture\nInto Prayer',
-    description:
-      'Move from simply reading a verse to intentionally praying through it.',
+    description: 'Take a Bible verse, and turn it\ninto a meaningful prayer\nin seconds.',
   },
   {
-    eyebrow: 'VERSE BY VERSE',
     title: 'Pray Through\nEvery Verse',
-    description:
-      'Choose a book, chapter and verse, then receive structured prayer guidance.',
+    description: 'Go step by step — from book\nto chapter to verse — and turn\nevery verse into prayer.',
   },
   {
-    eyebrow: 'PRAYER WALL',
     title: 'Pray Together',
-    description:
-      'Share prayer requests, encourage one another, and pray with believers everywhere.',
+    description: 'Join the Prayer Wall — share\nyour prayers, be encouraged,\nand pray for others around\nthe world.',
   },
 ] as const;
 
-function VerseToPrayerIllustration() {
+function ScriptureToPrayerVisual({ compact }: { compact: boolean }) {
   return (
-    <View style={styles.showcasePanel}>
-      <View style={styles.panelGlowBlue} />
-      <View style={styles.panelGlowGold} />
+    <View style={[styles.visualStage, compact && styles.visualStageCompact]}>
+      <View style={styles.softBlob} />
 
-      <View style={[styles.paperCard, styles.verseCard]}>
-        <View style={styles.cardTopRow}>
-          <View style={styles.blueIconBox}>
-            <BookOpen size={18} color={colors.primary} strokeWidth={2.2} />
-          </View>
-          <View style={styles.cardTopCopy}>
-            <Text style={styles.microLabel}>SCRIPTURE</Text>
-            <Text style={styles.cardReference}>Philippians 4:6</Text>
-          </View>
-          <Quote size={18} color="#BAC4D5" strokeWidth={1.8} />
-        </View>
-
-        <Text style={styles.verseCopy}>
-          “Do not be anxious about anything, but in everything by prayer and petition...”
+      <View style={[styles.paperCard, styles.scriptureCard]}>
+        <Text style={styles.cardReference}>Philippians 4:6</Text>
+        <Text style={styles.scriptureText}>
+          “Do not be anxious{`\n`}about anything, but in{`\n`}everything by prayer{`\n`}and petition...”
         </Text>
       </View>
 
-      <View style={styles.transformConnector}>
-        <View style={styles.connectorLine} />
-        <View style={styles.goldArrowBubble}>
-          <Sparkles size={22} color="#B77A00" strokeWidth={2.2} />
-        </View>
-        <View style={styles.connectorLine} />
+      <View style={styles.arrowBubble}>
+        <ArrowDownRight size={31} color={GOLD} strokeWidth={2.3} />
       </View>
 
       <View style={[styles.paperCard, styles.prayerCard]}>
-        <View style={styles.cardTopRow}>
-          <View style={styles.goldIconBox}>
-            <Sparkles size={18} color="#9A6900" strokeWidth={2.2} />
-          </View>
-          <View style={styles.cardTopCopy}>
-            <Text style={[styles.microLabel, styles.microLabelGold]}>YOUR PRAYER</Text>
-            <Text style={styles.prayerCardTitle}>A prayer from the verse</Text>
+        <View style={styles.prayerLabelRow}>
+          <Sparkles size={17} color={GOLD} fill="#FFE58A" />
+          <View style={styles.prayerLabel}>
+            <Text style={styles.prayerLabelText}>YOUR PRAYER</Text>
           </View>
         </View>
-
-        <Text style={styles.prayerCopy}>
-          Lord, help me bring every concern to You. Teach me to trust You in all things.
+        <Text style={styles.prayerText}>
+          Lord, help me to bring{`\n`}every concern to You.{`\n`}Teach me to trust You{`\n`}in all things...
         </Text>
       </View>
-
-      <View style={styles.panelFooterPill}>
-        <Sparkles size={13} color={colors.primary} strokeWidth={2.1} />
-        <Text style={styles.panelFooterText}>Scripture becomes something you can pray</Text>
-      </View>
     </View>
   );
 }
 
-function ScripturePathIllustration() {
-  const steps = [
-    { icon: BookOpen, number: '01', title: 'Book', subtitle: 'Choose a book of the Bible' },
-    { icon: Book, number: '02', title: 'Chapter', subtitle: 'Select a chapter' },
-    { icon: Hash, number: '03', title: 'Verse', subtitle: 'Pick the verse to pray' },
-    { icon: Sparkles, number: '04', title: 'Prayer', subtitle: 'Receive guided prayer points' },
-  ];
+const FLOW_STEPS = [
+  { title: 'Book', subtitle: 'Choose a book of the Bible', Icon: BookOpen },
+  { title: 'Chapter', subtitle: 'Select a chapter', Icon: FileText },
+  { title: 'Verse', subtitle: 'Pick a verse', Icon: List },
+  { title: 'Prayer', subtitle: 'Get a guided prayer', Icon: Sparkles },
+];
 
+function VerseFlowVisual({ compact }: { compact: boolean }) {
   return (
-    <View style={styles.showcasePanel}>
-      <View style={styles.pathHeaderRow}>
-        <View>
-          <Text style={styles.pathKicker}>YOUR PRAYER FLOW</Text>
-          <Text style={styles.pathHeaderTitle}>Simple. Focused. Scripture-led.</Text>
-        </View>
-        <View style={styles.pathHeaderIcon}>
-          <BookOpen size={20} color={colors.primary} strokeWidth={2.2} />
-        </View>
-      </View>
-
-      <View style={styles.pathStage}>
-        {steps.map((step, index) => {
-          const Icon = step.icon;
-          const active = index === steps.length - 1;
-
-          return (
-            <View key={step.title}>
-              <View style={[styles.pathCard, active && styles.pathCardActive]}>
-                <View style={[styles.pathIcon, active && styles.pathIconActive]}>
-                  <Icon
-                    size={20}
-                    color={active ? '#9A6900' : colors.primary}
-                    strokeWidth={2.1}
-                  />
-                </View>
-
-                <View style={styles.pathTextBlock}>
-                  <View style={styles.pathTitleRow}>
-                    <Text style={styles.pathNumber}>{step.number}</Text>
-                    <Text style={styles.pathTitle}>{step.title}</Text>
-                  </View>
-                  <Text style={styles.pathSubtitle}>{step.subtitle}</Text>
-                </View>
-
-                <ChevronRight
-                  size={19}
-                  color={active ? '#B77A00' : '#A6B0C0'}
-                  strokeWidth={2}
-                />
+    <View style={[styles.flowStage, compact && styles.flowStageCompact]}>
+      {FLOW_STEPS.map(({ title, subtitle, Icon }, index) => {
+        const prayer = index === FLOW_STEPS.length - 1;
+        return (
+          <View key={title} style={styles.flowGroup}>
+            <View style={[styles.flowCard, prayer && styles.flowPrayerCard]}>
+              <View style={[styles.flowIconBox, prayer && styles.flowIconGold]}>
+                <Icon size={22} color={prayer ? '#B47B00' : BLUE} strokeWidth={2.1} />
               </View>
-
-              {index < steps.length - 1 && (
-                <View style={styles.pathConnector}>
-                  <View style={styles.pathConnectorLine} />
-                  <ChevronDown size={15} color="#C18A11" strokeWidth={2} />
-                </View>
-              )}
+              <View style={styles.flowCopy}>
+                <Text style={styles.flowTitle}>{title}</Text>
+                <Text style={styles.flowSubtitle}>{subtitle}</Text>
+              </View>
+              <ChevronRight size={19} color="#9AA7BB" strokeWidth={2} />
             </View>
-          );
-        })}
+            {index < FLOW_STEPS.length - 1 && (
+              <View style={styles.flowArrowWrap}>
+                <ArrowDown size={19} color={GOLD} strokeWidth={2.2} />
+              </View>
+            )}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function Avatar({ style }: { style?: object }) {
+  return (
+    <View style={[styles.avatar, style]}>
+      <UserRound size={26} color="#88A5D6" strokeWidth={1.8} />
+    </View>
+  );
+}
+
+function CommunityCard({
+  name,
+  time,
+  prayer,
+  count,
+  style,
+}: {
+  name: string;
+  time: string;
+  prayer: string;
+  count: number;
+  style?: object;
+}) {
+  return (
+    <View style={[styles.communityCard, style]}>
+      <View style={styles.communityHeader}>
+        <Avatar />
+        <View>
+          <Text style={styles.communityName}>{name}</Text>
+          <Text style={styles.communityTime}>{time}</Text>
+        </View>
+      </View>
+      <Text style={styles.communityPrayer}>{prayer}</Text>
+      <View style={styles.communityActions}>
+        <View style={styles.metaRow}>
+          <Heart size={15} color="#EF4A3D" fill="#EF4A3D" />
+          <Text style={styles.metaText}>{count}</Text>
+        </View>
+        <View style={styles.metaRow}>
+          <Sparkles size={15} color={BLUE} />
+          <Text style={[styles.metaText, styles.prayText]}>Pray</Text>
+        </View>
       </View>
     </View>
   );
 }
 
-function PrayerMeta({ count }: { count: number }) {
+function CommunityVisual({ compact }: { compact: boolean }) {
   return (
-    <View style={styles.communityMetaRow}>
-      <View style={styles.communityMetaItem}>
-        <Heart size={13} color={colors.primary} strokeWidth={2.2} />
-        <Text style={styles.communityMetaText}>{count}</Text>
-      </View>
-      <View style={styles.communityMetaItem}>
-        <MessageCircle size={13} color={colors.primary} strokeWidth={2.2} />
-        <Text style={styles.communityMetaText}>Pray</Text>
-      </View>
-    </View>
-  );
-}
+    <View style={[styles.communityStage, compact && styles.communityStageCompact]}>
+      <View style={styles.communityGlow} />
+      <CommunityCard
+        name="Sarah M."
+        time="2h ago"
+        prayer="Praying for peace and\nhealing for my family. 🙏"
+        count={24}
+        style={styles.communityOne}
+      />
+      <CommunityCard
+        name="David K."
+        time="5h ago"
+        prayer="Lord, give me strength\ntoday. 💙"
+        count={18}
+        style={styles.communityTwo}
+      />
 
-function CommunityIllustration() {
-  return (
-    <View style={[styles.showcasePanel, styles.communityPanel]}>
-      <View style={styles.worldGlow} />
-      <View style={styles.worldRingOne} />
-      <View style={styles.worldRingTwo} />
-
-      <View style={styles.communityTopRow}>
-        <View style={styles.communityBadge}>
-          <Users size={15} color={colors.primary} strokeWidth={2.1} />
-          <Text style={styles.communityBadgeText}>PRAYER WALL</Text>
-        </View>
-        <Globe2 size={21} color="#8EADE0" strokeWidth={1.8} />
-      </View>
-
-      <View style={[styles.communityCard, styles.communityCardOne]}>
-        <View style={styles.avatarCircle}>
-          <Text style={styles.avatarText}>SM</Text>
-        </View>
-        <View style={styles.communityTextBlock}>
-          <Text style={styles.communityName}>Sarah M.</Text>
-          <Text style={styles.communityPrayer}>
-            Praying for peace and healing for my family. 🙏
-          </Text>
-          <PrayerMeta count={24} />
-        </View>
-      </View>
-
-      <View style={[styles.communityCard, styles.communityCardTwo]}>
-        <View style={styles.avatarCircleAlt}>
-          <Text style={styles.avatarText}>DK</Text>
-        </View>
-        <View style={styles.communityTextBlock}>
-          <Text style={styles.communityName}>David K.</Text>
-          <Text style={styles.communityPrayer}>Lord, give me strength today.</Text>
-          <PrayerMeta count={18} />
-        </View>
-      </View>
-
-      <View style={styles.communityFooterCard}>
-        <View style={styles.communityFooterIcon}>
-          <Users size={16} color={colors.primary} strokeWidth={2.1} />
-        </View>
-        <View style={styles.communityFooterCopy}>
-          <Text style={styles.communityFooterTitle}>You are not praying alone</Text>
-          <Text style={styles.communityFooterText}>Give support. Receive encouragement.</Text>
-        </View>
+      <View style={styles.globeWrap}>
+        <Svg width="100%" height="100%" viewBox="0 0 240 120">
+          <Circle cx="120" cy="92" r="88" fill="#DFEAFF" />
+          <Path d="M44 88 C66 72 87 68 104 76 C123 85 135 69 152 65 C174 60 196 73 211 88" stroke="#B8CFF1" strokeWidth="3" fill="none" />
+          <Path d="M78 43 C91 52 91 63 84 71 C78 79 80 91 96 99" stroke="#B8CFF1" strokeWidth="3" fill="none" />
+          <Path d="M154 42 C142 53 143 66 156 74 C169 82 166 95 157 104" stroke="#B8CFF1" strokeWidth="3" fill="none" />
+        </Svg>
+        <Globe2 size={104} color="#ABC4EA" strokeWidth={1.1} style={styles.globeIcon} />
+        <Avatar style={styles.globeAvatarLeft} />
+        <Avatar style={styles.globeAvatarRight} />
       </View>
     </View>
   );
@@ -248,113 +201,84 @@ export default function WelcomeScreen() {
   const router = useRouter();
   const { height } = useWindowDimensions();
   const [page, setPage] = useState(0);
-  const contentOpacity = useRef(new Animated.Value(0)).current;
-  const contentTranslateY = useRef(new Animated.Value(14)).current;
-
-  const current = useMemo(() => PAGES[page], [page]);
-  const isLast = page === PAGES.length - 1;
+  const opacity = useRef(new Animated.Value(1)).current;
+  const translate = useRef(new Animated.Value(0)).current;
   const compact = height < 760;
 
   useEffect(() => {
-    contentOpacity.setValue(0);
-    contentTranslateY.setValue(14);
-
+    opacity.setValue(0);
+    translate.setValue(8);
     Animated.parallel([
-      Animated.timing(contentOpacity, {
+      Animated.timing(opacity, {
         toValue: 1,
-        duration: 320,
-        easing: Easing.out(Easing.cubic),
+        duration: 260,
+        easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }),
-      Animated.timing(contentTranslateY, {
+      Animated.timing(translate, {
         toValue: 0,
-        duration: 360,
-        easing: Easing.out(Easing.cubic),
+        duration: 280,
+        easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }),
     ]).start();
-  }, [contentOpacity, contentTranslateY, page]);
+  }, [opacity, page, translate]);
 
-  function finishOnboarding() {
+  function finish() {
     router.replace('/(auth)/login');
   }
 
-  function nextPage() {
-    if (isLast) {
-      finishOnboarding();
+  function next() {
+    if (page === 2) {
+      finish();
       return;
     }
-
-    setPage((currentPage) => currentPage + 1);
+    setPage((value) => value + 1);
   }
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
-
-      <View style={styles.decorativeAuraBlue} />
-      <View style={styles.decorativeAuraGold} />
-
       <View style={styles.container}>
         <View style={styles.topRow}>
-          <View style={styles.stepBadge}>
-            <Text style={styles.stepBadgeText}>0{page + 1}</Text>
-            <View style={styles.stepBadgeDivider} />
-            <Text style={styles.stepBadgeTotal}>03</Text>
-          </View>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Skip onboarding"
-            onPress={finishOnboarding}
-            style={({ pressed }) => [styles.skipButton, pressed && styles.skipButtonPressed]}
-          >
+          <Pressable onPress={finish} hitSlop={14} style={styles.skipButton}>
             <Text style={styles.skipText}>Skip</Text>
-            <ChevronRight size={16} color={colors.primaryDark} strokeWidth={2.2} />
           </Pressable>
         </View>
 
         <Animated.View
           style={[
-            styles.animatedContent,
+            styles.slideContent,
             {
-              opacity: contentOpacity,
-              transform: [{ translateY: contentTranslateY }],
+              opacity,
+              transform: [{ translateY: translate }],
             },
           ]}
         >
-          <View style={[styles.headerBlock, compact && styles.headerBlockCompact]}>
-            <Text style={styles.eyebrow}>{current.eyebrow}</Text>
-            <Text style={[styles.title, compact && styles.titleCompact]}>{current.title}</Text>
-            <Text style={styles.description}>{current.description}</Text>
-          </View>
+          <Text style={[styles.title, compact && styles.titleCompact]}>{PAGES[page].title}</Text>
+          <Text style={[styles.description, compact && styles.descriptionCompact]}>{PAGES[page].description}</Text>
 
-          <View style={[styles.illustrationContainer, compact && styles.illustrationContainerCompact]}>
-            {page === 0 && <VerseToPrayerIllustration />}
-            {page === 1 && <ScripturePathIllustration />}
-            {page === 2 && <CommunityIllustration />}
+          <View style={styles.visualArea}>
+            {page === 0 && <ScriptureToPrayerVisual compact={compact} />}
+            {page === 1 && <VerseFlowVisual compact={compact} />}
+            {page === 2 && <CommunityVisual compact={compact} />}
           </View>
         </Animated.View>
 
-        <View style={styles.bottomBlock}>
-          <View style={styles.progressRow}>
-            {PAGES.map((_, index) => (
-              <View
-                key={index}
-                style={[styles.progressTrack, index === page && styles.progressTrackActive]}
-              />
+        <View style={styles.bottomArea}>
+          <View style={styles.dotsRow}>
+            {[0, 1, 2].map((index) => (
+              <View key={index} style={[styles.dot, index === page && styles.dotActive]} />
             ))}
           </View>
 
-          <AppButton
-            label={isLast ? 'Get Started' : 'Continue'}
-            onPress={nextPage}
-            style={styles.nextButton}
-          />
-
-          <Text style={styles.bottomHint}>
-            {isLast ? 'Your prayer journey starts here.' : 'Three quick steps to get you started.'}
-          </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={next}
+            style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}
+          >
+            <Text style={styles.primaryButtonText}>{page === 2 ? 'Get Started' : 'Next'}</Text>
+          </Pressable>
         </View>
       </View>
     </SafeAreaView>
@@ -364,580 +288,368 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    overflow: 'hidden',
-    backgroundColor: '#FFFEF8',
-  },
-  decorativeAuraBlue: {
-    position: 'absolute',
-    top: -135,
-    right: -120,
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    backgroundColor: '#EEF3FF',
-    opacity: 0.9,
-  },
-  decorativeAuraGold: {
-    position: 'absolute',
-    left: -115,
-    bottom: -150,
-    width: 290,
-    height: 290,
-    borderRadius: 145,
-    backgroundColor: '#FFF5CD',
-    opacity: 0.7,
+    backgroundColor: '#FFFDFC',
   },
   container: {
     flex: 1,
-    paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.md,
+    paddingHorizontal: 24,
+    paddingBottom: 14,
   },
   topRow: {
-    minHeight: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  stepBadge: {
-    height: 34,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E4E9F2',
-    borderRadius: radius.round,
-    backgroundColor: 'rgba(255,255,255,0.86)',
-    paddingHorizontal: 12,
-  },
-  stepBadgeText: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-  },
-  stepBadgeDivider: {
-    width: 1,
-    height: 12,
-    marginHorizontal: 8,
-    backgroundColor: '#DDE3EC',
-  },
-  stepBadgeTotal: {
-    color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    height: 44,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
   skipButton: {
-    minWidth: 64,
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 3,
-  },
-  skipButtonPressed: {
-    opacity: 0.65,
+    minWidth: 52,
+    minHeight: 42,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
   skipText: {
-    color: colors.primaryDark,
+    color: NAVY,
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
   },
-  animatedContent: {
+  slideContent: {
     flex: 1,
-  },
-  headerBlock: {
     alignItems: 'center',
-    marginTop: spacing.lg,
-  },
-  headerBlockCompact: {
-    marginTop: spacing.sm,
-  },
-  eyebrow: {
-    color: colors.primary,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.8,
   },
   title: {
-    marginTop: 9,
-    color: colors.primaryDark,
+    marginTop: 22,
+    color: NAVY,
     fontFamily: SERIF_FONT,
-    fontSize: 36,
-    lineHeight: 40,
+    fontSize: 32,
+    lineHeight: 35,
     fontWeight: '700',
     textAlign: 'center',
-    letterSpacing: -0.6,
+    letterSpacing: -0.45,
   },
   titleCompact: {
-    fontSize: 32,
-    lineHeight: 36,
+    marginTop: 10,
+    fontSize: 29,
+    lineHeight: 32,
   },
   description: {
-    marginTop: spacing.md,
-    maxWidth: 330,
-    color: colors.textSecondary,
+    marginTop: 14,
+    color: MUTED,
     fontSize: 15,
-    lineHeight: 23,
+    lineHeight: 20,
     textAlign: 'center',
   },
-  illustrationContainer: {
+  descriptionCompact: {
+    marginTop: 9,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  visualArea: {
     flex: 1,
-    minHeight: 330,
-    justifyContent: 'center',
-    paddingVertical: spacing.lg,
-  },
-  illustrationContainerCompact: {
-    minHeight: 290,
-    paddingVertical: spacing.sm,
-  },
-  showcasePanel: {
     width: '100%',
-    maxWidth: 360,
-    minHeight: 330,
-    alignSelf: 'center',
+    alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#E8ECF3',
-    borderRadius: radius.xxl,
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    padding: spacing.lg,
-    shadowColor: '#0B1F46',
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.08,
-    shadowRadius: 26,
-    elevation: 4,
+    minHeight: 350,
   },
-  panelGlowBlue: {
-    position: 'absolute',
-    top: -55,
-    right: -45,
-    width: 155,
-    height: 155,
-    borderRadius: 78,
-    backgroundColor: '#EEF4FF',
+  visualStage: {
+    width: '100%',
+    height: 372,
+    position: 'relative',
   },
-  panelGlowGold: {
+  visualStageCompact: {
+    height: 315,
+    transform: [{ scale: 0.9 }],
+  },
+  softBlob: {
     position: 'absolute',
-    bottom: -55,
-    left: -42,
-    width: 135,
-    height: 135,
-    borderRadius: 68,
-    backgroundColor: '#FFF7D9',
+    width: 245,
+    height: 245,
+    borderRadius: 123,
+    left: 22,
+    top: 48,
+    backgroundColor: '#EDF3FF',
   },
   paperCard: {
-    borderWidth: 1,
-    borderColor: '#E6EAF1',
-    borderRadius: radius.xl,
-    backgroundColor: colors.surface,
-    padding: spacing.base,
-    shadowColor: '#0B1F46',
+    position: 'absolute',
+    width: 205,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    padding: 18,
+    shadowColor: '#1A2B50',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.07,
-    shadowRadius: 16,
-    elevation: 3,
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    elevation: 5,
   },
-  verseCard: {
-    width: '91%',
-    alignSelf: 'flex-start',
-    transform: [{ rotate: '-1.5deg' }],
+  scriptureCard: {
+    left: 24,
+    top: 40,
+    transform: [{ rotate: '-5deg' }],
   },
   prayerCard: {
-    width: '91%',
-    alignSelf: 'flex-end',
-    borderColor: '#F0D88B',
-    backgroundColor: '#FFFCF1',
-    transform: [{ rotate: '1.2deg' }],
-  },
-  cardTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  blueIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primarySoft,
-  },
-  goldIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.goldSoft,
-  },
-  cardTopCopy: {
-    flex: 1,
-    marginLeft: spacing.md,
-  },
-  microLabel: {
-    color: colors.primary,
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 1.1,
-  },
-  microLabelGold: {
-    color: '#936B00',
+    right: 20,
+    bottom: 22,
+    transform: [{ rotate: '4deg' }],
   },
   cardReference: {
-    marginTop: 2,
-    color: colors.primaryDark,
+    color: NAVY,
     fontFamily: SERIF_FONT,
     fontSize: 16,
     fontWeight: '700',
   },
-  prayerCardTitle: {
-    marginTop: 2,
-    color: colors.primaryDark,
+  scriptureText: {
+    marginTop: 12,
+    color: '#40506A',
     fontSize: 14,
-    fontWeight: '700',
-  },
-  verseCopy: {
-    marginTop: spacing.md,
-    color: colors.textSecondary,
-    fontSize: 13,
     lineHeight: 20,
   },
-  transformConnector: {
-    height: 54,
-    flexDirection: 'row',
+  arrowBubble: {
+    position: 'absolute',
+    right: 56,
+    top: 174,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 70,
+    backgroundColor: '#FFF3C8',
+    zIndex: 5,
   },
-  connectorLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E7D9A5',
-  },
-  goldArrowBubble: {
-    width: 42,
-    height: 42,
-    marginHorizontal: 10,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#F2DA8A',
-    backgroundColor: colors.goldSoft,
-  },
-  prayerCopy: {
-    marginTop: spacing.md,
-    color: colors.text,
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  panelFooterPill: {
-    alignSelf: 'center',
+  prayerLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
-    marginTop: spacing.lg,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: radius.round,
-    backgroundColor: '#F4F7FD',
   },
-  panelFooterText: {
-    color: colors.textSecondary,
-    fontSize: 10,
-    fontWeight: '600',
+  prayerLabel: {
+    borderRadius: 999,
+    backgroundColor: '#FFF5D5',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
   },
-  pathHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.lg,
-  },
-  pathKicker: {
-    color: colors.primary,
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-  },
-  pathHeaderTitle: {
-    marginTop: 3,
-    color: colors.primaryDark,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  pathHeaderIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primarySoft,
-  },
-  pathStage: {
-    width: '100%',
-    alignSelf: 'center',
-  },
-  pathCard: {
-    minHeight: 55,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E7EBF2',
-    borderRadius: radius.lg,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: spacing.md,
-    shadowColor: '#0B1F46',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 1,
-  },
-  pathCardActive: {
-    borderColor: '#EFD378',
-    backgroundColor: '#FFFCF1',
-  },
-  pathIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primarySoft,
-  },
-  pathIconActive: {
-    backgroundColor: colors.goldSoft,
-  },
-  pathTextBlock: {
-    flex: 1,
-    marginLeft: spacing.md,
-  },
-  pathTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  pathNumber: {
-    marginRight: 7,
-    color: colors.textMuted,
+  prayerLabelText: {
+    color: '#B17A00',
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.6,
   },
-  pathTitle: {
-    color: colors.primaryDark,
-    fontSize: 14,
-    fontWeight: '800',
+  prayerText: {
+    marginTop: 12,
+    color: '#202B3D',
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '600',
   },
-  pathSubtitle: {
+  flowStage: {
+    width: '100%',
+    paddingTop: 26,
+  },
+  flowStageCompact: {
+    paddingTop: 8,
+    transform: [{ scale: 0.92 }],
+  },
+  flowGroup: {
+    alignItems: 'center',
+  },
+  flowCard: {
+    width: '100%',
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    shadowColor: '#1A2B50',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  flowPrayerCard: {
+    borderColor: '#F0D17E',
+    backgroundColor: '#FFFCF3',
+  },
+  flowIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: BLUE_SOFT,
+  },
+  flowIconGold: {
+    backgroundColor: '#FFF3C8',
+  },
+  flowCopy: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  flowTitle: {
+    color: '#17233A',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  flowSubtitle: {
     marginTop: 2,
-    color: colors.textSecondary,
-    fontSize: 10,
+    color: MUTED,
+    fontSize: 11,
   },
-  pathConnector: {
-    height: 18,
+  flowArrowWrap: {
+    height: 23,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pathConnectorLine: {
+  communityStage: {
+    width: '100%',
+    height: 360,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  communityStageCompact: {
+    height: 310,
+    transform: [{ scale: 0.92 }],
+  },
+  communityGlow: {
     position: 'absolute',
-    width: 1,
-    height: 18,
-    backgroundColor: '#E8D59A',
-  },
-  communityPanel: {
-    justifyContent: 'flex-start',
-    paddingTop: spacing.lg,
-  },
-  worldGlow: {
-    position: 'absolute',
-    width: 270,
-    height: 270,
-    borderRadius: 135,
-    alignSelf: 'center',
-    bottom: -95,
-    backgroundColor: '#EDF4FF',
-  },
-  worldRingOne: {
-    position: 'absolute',
-    width: 215,
-    height: 215,
-    borderRadius: 108,
-    left: 70,
-    bottom: -68,
-    borderWidth: 1,
-    borderColor: '#D8E6FB',
-  },
-  worldRingTwo: {
-    position: 'absolute',
-    width: 145,
-    height: 145,
-    borderRadius: 73,
-    left: 105,
-    bottom: -30,
-    borderWidth: 1,
-    borderColor: '#D8E6FB',
-  },
-  communityTopRow: {
-    zIndex: 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.lg,
-  },
-  communityBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    paddingHorizontal: 11,
-    paddingVertical: 7,
-    borderRadius: radius.round,
-    backgroundColor: colors.primarySoft,
-  },
-  communityBadgeText: {
-    color: colors.primary,
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 1,
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    left: 40,
+    bottom: -15,
+    backgroundColor: '#EDF3FF',
   },
   communityCard: {
-    zIndex: 2,
-    flexDirection: 'row',
-    width: '93%',
-    borderWidth: 1,
-    borderColor: '#E5EAF2',
-    borderRadius: radius.xl,
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    shadowColor: '#0B1F46',
+    position: 'absolute',
+    width: 220,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    shadowColor: '#17284E',
     shadowOffset: { width: 0, height: 7 },
-    shadowOpacity: 0.07,
-    shadowRadius: 16,
-    elevation: 3,
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 5,
+    zIndex: 4,
   },
-  communityCardOne: {
-    alignSelf: 'flex-start',
+  communityOne: {
+    top: 16,
+    right: 6,
   },
-  communityCardTwo: {
-    alignSelf: 'flex-end',
-    marginTop: spacing.md,
+  communityTwo: {
+    top: 147,
+    right: 0,
   },
-  avatarCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+  communityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  avatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#DCE8FB',
-  },
-  avatarCircleAlt: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFF1BE',
-  },
-  avatarText: {
-    color: colors.primary,
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  communityTextBlock: {
-    flex: 1,
-    marginLeft: spacing.md,
+    backgroundColor: '#DCE9FF',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   communityName: {
-    color: colors.primaryDark,
-    fontSize: 12,
+    color: '#17233A',
+    fontSize: 13,
     fontWeight: '800',
   },
+  communityTime: {
+    marginTop: 1,
+    color: '#9AA5B5',
+    fontSize: 9,
+  },
   communityPrayer: {
-    marginTop: 4,
-    color: colors.text,
-    fontSize: 12,
-    lineHeight: 17,
+    marginTop: 10,
+    color: '#243149',
+    fontSize: 13,
+    lineHeight: 18,
   },
-  communityMetaRow: {
+  communityActions: {
+    marginTop: 10,
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    marginTop: spacing.sm,
+    justifyContent: 'space-between',
   },
-  communityMetaItem: {
+  metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
-  communityMetaText: {
-    color: colors.primary,
+  metaText: {
+    color: '#7A879B',
     fontSize: 10,
+    fontWeight: '600',
+  },
+  prayText: {
+    color: BLUE,
     fontWeight: '700',
   },
-  communityFooterCard: {
-    zIndex: 2,
+  globeWrap: {
+    position: 'absolute',
+    width: 250,
+    height: 128,
+    left: 31,
+    bottom: -4,
+  },
+  globeIcon: {
+    position: 'absolute',
+    left: 74,
+    top: 14,
+    opacity: 0.55,
+  },
+  globeAvatarLeft: {
+    position: 'absolute',
+    left: 20,
+    top: 37,
+  },
+  globeAvatarRight: {
+    position: 'absolute',
+    right: 16,
+    top: 50,
+  },
+  bottomArea: {
+    width: '100%',
+    paddingTop: 4,
+  },
+  dotsRow: {
+    height: 26,
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'center',
-    width: '88%',
-    marginTop: spacing.lg,
-    borderRadius: radius.lg,
-    backgroundColor: 'rgba(255,255,255,0.82)',
-    padding: spacing.md,
+    justifyContent: 'center',
+    gap: 8,
   },
-  communityFooterIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#D8DEE8',
+  },
+  dotActive: {
+    backgroundColor: BLUE,
+  },
+  primaryButton: {
+    minHeight: 56,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primarySoft,
+    borderRadius: 13,
+    backgroundColor: BLUE,
+    shadowColor: BLUE,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  communityFooterCopy: {
-    flex: 1,
-    marginLeft: spacing.sm,
+  primaryButtonPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.995 }],
   },
-  communityFooterTitle: {
-    color: colors.primaryDark,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  communityFooterText: {
-    marginTop: 2,
-    color: colors.textSecondary,
-    fontSize: 9,
-  },
-  bottomBlock: {
-    paddingTop: spacing.sm,
-  },
-  progressRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 7,
-    marginBottom: spacing.lg,
-  },
-  progressTrack: {
-    width: 24,
-    height: 5,
-    borderRadius: radius.round,
-    backgroundColor: '#DCE2EC',
-  },
-  progressTrackActive: {
-    width: 42,
-    backgroundColor: colors.primary,
-  },
-  nextButton: {
-    minHeight: 58,
-    borderRadius: radius.lg,
-    shadowColor: colors.primaryDark,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.14,
-    shadowRadius: 14,
-    elevation: 3,
-  },
-  bottomHint: {
-    marginTop: 10,
-    color: colors.textMuted,
-    fontSize: 10,
-    lineHeight: 15,
-    textAlign: 'center',
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

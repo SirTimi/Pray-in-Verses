@@ -10,118 +10,91 @@ AWAITING USER TEST
 
 ## Last Accepted Task
 
-The Account-management and Cloud Run deployment-repair cycle was accepted by the user on 2026-09-11. The user confirmed the repaired API deployment works.
+The Account-management and Cloud Run deployment-repair cycle was accepted by the user on 2026-09-11. The repaired API deployment is working.
 
-Accepted behavior includes:
-
-- All 19 numbered reference-board screens.
-- Shared web/mobile authentication using `/api/auth/login`, `/api/auth/me`, and `/api/auth/logout`.
-- Sign In, Sign Up, Forgot Password, and Reset Password using one coherent mobile visual system.
-- Real curated-prayer, Saved Prayers, Journal, Prayer Wall, My Prayers, identity, notifications, reminders, and account-management flows.
-- Persisted display-name updates and authenticated password changes.
-- Cloud Run API startup on the aligned NestJS 11.2.3 runtime.
+Accepted product work also includes the 19 reference-board screens, shared web/mobile auth, My Prayers, Prayer Wall, Saved Prayers, Journal, notifications, device-local reminders, account management, Support + Donation implementation, keyboard/safe-area repairs, and the user-supplied `PIV-logo.png` branding asset.
 
 ## Current Implementation
 
-The app is now in visual-polish work while the completed Support + Donation flow still awaits final end-to-end payment acceptance.
+### Current visual-polish slice: Reference Screens 1–5
 
-### Support + Donation already implemented
+The user supplied a five-screen design board and asked that the real mobile app replicate it closely.
 
-- Native Help & Support screen using `info@prayinverses.com`.
-- Profile and Home both expose Support the Mission.
-- Real Paystack initialization, browser handoff, server-authoritative donation status, persisted pending references, and success/failed/pending states.
-- Public non-PII `GET /api/donations/:reference/status`.
-- Web `/donations/thank-you` callback page.
+Implemented in this slice:
 
-### Mobile UX repairs already implemented
-
-- Bottom tabs respect the runtime bottom safe-area inset.
-- Bottom tabs hide while the software keyboard is open.
-- Root Android keyboard avoidance shrinks the usable viewport above the keyboard.
-- My Prayers no longer shows duplicate Add Prayer controls: the empty-state CTA is used when the list is empty, and the header `+` is used once prayers exist.
-
-### Current polish slice: Splash + Login + Onboarding
-
-- The user supplied the final Pray in Verses logo as `public/assests/PIV-logo.png` on `main`.
-- That exact asset is now reused inside the mobile project as `mobile/assets/images/PIV-logo.png`; no logo recreation or substitute is used.
-- The animated JavaScript launch screen now renders `PIV-logo.png` with the existing calm fade/scale entrance.
-- Login now renders the same `PIV-logo.png` asset.
-- The native Expo splash configuration now also points to `PIV-logo.png`, keeping the cold-start splash and JavaScript launch branding consistent.
-- App icon/adaptive-icon work remains separate from in-app logo presentation and is intentionally unchanged in this polish step.
-- `mobile/src/app/(auth)/welcome.tsx` has been visually rebuilt without changing onboarding navigation behavior.
-- The onboarding canvas uses the app's warm cream, deep navy, pale brand blue, restrained gold, rounded surfaces, and subtle depth instead of a mostly-flat white layout.
-- Each page has a stronger hierarchy: compact step indicator, contextual eyebrow, larger serif title, clearer support copy, framed visual showcase, segmented progress, primary CTA, and a small supporting hint.
-- Page 1 presents Scripture-to-prayer as a polished transformation flow with Scripture and prayer cards, meaningful Lucide icons, and a restrained gold connector.
-- Page 2 presents Book → Chapter → Verse → Prayer as a structured four-step flow with numbered cards, real icons, connectors, and a highlighted final prayer state.
-- Page 3 presents the Prayer Wall inside a framed community scene with stronger request cards, real heart/comment icons, subtle globe rings, and a community-support message.
-- The old text/Unicode illustration glyphs were replaced with `lucide-react-native` icons already present in the mobile dependency set.
-- A short page-change fade/translate animation was added, and a compact layout path is used on shorter Android screens to reduce clipping risk.
-- Skip, Continue, Get Started, and Login routing behavior remain unchanged.
-
-## Completed
-
-- Shared web/mobile authentication accepted on Android.
-- Expo dev client, react-native-svg, and EAS profiles configured.
-- All 19 numbered reference-board screens accepted.
-- Authentication functional polish accepted.
-- My Prayers accepted.
-- Notifications and Prayer Reminders accepted, including Android notification sound repair.
-- Account backend/mobile Account screen accepted.
-- Duplicate mobile-only login endpoint removed.
-- Cloud Run startup repaired: Debian/OpenSSL runtime, runtime-safe Nest imports, non-blocking mail verification, and aligned Nest runtime packages.
-- Support + Donation implementation completed and awaiting final payment-flow acceptance.
-- Android bottom-safe-area, keyboard avoidance, and My Prayers CTA de-duplication implemented.
-- Splash + Login visual polish implemented and awaiting device acceptance.
-- Three-screen onboarding visual polish implemented and awaiting device acceptance.
-- User-supplied `PIV-logo.png` wired into the mobile JavaScript splash, Login, and native Expo splash configuration.
-
-## Next Tasks
-
-After the current visual polish and Support + Donation payment flow are accepted:
-
-1. Continue visual polish screen by screen through authentication and the main app experience.
-2. Complete remaining About/Mission/Legal native screens and navigation.
-3. Finish Android release polish, verified password-reset App Links, release build checks, native icon review, and Play Store readiness.
-4. Begin iOS build/release work after Android acceptance.
-
-## Known Issues / Release Notes
-
-- `api/package-lock.json` still records mixed NestJS patch versions. The production Docker image normalizes `@nestjs/common`, `@nestjs/core`, and `@nestjs/platform-express` to exact 11.2.3 and asserts them during build; the lockfile should be regenerated as repository hygiene.
-- Donation confirmation depends on Paystack webhook state and can briefly remain Pending after the donor returns.
-- Server notifications are an authenticated in-app inbox only; backend remote push-token registration/delivery does not yet exist.
-- Prayer reminders are device-local and do not sync across devices or web.
-- Verified Android App Links for password-reset emails remain part of Android release polish.
-- Email editing remains intentionally unavailable until a verified email-change flow exists.
-- The native splash asset/configuration now uses `PIV-logo.png`, so a new development/release APK is required to judge the true cold-start native splash. Metro alone is sufficient to review the JavaScript launch animation, Login screen, and onboarding redesign.
-- The gray floating gear visible in the user's onboarding screenshots is the Expo development-client overlay, not Pray in Verses application UI.
+- Screen 1 JS launch/splash rebuilt around the supplied board:
+  - deep blue-to-gold scenic background built with `react-native-svg`,
+  - layered mountain silhouettes and a warm horizon glow,
+  - white-tinted `PIV-logo.png`,
+  - `Pray Scripture. Live Scripture.` statement,
+  - small gold rule and `A CLOSER WALK / A BRIGHTER TOMORROW` footer,
+  - existing calm fade/scale entrance retained,
+  - session restoration behavior unchanged.
+- Screens 2–4 onboarding rebuilt to match the supplied board rather than the previous custom interpretation:
+  - clean warm-white canvas,
+  - Skip only in the top-right,
+  - large centered serif titles and matching board copy,
+  - Scripture-to-prayer stacked/rotated card composition,
+  - Book → Chapter → Verse → Prayer card flow,
+  - Prayer Wall community cards with globe/community treatment,
+  - three circular progress dots,
+  - bottom blue `Next` / `Get Started` CTA,
+  - subtle page fade/translate retained without adding visual elements not present on the board.
+- Screen 5 Sign In rebuilt to match the board:
+  - centered `PIV-logo.png`,
+  - navy serif heading and matching support copy,
+  - rounded email/password fields with icons,
+  - right-aligned forgot-password link,
+  - full-width blue Sign In CTA,
+  - `OR CONTINUE WITH` divider and three visual social buttons,
+  - social buttons explicitly explain that OAuth is not yet connected instead of pretending unsupported backend behavior exists,
+  - account creation link retained,
+  - pale blue top-right and gold bottom-left background accents.
+- No authentication endpoint, backend contract, routing behavior, database schema, or supported login method changed.
+- Expo SDK 57 reference documentation was re-read before this mobile code change.
 
 ## Testing Status
 
-Current visual-polish cycle requires Android device review:
+Android device review required for this reference-replication slice:
 
-- The JavaScript launch screen should show the new `PIV-logo.png` and retain the subtle fade/scale animation.
-- Login should show the same new logo with no fallback to the older `prayinverse-logo.png` artwork.
-- All three onboarding pages should fit the device viewport cleanly without clipped illustration cards, headings, progress, or CTA controls.
-- Page transitions should fade/slide subtly rather than jump visually.
-- The cream/navy/blue/gold hierarchy and larger framed illustrations should feel less sparse than the previous screenshots.
-- Continue should advance through pages 1 → 2 → 3, the progress indicator should follow the active page, Skip should still go to Login, and Get Started should still go to Login.
-- No onboarding route or authentication behavior should change.
-- A fresh APK is required to judge the native cold-start splash because the native splash configuration changed to the new logo asset.
+1. Cold/JS launch should visually read like Screen 1 of the supplied board, with no extra previous cream/orb composition.
+2. Onboarding should contain exactly three pages matching the board hierarchy and copy; no step badge, eyebrow, bottom helper text, or oversized framed panel from the prior version should remain.
+3. Page 1 should show the tilted Scripture card, prayer card and gold transformation cue.
+4. Page 2 should show Book, Chapter, Verse and highlighted Prayer rows with gold downward connectors.
+5. Page 3 should show the two Prayer Wall cards and pale globe/community scene.
+6. Dots and buttons should sit at the bottom like the board and remain reachable on shorter Android screens.
+7. Sign In should use the PIV logo and the board's white/navy/blue/gold composition.
+8. Email/password login, forgot-password navigation and Create account navigation must still work.
+9. Social buttons must not fake successful authentication; they should explain that email/password is currently supported.
+
+## Known Issues / Release Notes
+
+- The native Expo splash and the JavaScript launch screen are separate layers. The current reference replication primarily targets the real JS launch screen; native cold-start artwork can be finalized during Android release polish if a dedicated white splash logo asset is supplied.
+- `api/package-lock.json` still records mixed NestJS patch versions; the production Docker image normalizes the runtime Nest trio to 11.2.3.
+- Donation confirmation depends on Paystack webhook state and may remain Pending briefly after return.
+- Server notifications are an in-app inbox only; remote push-token delivery is not yet implemented.
+- Prayer reminders remain device-local.
+- Verified Android App Links for password-reset emails remain part of Android release polish.
+- Email editing remains intentionally unavailable until verified email-change support exists.
+- The gray floating gear visible in development screenshots belongs to Expo Dev Client, not the app UI.
+
+## Next Tasks
+
+After Screens 1–5 are accepted:
+
+1. Continue board-by-board visual polish through the signed-in app screens.
+2. Complete remaining About/Mission/Legal native screens and navigation.
+3. Finish Android release polish, App Links, icon/splash release assets, release build checks and Play Store readiness.
+4. Begin iOS release work after Android acceptance.
 
 ## Architecture Decisions
 
-- GitHub `main` remains the source of truth and active integration branch.
-- Expo SDK 57 versioned documentation is authoritative for mobile behavior.
-- Web and native clients share one canonical API and session contract.
-- Brand artwork must come from an actual repository/uploaded asset; a requested logo is not inferred from a similar filename or recreated from memory.
-- `public/assests/PIV-logo.png` is the selected in-app Pray in Verses brand logo for the current mobile polish.
-- Native splash configuration and JavaScript launch animation are separate layers: native splash handles cold-start presentation; the JS launch screen handles session restoration and the subtle branded animation.
-- Onboarding illustration UI should be built from native layout primitives and existing icon dependencies so it remains responsive, crisp, and theme-consistent across Android sizes.
-- Animation should remain short, calm, and functional rather than becoming a long intro.
-- App icon/favicon work remains separate from in-app logo presentation unless explicitly included in release polish.
+- GitHub `main` remains the source of truth.
+- Expo SDK 57 versioned docs are authoritative.
+- The actual supplied `PIV-logo.png` is the selected in-app logo.
+- Reference-board fidelity takes priority during the polish pass, while unsupported backend behavior must not be fabricated.
+- Native UI primitives, `react-native-svg`, and existing `lucide-react-native` are used so the reference visuals remain responsive without adding a new native dependency.
 
 ## Last Commit
 
-Current logo consistency polish: `polish(mobile): adopt PIV logo branding`.
-Previous onboarding polish: `polish(mobile): elevate onboarding visuals`.
-Previous Splash/Login polish: `polish(mobile): refine splash and login branding`.
+Current visual target: `polish(mobile): replicate reference screens 1-5`.
