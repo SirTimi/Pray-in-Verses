@@ -74,10 +74,6 @@ export default function ProfileSettingsScreen() {
     }
   }
 
-  function unavailable(title: string, message: string) {
-    Alert.alert(title, message);
-  }
-
   async function openWebsite(path: string) {
     try {
       await Linking.openURL(`https://prayinverses.com${path}`);
@@ -109,8 +105,8 @@ export default function ProfileSettingsScreen() {
           <SettingsRow
             icon={<UserRound size={20} color={colors.primary} />}
             title="Account"
-            subtitle="Your signed-in account information"
-            onPress={() => unavailable('Account editing', 'The current server does not yet provide a persisted profile-update endpoint, so this app will not pretend to save account changes locally.')}
+            subtitle="Profile details and password security"
+            onPress={() => router.push('/(app)/account')}
           />
           <SettingsRow icon={<Bookmark size={20} color={colors.primary} />} title="Saved Prayers" subtitle="View and manage your saved prayers" onPress={() => router.push('/(app)/saved')} />
           <SettingsRow icon={<NotebookPen size={20} color={colors.primary} />} title="Journal" subtitle="Your prayer journal entries" onPress={() => router.push('/(app)/journal')} />

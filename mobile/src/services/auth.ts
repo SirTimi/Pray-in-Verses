@@ -8,6 +8,7 @@ export type AuthUser = {
   email: string;
   displayName: string | null;
   role: string;
+  createdAt?: string;
 };
 
 type LoginResponse = {
@@ -39,8 +40,6 @@ export async function login(
     },
   );
 
-  // Verify that the same HTTP-only session cookie used by the web app
-  // was retained by the native client before treating login as complete.
   try {
     return await getMe();
   } catch (error) {
@@ -60,12 +59,45 @@ export async function login(
 }
 
 export async function getMe() {
-  const result =
-    await apiRequest<MeResponse>(
-      '/auth/me',
-    );
+  const result = await apiRequest<MeResponse>(
+    '/auth/me',
+  );
 
   return result.data;
+}
+
+export async function updateProfile(
+  displayName: string,
+) {
+  const result = await apiRequest<MeResponse>(
+    '/auth/me',
+    {
+      method: 'PATCH',
+      body: JSON.stringify({
+        displayName,
+      }),
+    },
+  );
+
+  return result.data;
+}
+
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+) {
+  const result = await apiRequest<LoginResponse>(
+    '/auth/change-password',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        currentPassword,
+        newPassword,
+      }),
+    },
+  );
+
+  return result.user;
 }
 
 export async function logout() {

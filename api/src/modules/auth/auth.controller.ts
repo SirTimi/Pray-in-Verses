@@ -5,11 +5,12 @@ import {
   Controller,
   Get,
   HttpCode,
+  Patch,
   Post,
   Req,
   Res,
+  UnauthorizedException,
   UseGuards,
-  ForbiddenException
 } from '@nestjs/common';
 
 import {
@@ -23,8 +24,10 @@ import type {
 
 import { AuthService } from './auth.service';
 import {
-  SignupDto,
+  ChangePasswordDto,
   LoginDto,
+  SignupDto,
+  UpdateProfileDto,
 } from './dto';
 
 import { JwtCookieAuthGuard } from './jwt.guard';
@@ -32,6 +35,15 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 
 const COOKIE_NAME = 'access_token';
+
+type AuthenticatedRequest = Request & {
+  user?: {
+    id?: string;
+    role?: string;
+    email?: string;
+    displayName?: string;
+  };
+};
 
 function cookieOptionsFromReq(
   req: Request,
@@ -148,6 +160,22 @@ export class AuthController {
   constructor(
     private auth: AuthService,
   ) {}
+
+  private getUserId(
+    req: Request,
+  ) {
+    const userId =
+      (req as AuthenticatedRequest)
+        .user?.id;
+
+    if (!userId) {
+      throw new UnauthorizedException(
+        'Unauthorized',
+      );
+    }
+
+    return userId;
+  }
 
   // =========================================================
   // Forgot password
@@ -285,54 +313,12 @@ export class AuthController {
   }
 
   // =========================================================
-  // Mobile login
-  // =========================================================
-
-    /**
-  * Native mobile authentication.
-  *
-  * Unlike the web login flow, the JWT is returned
-  * directly to the app so it can be stored securely
-  * using Expo SecureStore.
-  *
-  * Mobile is currently for normal USER accounts only.
-  */
-  @Throttle({
-    default: {
-      limit: 10,
-      ttl: 60_000,
-    },
-  })
-  @HttpCode(200)
-  @Post('mobile/login')
-  async mobileLogin(
-    @Body() dto: LoginDto,
-  ) {
-    const {
-      token,
-      user,
-    } = await this.auth.login(dto);
-
-    if (user.role !== 'USER') {
-      throw new ForbiddenException(
-        'This account cannot access the mobile app',
-      );
-    } 
-
-    return {
-      user,
-      accessToken: token,
-    };
-  }
-
-  // =========================================================
   // Logout
   // =========================================================
 
   @HttpCode(200)
   @Post('logout')
   async logout(
-    @Req() req: Request,
     @Res({
       passthrough: true,
     })
@@ -346,31 +332,88 @@ export class AuthController {
   }
 
   // =========================================================
+  // Account management
+  // =========================================================
+
+  @UseGuards(JwtCookieAuthGuard)
+  @Throttle({
+    default: {
+      limit: 20,
+      ttl: 10 * 60_000,
+    },
+  })
+  @Patch('me')
+  async updateMe(
+    @Req() req: Request,
+    @Body() dto: UpdateProfileDto,
+  ) {
+    const user =
+      await this.auth.updateProfile(
+        this.getUserId(req),
+        dto,
+      );
+
+    return {
+      data: user,
+    };
+  }
+
+  /**
+   * Authenticated password changes are intentionally stricter
+   * than normal profile edits because each successful change
+   * revokes every previously issued session token.
+   */
+  @UseGuards(JwtCookieAuthGuard)
+  @Throttle({
+    default: {
+      limit: 5,
+      ttl: 10 * 60_000,
+    },
+  })
+  @HttpCode(200)
+  @Post('change-password')
+  async changePassword(
+    @Body() dto: ChangePasswordDto,
+    @Req() req: Request,
+    @Res({
+      passthrough: true,
+    })
+    res: Response,
+  ) {
+    const {
+      token,
+      user,
+    } =
+      await this.auth.changePassword(
+        this.getUserId(req),
+        dto,
+      );
+
+    // authVersion was incremented, so replace the caller's
+    // now-stale cookie with a fresh token for the new version.
+    clearAuthCookies(res);
+    res.cookie(
+      COOKIE_NAME,
+      token,
+      cookieOptionsFromReq(req),
+    );
+
+    return {
+      user,
+    };
+  }
+
+  // =========================================================
   // Current user
   // =========================================================
 
   @UseGuards(JwtCookieAuthGuard)
   @Get('me')
   async me(@Req() req: Request) {
-    const authReq = req as Request & {
-      user?: {
-        id?: string;
-        role?: string;
-        email?: string;
-        displayName?: string;
-      };
-    };
-
-    const userId = authReq.user?.id;
-
-    if (!userId) {
-      return {
-        status: 401,
-        message: 'Unauthorized',
-      };
-    }
-
-    const user = await this.auth.me(userId);
+    const user =
+      await this.auth.me(
+        this.getUserId(req),
+      );
 
     return {
       data: user,

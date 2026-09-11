@@ -9,7 +9,12 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
-import { SignupDto, LoginDto } from './dto';
+import {
+  ChangePasswordDto,
+  LoginDto,
+  SignupDto,
+  UpdateProfileDto,
+} from './dto';
 
 import {
   createHash,
@@ -406,6 +411,174 @@ export class AuthService {
         });
       },
     );
+  }
+
+  // =========================================================
+  // Account management
+  // =========================================================
+
+  async updateProfile(
+    userId: string,
+    dto: UpdateProfileDto,
+  ) {
+    const displayName =
+      dto.displayName.trim();
+
+    if (
+      displayName.length < 2 ||
+      displayName.length > 80
+    ) {
+      throw new BadRequestException(
+        'Display name must be between 2 and 80 characters.',
+      );
+    }
+
+    return this.prisma.user.update({
+      where: {
+        id: userId,
+      },
+
+      data: {
+        displayName,
+      },
+
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        role: true,
+        createdAt: true,
+      },
+    });
+  }
+
+  async changePassword(
+    userId: string,
+    dto: ChangePasswordDto,
+  ) {
+    const user =
+      await this.prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+
+        select: {
+          id: true,
+          email: true,
+          displayName: true,
+          role: true,
+          status: true,
+          passwordHash: true,
+          authVersion: true,
+          createdAt: true,
+        },
+      });
+
+    if (
+      !user ||
+      user.status !== 'ACTIVE'
+    ) {
+      throw new UnauthorizedException(
+        'Account unavailable',
+      );
+    }
+
+    const currentPasswordMatches =
+      await bcrypt.compare(
+        dto.currentPassword,
+        user.passwordHash,
+      );
+
+    if (!currentPasswordMatches) {
+      throw new UnauthorizedException(
+        'Current password is incorrect',
+      );
+    }
+
+    if (
+      dto.newPassword ===
+      dto.currentPassword
+    ) {
+      throw new BadRequestException(
+        'New password must be different from your current password.',
+      );
+    }
+
+    const passwordHash =
+      await bcrypt.hash(
+        dto.newPassword,
+        12,
+      );
+
+    const now = new Date();
+
+    const updatedUser =
+      await this.prisma.$transaction(
+        async (tx) => {
+          const next =
+            await tx.user.update({
+              where: {
+                id: userId,
+              },
+
+              data: {
+                passwordHash,
+
+                authVersion: {
+                  increment: 1,
+                },
+              },
+
+              select: {
+                id: true,
+                email: true,
+                displayName: true,
+                role: true,
+                authVersion: true,
+                createdAt: true,
+              },
+            });
+
+          // A successful authenticated password change makes
+          // any outstanding reset links obsolete.
+          await tx.passwordReset.updateMany({
+            where: {
+              userId,
+              usedAt: null,
+            },
+
+            data: {
+              usedAt: now,
+            },
+          });
+
+          return next;
+        },
+      );
+
+    const token =
+      await this.signUserToken({
+        id: updatedUser.id,
+        role: updatedUser.role,
+        email: updatedUser.email,
+        displayName:
+          updatedUser.displayName,
+        authVersion:
+          updatedUser.authVersion,
+      });
+
+    return {
+      token,
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        displayName:
+          updatedUser.displayName,
+        role: updatedUser.role,
+        createdAt:
+          updatedUser.createdAt,
+      },
+    };
   }
 
   // =========================================================
