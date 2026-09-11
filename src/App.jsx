@@ -27,6 +27,7 @@ import ResetPassword from "./pages/auth/ResetPassword";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import CommunityGuidelines from "./pages/CommunityGuidelines";
 import DonationPolicy from "./pages/DonationPolicy";
+import DonationThankYou from "./pages/DonationThankYou";
 import TermsOfService from "./pages/Terms-of-Service";
 import Eula from "./pages/End-user-License-agreement";
 
@@ -81,6 +82,7 @@ function AppContent() {
     "/login",
     "/signup",
     "/forgot-password",
+    "/donations/thank-you",
     "/admin/login",
     "/admin/accept",
   ];
@@ -106,6 +108,7 @@ function AppContent() {
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/community-guidelines" element={<CommunityGuidelines />} />
             <Route path="/donation-policy" element={<DonationPolicy />} />
+            <Route path="/donations/thank-you" element={<DonationThankYou />} />
             <Route path="/terms-of-service" element={<TermsOfService />} />
             <Route path="/eula" element={<Eula />} />
             {/* PUBLIC: Bible browse flow so search results never hit an auth gate */}

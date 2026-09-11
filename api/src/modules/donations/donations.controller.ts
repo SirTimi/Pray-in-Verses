@@ -2,13 +2,16 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   Headers,
   HttpCode,
+  NotFoundException,
+  Param,
   Post,
   Req,
   Res,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client'
+import { Prisma } from '@prisma/client';
 import {
   SkipThrottle,
   Throttle,
@@ -19,6 +22,7 @@ import type {
   Response,
 } from 'express';
 
+import { DonationStatusService } from './donation-status.service';
 import { DonationsService } from './donations.service';
 
 type InitBody = {
@@ -29,21 +33,20 @@ type InitBody = {
   metadata?: Record<string, unknown>;
   callbackPath?: string;
   redirectUrl?: string;
+  source?: 'web' | 'mobile';
 };
 
 @Controller('donations')
 export class DonationsController {
   constructor(
     private readonly svc: DonationsService,
+    private readonly statusService: DonationStatusService,
   ) {}
 
   /**
-   * Only permit donation redirects back to
-   * Pray in Verses.
-   *
-   * This prevents the Paystack callback from
-   * being turned into an arbitrary external
-   * redirect.
+   * Only permit donation redirects back to Pray in Verses.
+   * This prevents the Paystack callback from being turned into
+   * an arbitrary external redirect.
    */
   private normalizeRedirect(
     value?: string,
@@ -82,6 +85,49 @@ export class DonationsController {
     }
 
     return target.toString();
+  }
+
+  /**
+   * GET /api/donations/:reference/status
+   *
+   * This intentionally exposes only non-PII payment state so a
+   * client can confirm its own high-entropy Paystack reference.
+   */
+  @Throttle({
+    default: {
+      limit: 30,
+      ttl: 60_000,
+    },
+  })
+  @Get(':reference/status')
+  async status(
+    @Param('reference') rawReference: string,
+  ) {
+    const reference =
+      String(rawReference || '').trim();
+
+    if (
+      !/^PIV_[A-Za-z0-9_-]{10,120}$/.test(
+        reference,
+      )
+    ) {
+      throw new BadRequestException(
+        'Invalid donation reference',
+      );
+    }
+
+    const donation =
+      await this.statusService.getByReference(
+        reference,
+      );
+
+    if (!donation) {
+      throw new NotFoundException(
+        'Donation not found',
+      );
+    }
+
+    return donation;
   }
 
   /**
@@ -139,13 +185,6 @@ export class DonationsController {
         'https://prayinverses.com'
       ).replace(/\/+$/, '');
 
-    /**
-     * redirectUrl takes priority for
-     * backwards compatibility.
-     *
-     * But it MUST resolve to the same origin
-     * as APP_BASE_URL.
-     */
     const callbackUrl =
       this.normalizeRedirect(
         body.redirectUrl,
@@ -155,10 +194,6 @@ export class DonationsController {
       ) ||
       `${appBase}/donations/thank-you`;
 
-    /**
-     * Keep client-controlled metadata separated
-     * from server-controlled metadata.
-     */
     const clientMetadata: Prisma.InputJsonObject =
       body.metadata &&
       typeof body.metadata === 'object' &&
@@ -196,6 +231,11 @@ export class DonationsController {
         .trim()
         .slice(0, 2000);
 
+    const source =
+      body.source === 'mobile'
+        ? 'mobile'
+        : 'web';
+
     const metadata = {
       clientMetadata,
 
@@ -207,7 +247,7 @@ export class DonationsController {
         ? { message }
         : {}),
 
-      source: 'web',
+      source,
 
       ...(req.headers[
         'user-agent'
@@ -258,10 +298,9 @@ export class DonationsController {
   /**
    * Paystack webhook.
    *
-   * Do NOT apply the normal IP rate limiter
-   * here. The HMAC signature is what authenticates
-   * the request, and Paystack may deliver many
-   * events from shared infrastructure.
+   * Do NOT apply the normal IP rate limiter here. The HMAC signature
+   * authenticates the request, and Paystack may deliver many events
+   * from shared infrastructure.
    */
   @SkipThrottle()
   @Post('webhooks/paystack')
@@ -273,11 +312,6 @@ export class DonationsController {
     )
     signature?: string,
   ) {
-    /**
-     * main.ts uses express.raw() on this route,
-     * which puts the raw payload in req.body
-     * as a Buffer.
-     */
     const rawBody =
       Buffer.isBuffer(
         req.body,

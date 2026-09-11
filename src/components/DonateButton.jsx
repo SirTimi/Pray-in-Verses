@@ -13,8 +13,9 @@ export default function DonateButton() {
       body: JSON.stringify({
         email,
         amount,
+        source: 'web',
         metadata: { source: 'donate_page' },
-        callbackPath: '/donate/success', // your thank-you page
+        callbackPath: '/donations/thank-you',
       }),
     });
     const data = await res.json();

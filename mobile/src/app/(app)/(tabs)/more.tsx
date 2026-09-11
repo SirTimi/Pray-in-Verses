@@ -20,6 +20,7 @@ import {
   ChevronRight,
   CircleHelp,
   FileText,
+  Heart,
   LogOut,
   NotebookPen,
   ShieldCheck,
@@ -112,7 +113,8 @@ export default function ProfileSettingsScreen() {
           <SettingsRow icon={<NotebookPen size={20} color={colors.primary} />} title="Journal" subtitle="Your prayer journal entries" onPress={() => router.push('/(app)/journal')} />
           <SettingsRow icon={<Bell size={20} color={colors.primary} />} title="Notifications" subtitle="Announcements and Pray in Verses updates" onPress={() => router.push('/(app)/notifications')} />
           <SettingsRow icon={<AlarmClock size={20} color={colors.primary} />} title="Prayer Reminders" subtitle="Schedule recurring prayer times on this device" onPress={() => router.push('/(app)/reminders')} />
-          <SettingsRow icon={<CircleHelp size={20} color={colors.primary} />} title="Help & Support" subtitle="Get help or learn more" onPress={() => void openWebsite('/about')} />
+          <SettingsRow icon={<CircleHelp size={20} color={colors.primary} />} title="Help & Support" subtitle="Contact the Pray in Verses team" onPress={() => router.push('/(app)/support')} />
+          <SettingsRow icon={<Heart size={20} color={colors.primary} />} title="Support the Mission" subtitle="Make a voluntary donation through Paystack" onPress={() => router.push('/(app)/support/donate')} />
           <SettingsRow icon={<ShieldCheck size={20} color={colors.primary} />} title="Privacy Policy" subtitle="Read our privacy policy" onPress={() => void openWebsite('/privacy-policy')} />
           <SettingsRow icon={<FileText size={20} color={colors.primary} />} title="Terms of Service" subtitle="Read our terms of service" onPress={() => void openWebsite('/terms-of-service')} />
         </View>
