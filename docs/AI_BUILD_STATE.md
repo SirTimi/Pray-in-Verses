@@ -10,30 +10,33 @@ AWAITING USER TEST
 
 ## Last Accepted Task
 
-The My Prayers cycle was accepted by the user on 2026-09-11 after local/device testing.
+The Reminders + Notifications cycle, including the Android default-sound channel fix, was accepted by the user on 2026-09-11 after local/device testing.
 
 Accepted behavior now includes:
 
 - All 19 numbered reference-board screens.
-- Shared web/mobile authentication using the existing `/api/auth/login`, `/api/auth/me`, and `/api/auth/logout` endpoints.
+- Shared web/mobile authentication using `/api/auth/login`, `/api/auth/me`, and `/api/auth/logout`.
 - Sign In, Sign Up, Forgot Password, and Reset Password using one coherent mobile visual system.
-- Real curated-prayer, Saved Prayers, Journal, Prayer Wall, identity, and account data across the accepted mobile flows.
-- My Prayers list/stats/search/filter/create/edit/delete and OPEN/ANSWERED lifecycle through the existing backend contract.
+- Real curated-prayer, Saved Prayers, Journal, Prayer Wall, My Prayers, identity, and account session data across the accepted mobile flows.
+- Server-backed notification inbox plus device-local recurring Prayer Reminders.
 
 ## Current Implementation
 
-The Reminders + Notifications cycle is engineering-complete with a follow-up Android notification-sound fix:
+This development increment completes Account management as a backend + mobile vertical slice:
 
-- A server-backed Notifications inbox uses the existing `/api/notifications` contract, including unread/read state, pull-to-refresh, individual read, mark-all-read, full-message viewing, and optional links.
-- Home and Profile navigation now open the real Notifications and Prayer Reminders screens.
-- Prayer Reminders are device-local native schedules persisted through Expo SecureStore.
-- Users can create, edit, pause/resume, delete, and test reminders with title, time, selected weekdays, and an optional prayer note.
-- Active reminders use recurring Expo Notifications schedules, one native schedule per selected weekday.
-- Foreground notifications are presented and tapping a prayer reminder routes back to the Reminders screen.
-- Reminder edits schedule replacements before cancelling the previous working schedule.
-- Android reminder notifications now use the platform default notification sound instead of passing the literal string `default` as a notification-channel sound.
-- The Android channel ID was advanced to `prayer-reminders-v2` so devices do not retain the already-created invalid channel sound configuration; Android channel sound settings cannot be changed after channel creation.
-- Notification content now uses the platform-default sound flag rather than a custom sound filename.
+- `PATCH /api/auth/me` now persists the signed-in user's display name.
+- Display-name input is validated by DTO and service rules and trimmed before persistence.
+- `POST /api/auth/change-password` requires an authenticated session, the current password, and a new password of at least 8 characters.
+- Password changes verify the current password with bcrypt and reject reusing the same password.
+- A successful password change hashes the replacement password with bcrypt cost 12 and increments `authVersion`, revoking previously issued session tokens on other devices.
+- The current caller receives a fresh canonical HTTP-only session cookie immediately after the `authVersion` increment so this device can remain signed in.
+- Outstanding unused password-reset tokens are invalidated after an authenticated password change.
+- Profile edits are throttled and authenticated password changes have a stricter rate limit.
+- The stale `/api/auth/mobile/login` duplicate route has been removed after repository inspection confirmed the native app uses the shared `/api/auth/login` contract and no repository client calls the old route.
+- The mobile auth service now exposes real `updateProfile()` and `changePassword()` operations against the shared auth API.
+- Profile → Account now opens a real full-screen Account page instead of an unavailable/fake editor.
+- The Account screen loads fresh server account data, edits the display name, keeps email explicitly read-only, changes passwords, updates the Zustand user state, and shows server validation/errors.
+- The Account screen explains that a password change revokes other existing sessions while retaining the current device session.
 
 ## Completed
 
@@ -42,62 +45,56 @@ The Reminders + Notifications cycle is engineering-complete with a follow-up And
 - All 19 numbered reference-board screens accepted.
 - Authentication visual polish accepted.
 - My Prayers accepted.
-- Notifications inbox service and screen are engineering-complete.
-- Native prayer reminder service, list, editor, permission flow, test notification, and notification-tap handling are engineering-complete.
-- Reminder sound configuration fix is pushed and awaiting device confirmation.
+- Notifications and Prayer Reminders accepted, including the Android notification sound fix.
+- Account backend and mobile Account screen are engineering-complete and awaiting user test.
+- Duplicate mobile-only login endpoint removed from the backend.
 
 ## Next Tasks
 
-After user acceptance of Reminders + Notifications:
+After user acceptance of Account management:
 
-1. Complete Account backend + Account screen:
-   - persisted display-name editing;
-   - authenticated password change requiring the current password;
-   - account refresh through `/api/auth/me`;
-   - DTO validation, security checks, and rate limiting;
-   - email remains read-only until a verified email-change flow exists;
-   - verify no callers remain for `/api/auth/mobile/login` and remove that stale duplicate route if unused.
-2. Complete Support/Donation.
-3. Complete remaining About/Mission/Legal product screens and navigation.
-4. Finish Android polish, verified password-reset App Links, release build checks, and Play Store readiness.
-5. Begin iOS build/release work after Android acceptance.
+1. Complete Support/Donation as the next focused vertical slice.
+2. Complete remaining About/Mission/Legal product screens and navigation.
+3. Finish Android polish, verified password-reset App Links, release build checks, and Play Store readiness.
+4. Begin iOS build/release work after Android acceptance.
 
 ## Known Issues
 
+- Email editing remains intentionally unavailable until a verified email-change flow exists; the Account screen shows the current email as read-only.
 - Server notifications are an authenticated in-app inbox only; there is no backend push-token registration/storage/delivery path yet.
 - Prayer reminders are OS-scheduled without Android's restricted exact-alarm permission and may vary slightly in delivery time.
 - Prayer reminders are device-local and do not sync across devices or web.
 - Verified Android App Links for password-reset emails remain part of Android release polish.
-- The backend still has no persisted profile-update/account-management endpoint; Account management is the next planned cycle.
-- `api/src/modules/auth/auth.controller.ts` still contains the older `/auth/mobile/login` route even though the native app uses `/auth/login`; removal is planned for the Account cycle after caller verification.
 - Journal entries do not have a structured Scripture-reference field.
 - The Journal API has no favorite flag.
 - Prayer Wall still has no answered state, request Scripture metadata, or current-user existing like/bookmark state in list/detail responses.
 
 ## Testing Status
 
-Previous My Prayers cycle: PASSED per user confirmation.
+Previous Reminders + Notifications cycle: PASSED per user confirmation, including the follow-up Android notification sound fix.
 
-Current Reminders + Notifications cycle:
+Current Account management cycle:
 
-- Latest `main`, recent commits, `mobile/AGENTS.md`, current notification setup, backend Notifications controller/service, and existing web Notifications/Reminders behavior were inspected before implementation.
-- Exact Expo SDK 57 Notifications documentation was reviewed.
-- User device testing exposed `expo-notifications: Custom sound 'default' not found in native app`.
-- Root cause was traced to `sound: 'default'` on the Android notification channel, which was being interpreted as a bundled custom sound filename.
-- The fix removes the custom channel sound value, uses a new Android channel ID, and uses the platform-default content sound flag.
-- No backend, database migration, dependency, environment-variable, EAS, or `app.json` change was required for the sound fix.
-- Physical Android re-test is required before this cycle is accepted.
+- Latest `main`, recent commits, `mobile/AGENTS.md`, this build-state file, the auth controller/service/DTOs/guard, mobile auth service, Profile screen, and global validation settings were inspected before implementation.
+- Repository search plus direct inspection confirmed the current mobile client no longer calls `/auth/mobile/login`; it uses the shared cookie-backed `/auth/login` flow.
+- Exact Expo SDK 57 documentation was reviewed before mobile implementation work as required by `mobile/AGENTS.md`.
+- No Prisma schema change or database migration is required; existing `User.displayName`, `passwordHash`, and `authVersion` fields support the feature.
+- No new dependency, environment variable, EAS profile, or native configuration change is required.
+- TypeScript/TSX syntax transpilation was run against all changed TypeScript files with TypeScript 5.8.3 and produced no syntax diagnostics.
+- Full Nest/Expo dependency-aware builds and physical Android behavior cannot be executed in the connector environment; the user's local backend + physical-device test is the acceptance gate.
+- Because this cycle adds backend endpoints, the API running during the phone test must use this commit. A phone pointed at an older deployed API will return 404 for the new account actions.
 
 ## Architecture Decisions
 
 - GitHub `main` remains the source of truth and active integration branch.
-- Expo SDK 57 versioned documentation is authoritative for mobile decisions.
-- Notifications remain split between server-backed inbox messages and local prayer reminders.
-- Reminder metadata remains local in SecureStore.
-- Recurring reminders use Expo weekly triggers on Android and calendar triggers on iOS.
-- Android exact-alarm permission remains intentionally excluded.
-- Platform/default notification audio is used unless a real bundled custom sound is intentionally added through the Expo config plugin and a new native build.
+- Expo SDK 57 versioned documentation remains authoritative for mobile decisions.
+- Web and native clients share one authentication contract and one canonical session cookie; no mobile-only login endpoint is retained.
+- `PATCH /auth/me` owns persisted display-name updates and deliberately does not permit email changes.
+- Authenticated password change increments `authVersion` to revoke older sessions and immediately rotates the current caller's cookie to the new version.
+- Password reset tokens are invalidated when the password changes through the authenticated Account flow.
+- Account management lives outside the bottom-tab navigator at `/(app)/account`, opened from Profile.
+- Mobile account state is refreshed from `/auth/me`; Zustand mirrors server state rather than acting as the source of truth.
 
 ## Last Commit
 
-Current handoff includes the Android reminder-sound fix and remains `AWAITING USER TEST`.
+`1aed794ef046325d266ee04ed584cd391615d063` — `feat(account): add secure account management`
