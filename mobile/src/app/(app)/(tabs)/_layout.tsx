@@ -1,0 +1,86 @@
+import { Tabs } from 'expo-router';
+import {
+  BookOpen,
+  CirclePlus,
+  House,
+  Menu,
+  UsersRound,
+} from 'lucide-react-native';
+
+import { colors } from '@/constants/colors';
+
+export default function AppTabsLayout() {
+  return (
+    <Tabs
+      initialRouteName="home"
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: '#7C879D',
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '700',
+          marginBottom: 3,
+        },
+        tabBarStyle: {
+          height: 70,
+          paddingTop: 7,
+          borderTopWidth: 1,
+          borderTopColor: colors.border,
+          backgroundColor: colors.surface,
+          elevation: 10,
+          shadowColor: '#0B1F4D',
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.06,
+          shadowRadius: 10,
+        },
+      }}
+    >
+      <Tabs.Screen
+        name="home"
+        options={{
+          title: 'Home',
+          tabBarIcon: ({ color, size }) => (
+            <House size={size} color={color} strokeWidth={2} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="browse"
+        options={{
+          title: 'Browse',
+          tabBarIcon: ({ color, size }) => (
+            <BookOpen size={size} color={color} strokeWidth={2} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="pray"
+        options={{
+          title: 'Pray',
+          tabBarIcon: ({ color, size }) => (
+            <CirclePlus size={size} color={color} strokeWidth={2} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="community"
+        options={{
+          title: 'Community',
+          tabBarIcon: ({ color, size }) => (
+            <UsersRound size={size} color={color} strokeWidth={2} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="more"
+        options={{
+          title: 'More',
+          tabBarIcon: ({ color, size }) => (
+            <Menu size={size} color={color} strokeWidth={2} />
+          ),
+        }}
+      />
+    </Tabs>
+  );
+}

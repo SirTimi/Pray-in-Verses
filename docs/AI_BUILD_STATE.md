@@ -2,7 +2,7 @@
 
 ## Current Goal
 
-Rework the Pray in Verses mobile application to match the approved four-screen reference boards, one testable vertical slice at a time.
+Rework the Pray in Verses mobile application to match the approved reference boards, one testable vertical slice at a time.
 
 ## Current Status
 
@@ -10,78 +10,77 @@ AWAITING USER TEST
 
 ## Last Accepted Task
 
-None recorded under the new repository-driven acceptance workflow. The first redesigned onboarding/sign-in increment is still under acceptance because the initial phone test exposed an authentication endpoint mismatch.
+Reference Screens 1–5 and authentication repair were accepted on the physical Android development build on 2026-09-11.
+
+Accepted behavior includes:
+
+- Branded launch experience.
+- Three-step onboarding flow.
+- Redesigned Sign In screen.
+- Mobile authentication reusing the web `/api/auth/login`, `/api/auth/me`, and `/api/auth/logout` endpoints.
+- Session restoration confirmed by the user after the endpoint repair.
 
 ## Current Implementation
 
-The current development increment contains reference Screens 1–5 and the authentication fix from the first device test:
+This development increment reworks reference Screens 6–10 as one connected Scripture discovery slice:
 
-- Branded launch screen.
-- Three-step onboarding flow inspired by the approved reference: Scripture to Prayer, verse-by-verse prayer flow, and Prayer Wall/community.
-- Functional Sign In screen matching the new visual direction.
-- Mobile Sign In now reuses the same `/api/auth/login` endpoint as the web application instead of `/api/auth/mobile/login`.
-- All mobile API requests include credentials so the API-managed HTTP-only auth cookie can be used for protected requests.
-- Login is verified immediately with `/api/auth/me` before the app treats the session as authenticated.
-- Launch/session restoration now calls `/api/auth/me` directly, matching the web session contract.
-- Logout continues to use the shared `/api/auth/logout` endpoint.
-- Social sign-in controls shown in the reference remain intentionally omitted because the repository has no social-auth backend contract.
+- Screen 6: authenticated Home using real user state, Verse of the Day, real Prayer Wall preview data, and Scripture quick actions.
+- Screen 7: Bible Books/Browse screen driven by `/api/browse/books`, with canonical Bible ordering, Old/New Testament filtering, and book-name filtering.
+- Screen 8: Chapter Selection driven by `/api/browse/books/:book/chapters`.
+- Screen 9: Verse Selection driven by `/api/browse/books/:book/chapters/:chapter/verses` and the existing per-verse prayer-point counts endpoint.
+- Screen 10: Search driven by `/api/browse/search?q=...`, with client-side filters that correspond only to fields the API actually returns: Scripture, Themes, and Prayer Points.
+- Bottom navigation now matches the approved reference direction: Home, Browse, Pray, Community, More.
+- Pray, Community, and More are intentionally clear support placeholders until their dedicated feature cycles; they do not fake unsupported functionality.
 
 ## Completed
 
-- Shared web/mobile signup, forgot-password, reset-password, `/auth/me`, and logout contracts exist.
-- Reference Screen 1 launch experience implemented.
-- Reference Screens 2–4 onboarding experience implemented.
-- Reference Screen 5 sign-in experience implemented.
-- Failed `/api/auth/mobile/login` dependency removed from the mobile client.
-- Expo dev client and `react-native-svg` are now declared in the mobile package configuration.
+- Shared web/mobile authentication endpoints accepted on Android.
+- Expo dev client and `react-native-svg` dependency are configured.
 - EAS development/preview/production profiles are configured.
+- Reference Screens 1–5 accepted.
+- Reference Screens 6–10 are engineering-complete and awaiting user test.
+- Browse/search mobile service layer added against existing backend endpoints.
+- Nested Expo Router Browse stack added so chapter, verse, and search screens retain the main bottom-tab context.
 
 ## Next Tasks
 
-After user acceptance of the authentication fix:
+After user acceptance of this increment:
 
-1. Rework reference Screens 6–10: Home, Bible Books, Chapter Selection, Verse Selection, and Search.
-2. Rework reference Screens 11–14: Prayer Detail, Prayer Wall, Request Detail, and Create Request.
-3. Rework reference Screens 15–19: Saved Prayers, Journal, Journal Entry, Profile/Settings, and reusable app states.
-4. Bring remaining auth screens (Signup, Forgot Password, Reset Password) into the same visual system where needed.
+1. Rework reference Screens 11–14: Prayer Detail, Prayer Wall, Request Detail, and Create Request.
+2. Rework reference Screens 15–19: Saved Prayers, Journal, Journal Entry, Profile/Settings, and reusable app states.
+3. Bring Signup, Forgot Password, and Reset Password into the same final visual system where needed.
+4. Complete notification, reminder, support/donation, legal, and release polish.
 
 ## Known Issues
 
-- Home is still the existing authenticated placeholder and is intentionally outside this acceptance cycle.
-- Signup, forgot-password, and reset-password retain their previous styling until a later focused redesign increment.
-- React Native 0.86 documents cookie-based authentication as unstable in some native networking scenarios. This implementation intentionally mirrors the web authentication endpoints at the user's request, and the physical Android test must verify both immediate login and session persistence after fully closing/reopening the app. If cookie persistence proves unreliable, the fallback architecture should still keep `/auth/login` as the single login endpoint while returning a native token through that same contract rather than restoring a separate `/auth/mobile/login` route.
+- The current chapter-verses API returns verse numbers only, not Scripture text. Screen 9 therefore shows each available verse plus its real prayer-point count instead of inventing verse text or issuing an expensive request per verse.
+- Tapping a verse on Screen 9 currently selects/highlights it and explains that Prayer Detail is the next build. The real verse-to-prayer navigation will be completed in Screen 11.
+- Pray, Community, and More tabs are support placeholders for features outside this cycle. Home links into those placeholders where the reference anticipates future features.
+- Prayer Wall list responses currently do not include creator display names, so Home preview cards use request content rather than fabricating author names.
+- React Native cookie-session behavior remains device-sensitive; the previously accepted Android login/session test is the current evidence for this development setup.
 
 ## Testing Status
 
-First physical Android test: FAILED.
+Previous authentication cycle: PASSED on physical Android device.
 
-Observed failure:
+Current Screens 6–10 cycle:
 
-- Sign In returned `Cannot POST /api/auth/mobile/login`.
-
-Root cause:
-
-- The mobile client depended on a mobile-only endpoint that exists in repository backend code but is not available on the currently deployed API used by the development APK.
-
-Fix applied:
-
-- Mobile now calls the same `/auth/login` endpoint used by the web client.
-- API requests now use credentialed requests for the server-managed auth cookie.
-- Login verifies the resulting session through `/auth/me` before navigating into the authenticated app.
-- Launch bootstrap restores sessions through `/auth/me` instead of gating on a SecureStore token.
-
-Automated/runtime device validation is not available from the GitHub connector environment. User phone testing remains the acceptance gate.
+- Source contracts inspected against the actual NestJS controllers/services before implementation.
+- Expo Router SDK 57 documentation reviewed for the nested Stack/Tabs routing approach.
+- TypeScript/TSX syntax validation performed in the available execution environment. The environment does not contain this project's installed React Native/Expo modules, so full project type resolution/runtime validation is not available here.
+- Final physical Android test is required for acceptance.
 
 ## Architecture Decisions
 
 - GitHub `main` is the source of truth and active integration branch.
 - Expo SDK 57 versioned documentation is authoritative for mobile implementation decisions.
-- The app uses Expo Router file-based navigation.
-- Mobile authentication now deliberately reuses the web auth endpoints and server-managed HTTP-only session cookie.
-- `/auth/mobile/login` is no longer used by the mobile client.
-- No social-auth UI is shipped until matching backend providers and account-linking behavior exist.
-- Reference boards guide composition, spacing, hierarchy, color, and interaction, but unsupported product features are not fabricated.
+- The app uses Expo Router file-based navigation with a main Tabs navigator and a nested Browse Stack.
+- Mobile authentication reuses the web auth endpoints and server-managed HTTP-only session cookie.
+- Browse screens use the existing authenticated `/browse` API family without adding duplicate mobile endpoints.
+- Backend response shapes are respected as-is; missing verse-list Scripture text is not fabricated.
+- Search filters are limited to actual API-returned fields.
+- Reference boards guide composition, spacing, hierarchy, color, and interaction, while unsupported product behavior remains explicitly deferred.
 
 ## Last Commit
 
-Pending authentication-fix commit for user retest.
+Current cycle commit message: `feat(mobile): build home and scripture discovery flow`.
