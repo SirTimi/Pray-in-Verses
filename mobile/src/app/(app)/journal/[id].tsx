@@ -133,7 +133,7 @@ export default function JournalEntryScreen() {
           <Text style={styles.label}>Your Journal Entry</Text>
           <TextInput value={body} onChangeText={setBody} placeholder="Write your thoughts, prayers, reflections…" placeholderTextColor={colors.textMuted} multiline textAlignVertical="top" maxLength={4000} style={styles.bodyInput} />
           <Text style={styles.counter}>{body.length}/4,000</Text>
-          <Text style={styles.note}>Verse linking is not stored by the current Journal API, so this editor saves only the fields the backend supports: title, reflection, and mood.</Text>
+          <Text style={styles.tip}>Tip: include a Scripture reference in your title or reflection whenever it helps you remember the moment.</Text>
           {!!error && <Text style={styles.errorText}>{error}</Text>}
           <AppButton label={isNew ? 'Save Entry' : 'Update Entry'} loading={saving} disabled={!canSave} onPress={save} style={styles.saveButton} />
         </ScrollView>
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
   moodTextActive: { color: colors.white },
   bodyInput: { minHeight: 230, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface, padding: spacing.md, color: colors.text, fontSize: 15, lineHeight: 23 },
   counter: { color: colors.textMuted, fontSize: 11, textAlign: 'right', marginTop: 5 },
-  note: { color: colors.textMuted, fontSize: 11, lineHeight: 17, marginTop: spacing.md },
+  tip: { color: colors.textMuted, fontSize: 11, lineHeight: 17, marginTop: spacing.md },
   errorText: { color: colors.error, fontSize: 13, lineHeight: 20, marginTop: spacing.md },
   saveButton: { marginTop: spacing.xl },
 });
