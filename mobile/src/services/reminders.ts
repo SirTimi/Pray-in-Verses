@@ -218,9 +218,17 @@ export async function savePrayerReminder(input: {
   const existing = input.id ? await getPrayerReminder(input.id) : null;
   const id = existing?.id || input.id || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-  if (existing?.notificationIds?.length) {
-    await cancelNotificationIds(existing.notificationIds);
-  }
+  const candidate: PrayerReminder = {
+    id,
+    title: input.title.trim(),
+    time: input.time,
+    days: [...input.days].sort((a, b) => a - b),
+    prayer: input.prayer?.trim() || '',
+    isActive: input.isActive,
+    notificationIds: [],
+    createdAt: existing?.createdAt || now,
+    updatedAt: now,
+  };
 
   let notificationIds: string[] = [];
 
@@ -230,32 +238,25 @@ export async function savePrayerReminder(input: {
       throw new Error('Notification permission is required to enable this reminder.');
     }
 
-    notificationIds = await scheduleReminder({
-      id,
-      title: input.title.trim(),
-      time: input.time,
-      days: input.days,
-      prayer: input.prayer?.trim() || '',
-      isActive: true,
-      notificationIds: [],
-      createdAt: existing?.createdAt || now,
-      updatedAt: now,
-    });
+    notificationIds = await scheduleReminder(candidate);
+  }
+
+  if (existing?.notificationIds?.length) {
+    await cancelNotificationIds(existing.notificationIds);
   }
 
   const reminder: PrayerReminder = {
-    id,
-    title: input.title.trim(),
-    time: input.time,
-    days: [...input.days].sort((a, b) => a - b),
-    prayer: input.prayer?.trim() || '',
-    isActive: input.isActive,
+    ...candidate,
     notificationIds,
-    createdAt: existing?.createdAt || now,
-    updatedAt: now,
   };
 
-  await persistReminder(reminder);
+  try {
+    await persistReminder(reminder);
+  } catch (error) {
+    await cancelNotificationIds(notificationIds);
+    throw error;
+  }
+
   return reminder;
 }
 
