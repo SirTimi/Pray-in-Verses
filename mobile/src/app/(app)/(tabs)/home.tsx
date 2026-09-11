@@ -120,7 +120,7 @@ export default function HomeScreen() {
               accessibilityRole="button"
               accessibilityLabel="Notifications"
               style={styles.bellButton}
-              onPress={() => router.push('/(app)/(tabs)/more')}
+              onPress={() => router.push('/(app)/notifications')}
             >
               <Bell size={21} color={colors.white} />
             </Pressable>
@@ -193,12 +193,12 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.twoCards}>
-            <Pressable style={[styles.featureCard, styles.savedCard]} onPress={() => router.push('/(app)/(tabs)/more')}>
+            <Pressable style={[styles.featureCard, styles.savedCard]} onPress={() => router.push('/(app)/saved')}>
               <Heart size={22} color="#C58A00" />
               <Text style={styles.featureTitle}>Saved Prayers</Text>
               <Text style={styles.featureBody}>Your prayer library</Text>
             </Pressable>
-            <Pressable style={[styles.featureCard, styles.journalCard]} onPress={() => router.push('/(app)/(tabs)/more')}>
+            <Pressable style={[styles.featureCard, styles.journalCard]} onPress={() => router.push('/(app)/journal')}>
               <BookOpen size={22} color="#2A7582" />
               <Text style={styles.featureTitle}>Journal</Text>
               <Text style={styles.featureBody}>Record what God is doing</Text>
