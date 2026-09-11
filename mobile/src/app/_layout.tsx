@@ -57,7 +57,7 @@ export default function RootLayout() {
       router.push('/(app)/reminders');
     }
 
-    void Notifications.clearLastNotificationResponseAsync();
+    Notifications.clearLastNotificationResponse();
   }, [lastNotificationResponse, router]);
 
   return (
