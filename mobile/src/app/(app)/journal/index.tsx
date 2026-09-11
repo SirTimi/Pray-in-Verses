@@ -35,6 +35,10 @@ export default function JournalScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
+  const openNewEntry = useCallback(() => {
+    router.push({ pathname: '/(app)/journal/[id]', params: { id: 'new' } });
+  }, [router]);
+
   const load = useCallback(async () => {
     setError('');
     try {
@@ -75,7 +79,7 @@ export default function JournalScreen() {
           <View style={styles.topRow}>
             <Pressable onPress={() => router.back()} style={styles.iconButton}><ArrowLeft size={22} color={colors.primary} /></Pressable>
             <Text style={styles.title}>Journal</Text>
-            <Pressable onPress={() => router.push('/(app)/journal/new')} style={styles.iconButton}><Plus size={22} color={colors.primary} /></Pressable>
+            <Pressable onPress={openNewEntry} style={styles.iconButton}><Plus size={22} color={colors.primary} /></Pressable>
           </View>
 
           <View style={styles.searchBox}>
@@ -102,7 +106,7 @@ export default function JournalScreen() {
               title={query || filter !== 'all' ? 'No matching entries' : 'Your journal is waiting'}
               body={query || filter !== 'all' ? 'Try another search or filter.' : 'Write your first reflection, prayer, or testimony.'}
               actionLabel="New Entry"
-              onAction={() => router.push('/(app)/journal/new')}
+              onAction={openNewEntry}
               style={styles.stateSpacing}
             />
           ) : (
@@ -129,7 +133,7 @@ export default function JournalScreen() {
         </ScrollView>
 
         <View style={styles.footer}>
-          <Pressable onPress={() => router.push('/(app)/journal/new')} style={styles.newButton}>
+          <Pressable onPress={openNewEntry} style={styles.newButton}>
             <Plus size={20} color={colors.white} />
             <Text style={styles.newButtonText}>New Entry</Text>
           </Pressable>
