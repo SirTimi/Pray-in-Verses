@@ -22,21 +22,18 @@ Accepted behavior now includes:
 
 ## Current Implementation
 
-This development increment completes Account management as a backend + mobile vertical slice:
+The Account-management vertical slice remains the current task. Its application code is engineering-complete, but the first Cloud Run deployment of the updated API failed before the new revision began listening.
 
-- `PATCH /api/auth/me` now persists the signed-in user's display name.
-- Display-name input is validated by DTO and service rules and trimmed before persistence.
-- `POST /api/auth/change-password` requires an authenticated session, the current password, and a new password of at least 8 characters.
-- Password changes verify the current password with bcrypt and reject reusing the same password.
-- A successful password change hashes the replacement password with bcrypt cost 12 and increments `authVersion`, revoking previously issued session tokens on other devices.
-- The current caller receives a fresh canonical HTTP-only session cookie immediately after the `authVersion` increment so this device can remain signed in.
-- Outstanding unused password-reset tokens are invalidated after an authenticated password change.
-- Profile edits are throttled and authenticated password changes have a stricter rate limit.
-- The stale `/api/auth/mobile/login` duplicate route has been removed after repository inspection confirmed the native app uses the shared `/api/auth/login` contract and no repository client calls the old route.
-- The mobile auth service now exposes real `updateProfile()` and `changePassword()` operations against the shared auth API.
-- Profile → Account now opens a real full-screen Account page instead of an unavailable/fake editor.
-- The Account screen loads fresh server account data, edits the display name, keeps email explicitly read-only, changes passwords, updates the Zustand user state, and shows server validation/errors.
-- The Account screen explains that a password change revokes other existing sessions while retaining the current device session.
+The deployment-repair increment now also includes:
+
+- The API production image uses `node:22-bookworm-slim` instead of floating `node:22-alpine`.
+- OpenSSL and CA certificates are installed explicitly in both API build and runtime stages because Prisma 6 requires OpenSSL at runtime.
+- Build and runtime use the same Debian/OpenSSL family so the generated Prisma native engine matches the production container.
+- The Docker image no longer bakes in `PORT=4000`; Cloud Run remains authoritative for the injected `PORT` value.
+- The API container exposes port 8080 and `cloudbuild.yaml` explicitly deploys the API service with `--port=8080`.
+- Nest parses and validates the injected port before listening on `0.0.0.0`.
+- Bootstrap now logs the real startup exception and exits non-zero if initialization fails, so future Cloud Run failures expose their actual cause instead of only the generic port health-check message.
+- Account behavior itself is unchanged by this repair: persisted display-name updates, authenticated password changes, session rotation/revocation, and removal of the stale mobile-only login route remain intact.
 
 ## Completed
 
@@ -46,12 +43,13 @@ This development increment completes Account management as a backend + mobile ve
 - Authentication visual polish accepted.
 - My Prayers accepted.
 - Notifications and Prayer Reminders accepted, including the Android notification sound fix.
-- Account backend and mobile Account screen are engineering-complete and awaiting user test.
+- Account backend and mobile Account screen are engineering-complete but not yet accepted.
 - Duplicate mobile-only login endpoint removed from the backend.
+- Cloud Run API startup hardening is engineering-complete and awaiting deployment re-test.
 
 ## Next Tasks
 
-After user acceptance of Account management:
+After the Cloud Run deployment succeeds and Account management passes local/device testing:
 
 1. Complete Support/Donation as the next focused vertical slice.
 2. Complete remaining About/Mission/Legal product screens and navigation.
@@ -60,6 +58,7 @@ After user acceptance of Account management:
 
 ## Known Issues
 
+- The exact stderr from failed Cloud Run revision `pray-in-verses-api-00032-g2f` was not included in the original deployment output; Cloud Build only surfaced the generic "failed to listen on PORT=8080" wrapper. The repository-level runtime issue has been hardened, and bootstrap logging will expose any remaining startup exception on the next deploy.
 - Email editing remains intentionally unavailable until a verified email-change flow exists; the Account screen shows the current email as read-only.
 - Server notifications are an authenticated in-app inbox only; there is no backend push-token registration/storage/delivery path yet.
 - Prayer reminders are OS-scheduled without Android's restricted exact-alarm permission and may vary slightly in delivery time.
@@ -73,28 +72,28 @@ After user acceptance of Account management:
 
 Previous Reminders + Notifications cycle: PASSED per user confirmation, including the follow-up Android notification sound fix.
 
-Current Account management cycle:
+Current Account management / deployment-repair cycle:
 
-- Latest `main`, recent commits, `mobile/AGENTS.md`, this build-state file, the auth controller/service/DTOs/guard, mobile auth service, Profile screen, and global validation settings were inspected before implementation.
-- Repository search plus direct inspection confirmed the current mobile client no longer calls `/auth/mobile/login`; it uses the shared cookie-backed `/auth/login` flow.
-- Exact Expo SDK 57 documentation was reviewed before mobile implementation work as required by `mobile/AGENTS.md`.
-- No Prisma schema change or database migration is required; existing `User.displayName`, `passwordHash`, and `authVersion` fields support the feature.
-- No new dependency, environment variable, EAS profile, or native configuration change is required.
-- TypeScript/TSX syntax transpilation was run against all changed TypeScript files with TypeScript 5.8.3 and produced no syntax diagnostics.
-- Full Nest/Expo dependency-aware builds and physical Android behavior cannot be executed in the connector environment; the user's local backend + physical-device test is the acceptance gate.
-- Because this cycle adds backend endpoints, the API running during the phone test must use the current Account-management commit. A phone pointed at an older deployed API will return 404 for the new account actions.
+- Latest `main`, recent commits, `mobile/AGENTS.md`, this build-state file, API Dockerfile, Cloud Build configuration, Nest bootstrap, Prisma startup behavior, and Account auth changes were inspected.
+- The failed Cloud Build reached the Cloud Run deployment step, which confirms the backend image built and pushed successfully; the failure occurred when the new revision attempted to start.
+- Source inspection confirms Nest already reads `process.env.PORT` and binds to `0.0.0.0`, so simply increasing the health-check timeout was not treated as a root-cause fix.
+- The September 9 API Dockerfile change moved production to Node 22 Alpine without explicitly installing OpenSSL. Prisma 6 requires OpenSSL at runtime, and `PrismaService` connects during Nest module initialization before the HTTP listener starts.
+- The repair moves the API to Debian Bookworm slim with explicit OpenSSL and aligns Docker/Cloud Run on port 8080.
+- `cloudbuild.yaml` was parsed locally as valid YAML and contains six build/deploy steps with `--port=8080` on the API deployment.
+- Docker is not available in the execution environment, so the image itself could not be started here. Cloud Run redeployment is the required acceptance test.
+- No Prisma schema change, migration, mobile dependency, EAS profile, or app native configuration change is part of this repair.
 
 ## Architecture Decisions
 
 - GitHub `main` remains the source of truth and active integration branch.
 - Expo SDK 57 versioned documentation remains authoritative for mobile decisions.
-- Web and native clients share one authentication contract and one canonical session cookie; no mobile-only login endpoint is retained.
-- `PATCH /auth/me` owns persisted display-name updates and deliberately does not permit email changes.
-- Authenticated password change increments `authVersion` to revoke older sessions and immediately rotates the current caller's cookie to the new version.
-- Password reset tokens are invalidated when the password changes through the authenticated Account flow.
-- Account management lives outside the bottom-tab navigator at `/(app)/account`, opened from Profile.
-- Mobile account state is refreshed from `/auth/me`; Zustand mirrors server state rather than acting as the source of truth.
+- Web and native clients share one authentication contract and one canonical session cookie.
+- Account-management API behavior remains unchanged by deployment hardening.
+- The API production container uses a stable Debian slim base with explicit OpenSSL rather than depending on floating Alpine runtime library detection.
+- Cloud Run owns the runtime `PORT`; the image does not define its own `PORT` environment variable.
+- API startup remains fail-fast on initialization errors, but startup failures are now explicitly logged before process exit.
+- Prisma continues to connect during Nest startup so a revision is not considered healthy when its database/runtime dependencies are unusable.
 
 ## Last Commit
 
-Current cycle commit message: `feat(account): add secure account management`.
+Current cycle commit message: `fix(api): harden Cloud Run startup runtime`.
