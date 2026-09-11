@@ -22,16 +22,19 @@ Accepted behavior now includes:
 
 ## Current Implementation
 
-The Account-management vertical slice remains the current task. Its application code is engineering-complete, but Cloud Run has failed to start the updated API revisions before the HTTP listener becomes ready.
+The Account-management vertical slice remains the current task. Its application code is engineering-complete, but Cloud Run has failed to start updated API revisions before the HTTP listener becomes ready.
 
 The deployment-repair work now includes:
 
 - The API production image uses `node:22-bookworm-slim` with explicit OpenSSL and CA certificates in build and runtime stages.
 - Cloud Run owns the runtime `PORT`; the API image exposes 8080 and Cloud Build deploys the API with `--port=8080`.
 - Nest validates the injected port, binds to `0.0.0.0`, and logs bootstrap failures.
-- A production-only module-resolution defect in `AuthModule` is fixed: `PrismaModule` now uses the runtime-safe relative import `../../prisma/prisma.module` instead of the TypeScript-only `src/prisma/prisma.module` alias.
-- TypeScript CommonJS compilation was verified to emit `require("../../prisma/prisma.module")`, which plain `node dist/main.js` can resolve from the compiled auth module.
+- A production-only module-resolution defect in `AuthModule` is fixed: `PrismaModule` uses the runtime-safe relative import `../../prisma/prisma.module` instead of the TypeScript-only `src/prisma/prisma.module` alias.
 - SMTP transport verification no longer blocks Nest module initialization. It is disabled by default and, when explicitly enabled with `MAIL_VERIFY_ON_BOOT=true`, runs asynchronously as diagnostics only.
+- Revision `pray-in-verses-api-00036-h8b` finally exposed the actual Node startup exception: `Cannot find module '@nestjs/common/decorators/http/sse-signal.decorator'` while loading `@nestjs/core/router/router-execution-context.js`.
+- The committed API lockfile contains an incompatible mixed Nest runtime set: `@nestjs/common` 11.1.28, `@nestjs/core` 11.2.3, and `@nestjs/platform-express` 11.2.3.
+- NestJS 11.2.3 source contains `decorators/http/sse-signal.decorator`, confirming `@nestjs/core` 11.2.3 is loading an internal file absent from the older `@nestjs/common` 11.1.28 installation.
+- Both API Docker stages now normalize the runtime Nest trio to exact version 11.2.3 after `npm ci` and execute a build-time assertion that all three installed versions are exactly 11.2.3 before continuing.
 - Account behavior itself is unchanged by deployment repairs: persisted display-name updates, authenticated password changes, session rotation/revocation, and removal of the stale mobile-only login route remain intact.
 
 ## Completed
@@ -44,8 +47,9 @@ The deployment-repair work now includes:
 - Notifications and Prayer Reminders accepted, including the Android notification sound fix.
 - Account backend and mobile Account screen are engineering-complete but not yet accepted.
 - Duplicate mobile-only login endpoint removed from the backend.
-- First Cloud Run runtime hardening increment completed.
-- Runtime-safe AuthModule import and non-blocking mail startup repair completed and awaiting redeploy test.
+- Debian/OpenSSL Cloud Run runtime hardening completed.
+- Runtime-safe AuthModule import and non-blocking mail startup repair completed.
+- Cloud Run NestJS runtime-version alignment repair completed and awaiting redeploy test.
 
 ## Next Tasks
 
@@ -58,7 +62,7 @@ After the Cloud Run deployment succeeds and Account management passes local/devi
 
 ## Known Issues
 
-- Failed Cloud Run revisions `pray-in-verses-api-00032-g2f` and `pray-in-verses-api-00035-j8j` only surfaced the generic `failed to listen on PORT=8080` wrapper in the Cloud Build output supplied for debugging; their container stderr was not included.
+- `api/package-lock.json` currently records mixed NestJS runtime patch versions (`common` 11.1.28 vs `core`/`platform-express` 11.2.3). The production image now normalizes these packages to 11.2.3 deterministically before build/runtime startup; the lockfile itself should be regenerated as follow-up repository hygiene rather than silently hand-edited.
 - Email editing remains intentionally unavailable until a verified email-change flow exists; the Account screen shows the current email as read-only.
 - Server notifications are an authenticated in-app inbox only; there is no backend push-token registration/storage/delivery path yet.
 - Prayer reminders are OS-scheduled without Android's restricted exact-alarm permission and may vary slightly in delivery time.
@@ -74,16 +78,15 @@ Previous Reminders + Notifications cycle: PASSED per user confirmation, includin
 
 Current Account management / deployment-repair cycle:
 
-- Latest `main`, recent commits, `mobile/AGENTS.md`, this build-state file, API Dockerfile, Cloud Build configuration, Nest bootstrap, Prisma startup behavior, AuthModule, MailModule, and Account auth changes were inspected.
-- The second supplied deployment log confirms revision `pray-in-verses-api-00035-j8j` also failed before listening on port 8080.
-- The backend image build and push complete before the Cloud Run revision failure, so the failure is in container startup rather than Docker image compilation.
-- `AuthModule` contained `import { PrismaModule } from 'src/prisma/prisma.module'`. With this repository's CommonJS build and plain `node dist/main.js` runtime, TypeScript preserves that bare module specifier instead of rewriting it to a relative path.
-- The repaired AuthModule was syntax-transpiled with TypeScript 5.8.3 with no syntax diagnostics; emitted CommonJS now contains `require("../../prisma/prisma.module")`.
-- The repaired MailModule was syntax-transpiled with TypeScript 5.8.3 with no syntax diagnostics.
-- Mail verification previously defaulted to synchronous startup verification and could wait on external SMTP timeouts before the HTTP listener opened; it is now non-blocking and opt-in.
-- Prisma remains fail-fast during Nest startup so Cloud Run will not mark a revision healthy when its database connection is unusable.
-- Docker is not available in the execution environment, so the production image itself cannot be started here. Cloud Run redeployment is the acceptance test.
-- No Prisma schema change, migration, mobile dependency, EAS profile, or app native configuration change is part of this repair.
+- Latest `main`, this build-state file, API Dockerfile, package manifest/lockfile, Nest bootstrap, Prisma startup behavior, AuthModule, MailModule, and Account auth changes were inspected.
+- Revision `pray-in-verses-api-00036-h8b` supplied concrete container stderr rather than only Cloud Run's generic port wrapper.
+- The concrete exception occurs inside Nest's package loading before `/app/dist/main.js` reaches application bootstrap: `@nestjs/core/router/router-execution-context.js` requires `@nestjs/common/decorators/http/sse-signal.decorator`, which is missing from the installed common package.
+- The committed lockfile was verified to resolve `@nestjs/common` to 11.1.28 while resolving `@nestjs/core`, `@nestjs/platform-express`, and `@nestjs/testing` to 11.2.3.
+- The NestJS v11.2.3 source was checked directly and contains `packages/common/decorators/http/sse-signal.decorator.ts`.
+- The API Dockerfile now installs `@nestjs/common@11.2.3`, `@nestjs/core@11.2.3`, and `@nestjs/platform-express@11.2.3` with exact versions after each stage's `npm ci`, without rewriting the repository lockfile in the image.
+- Both Docker stages now fail during image construction if the installed runtime Nest versions are not exactly 11.2.3, preventing another revision from reaching Cloud Run with this mismatch unnoticed.
+- Docker is not available in the execution environment, so the production image itself cannot be started here. Cloud Run redeployment remains the acceptance test.
+- No Prisma schema change, migration, mobile dependency, EAS profile, app native configuration, Account API contract, or mobile Account behavior changed in this repair.
 
 ## Architecture Decisions
 
@@ -93,9 +96,10 @@ Current Account management / deployment-repair cycle:
 - Account-management API behavior remains unchanged by deployment hardening.
 - Runtime imports in the Nest API must be relative unless an explicit production runtime alias loader is configured; TypeScript `baseUrl` alone is not a Node.js runtime resolver.
 - Optional third-party service verification such as SMTP must not block the HTTP listener during Cloud Run startup.
+- Nest core runtime packages used together in production must be aligned to one exact patch version instead of relying on independent caret resolution.
 - Cloud Run owns the runtime `PORT`; the image does not define its own `PORT` environment variable.
 - Prisma continues to connect during Nest startup so a revision is not considered healthy when its database/runtime dependencies are unusable.
 
 ## Last Commit
 
-Current cycle commit message: `fix(api): remove Cloud Run startup blockers`.
+Current cycle commit message: `fix(api): align Nest runtime packages`.
