@@ -82,7 +82,7 @@ Current Account management cycle:
 - No new dependency, environment variable, EAS profile, or native configuration change is required.
 - TypeScript/TSX syntax transpilation was run against all changed TypeScript files with TypeScript 5.8.3 and produced no syntax diagnostics.
 - Full Nest/Expo dependency-aware builds and physical Android behavior cannot be executed in the connector environment; the user's local backend + physical-device test is the acceptance gate.
-- Because this cycle adds backend endpoints, the API running during the phone test must use this commit. A phone pointed at an older deployed API will return 404 for the new account actions.
+- Because this cycle adds backend endpoints, the API running during the phone test must use the current Account-management commit. A phone pointed at an older deployed API will return 404 for the new account actions.
 
 ## Architecture Decisions
 
@@ -97,4 +97,4 @@ Current Account management cycle:
 
 ## Last Commit
 
-`1aed794ef046325d266ee04ed584cd391615d063` — `feat(account): add secure account management`
+Current cycle commit message: `feat(account): add secure account management`.
