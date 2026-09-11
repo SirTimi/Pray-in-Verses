@@ -205,6 +205,25 @@ export default function HomeScreen() {
             </Pressable>
           </View>
 
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Support the Mission"
+            style={styles.supportCard}
+            onPress={() => router.push('/(app)/support/donate')}
+          >
+            <View style={styles.supportIcon}>
+              <Heart size={22} color="#C58A00" />
+            </View>
+            <View style={styles.supportCopy}>
+              <Text style={styles.supportEyebrow}>SUPPORT PRAY IN VERSES</Text>
+              <Text style={styles.supportTitle}>Support the Mission</Text>
+              <Text style={styles.supportBody}>Help us keep prayer resources free and growing.</Text>
+            </View>
+            <View style={styles.supportArrow}>
+              <ChevronRight size={18} color={colors.white} />
+            </View>
+          </Pressable>
+
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionEyebrow}>RECENT PRAYER WALL REQUESTS</Text>
             <Pressable onPress={() => router.push('/(app)/(tabs)/community')}>
@@ -309,12 +328,47 @@ const styles = StyleSheet.create({
   actionCard: { flex: 1, alignItems: 'center' },
   actionIcon: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   actionLabel: { color: colors.primaryDark, fontSize: 11, fontWeight: '700', textAlign: 'center', marginTop: 7 },
-  twoCards: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.xl },
+  twoCards: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.lg },
   featureCard: { flex: 1, minHeight: 112, borderRadius: radius.lg, padding: spacing.base, borderWidth: 1 },
   savedCard: { backgroundColor: '#FFF9E7', borderColor: '#F7E5A5' },
   journalCard: { backgroundColor: '#F2FAFB', borderColor: '#D7ECEF' },
   featureTitle: { color: colors.primaryDark, fontFamily: SERIF_FONT, fontSize: 16, fontWeight: '700', marginTop: spacing.md },
   featureBody: { color: colors.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 2 },
+  supportCard: {
+    minHeight: 104,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.primaryDark,
+    padding: spacing.base,
+    marginBottom: spacing.xl,
+    shadowColor: '#0B1F4D',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.10,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  supportIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.goldSoft,
+  },
+  supportCopy: { flex: 1 },
+  supportEyebrow: { color: colors.gold, fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
+  supportTitle: { color: colors.white, fontFamily: SERIF_FONT, fontSize: 18, fontWeight: '700', marginTop: 4 },
+  supportBody: { color: 'rgba(255,255,255,0.78)', fontSize: 12, lineHeight: 17, marginTop: 3 },
+  supportArrow: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md },
   viewAll: { color: colors.primary, fontSize: 12, fontWeight: '800' },
   wallCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.sm },
