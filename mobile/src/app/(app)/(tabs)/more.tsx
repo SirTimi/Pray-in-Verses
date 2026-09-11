@@ -14,6 +14,7 @@ import {
 import { useFocusEffect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
+  AlarmClock,
   Bell,
   Bookmark,
   ChevronRight,
@@ -113,7 +114,8 @@ export default function ProfileSettingsScreen() {
           />
           <SettingsRow icon={<Bookmark size={20} color={colors.primary} />} title="Saved Prayers" subtitle="View and manage your saved prayers" onPress={() => router.push('/(app)/saved')} />
           <SettingsRow icon={<NotebookPen size={20} color={colors.primary} />} title="Journal" subtitle="Your prayer journal entries" onPress={() => router.push('/(app)/journal')} />
-          <SettingsRow icon={<Bell size={20} color={colors.primary} />} title="Notifications" subtitle="Prayer reminders and updates" onPress={() => unavailable('Notifications', 'The full notifications screen is in the next product-completion cycle.')} />
+          <SettingsRow icon={<Bell size={20} color={colors.primary} />} title="Notifications" subtitle="Announcements and Pray in Verses updates" onPress={() => router.push('/(app)/notifications')} />
+          <SettingsRow icon={<AlarmClock size={20} color={colors.primary} />} title="Prayer Reminders" subtitle="Schedule recurring prayer times on this device" onPress={() => router.push('/(app)/reminders')} />
           <SettingsRow icon={<CircleHelp size={20} color={colors.primary} />} title="Help & Support" subtitle="Get help or learn more" onPress={() => void openWebsite('/about')} />
           <SettingsRow icon={<ShieldCheck size={20} color={colors.primary} />} title="Privacy Policy" subtitle="Read our privacy policy" onPress={() => void openWebsite('/privacy-policy')} />
           <SettingsRow icon={<FileText size={20} color={colors.primary} />} title="Terms of Service" subtitle="Read our terms of service" onPress={() => void openWebsite('/terms-of-service')} />
