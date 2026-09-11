@@ -1,6 +1,10 @@
 import {
   Stack,
+  useRouter,
 } from 'expo-router';
+
+import * as Notifications
+  from 'expo-notifications';
 
 import * as SplashScreen
   from 'expo-splash-screen';
@@ -19,10 +23,42 @@ import {
 
 SplashScreen.preventAutoHideAsync();
 
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
 export default function RootLayout() {
+  const router = useRouter();
+  const lastNotificationResponse =
+    Notifications.useLastNotificationResponse();
+
   useEffect(() => {
     SplashScreen.hide();
   }, []);
+
+  useEffect(() => {
+    if (!lastNotificationResponse) return;
+
+    const response = lastNotificationResponse;
+    const data =
+      response.notification.request.content.data;
+
+    if (
+      response.actionIdentifier ===
+        Notifications.DEFAULT_ACTION_IDENTIFIER &&
+      (data?.kind === 'prayer-reminder' ||
+        data?.kind === 'prayer-reminder-test')
+    ) {
+      router.push('/(app)/reminders');
+    }
+
+    void Notifications.clearLastNotificationResponseAsync();
+  }, [lastNotificationResponse, router]);
 
   return (
     <>
