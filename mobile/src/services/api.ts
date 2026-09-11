@@ -1,11 +1,6 @@
-import * as SecureStore from 'expo-secure-store';
-
 const API_URL =
   process.env.EXPO_PUBLIC_API_URL ??
   'https://api.prayinverses.com/api';
-
-const TOKEN_KEY =
-  'piv.access_token';
 
 export class ApiError extends Error {
   status: number;
@@ -24,51 +19,24 @@ export class ApiError extends Error {
   }
 }
 
-export async function getAccessToken() {
-  return SecureStore.getItemAsync(
-    TOKEN_KEY,
-  );
-}
-
-export async function saveAccessToken(
-  token: string,
-) {
-  await SecureStore.setItemAsync(
-    TOKEN_KEY,
-    token,
-  );
-}
-
-export async function removeAccessToken() {
-  await SecureStore.deleteItemAsync(
-    TOKEN_KEY,
-  );
-}
-
-type ApiRequestOptions =
-  RequestInit & {
-    authenticated?: boolean;
-  };
-
 export async function apiRequest<T>(
   path: string,
-  options: ApiRequestOptions = {},
+  options: RequestInit = {},
 ): Promise<T> {
   const {
-    authenticated = true,
     headers,
     ...rest
   } = options;
-
-  const token =
-    authenticated
-      ? await getAccessToken()
-      : null;
 
   const response = await fetch(
     `${API_URL}${path}`,
     {
       ...rest,
+
+      // Match the web application's authentication contract.
+      // The server owns the HTTP-only auth cookie and the native app
+      // sends it back on protected requests just like the web client.
+      credentials: 'include',
 
       headers: {
         Accept: 'application/json',
@@ -77,13 +45,6 @@ export async function apiRequest<T>(
           ? {
               'Content-Type':
                 'application/json',
-            }
-          : {}),
-
-        ...(token
-          ? {
-              Authorization:
-                `Bearer ${token}`,
             }
           : {}),
 
@@ -106,17 +67,11 @@ export async function apiRequest<T>(
   }
 
   if (!response.ok) {
-    if (
-      response.status === 401 &&
-      authenticated
-    ) {
-      await removeAccessToken();
-    }
-
     const message =
       Array.isArray(data?.message)
         ? data.message.join(', ')
         : data?.message ??
+          data?.error ??
           'Something went wrong';
 
     throw new ApiError(

@@ -10,7 +10,6 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
 import { colors } from '@/constants/colors';
-import { getAccessToken } from '@/services/api';
 import { getMe } from '@/services/auth';
 import { useAuthStore } from '@/stores/auth.store';
 
@@ -40,13 +39,12 @@ export default function LaunchScreen() {
       let destination: '/(app)' | '/(auth)/welcome' = '/(auth)/welcome';
 
       try {
-        const token = await getAccessToken();
-
-        if (token) {
-          const user = await getMe();
-          setUser(user);
-          destination = '/(app)';
-        }
+        // Reuse the exact same server session contract as the web app.
+        // If the HTTP-only auth cookie is still valid, /auth/me restores
+        // the user without requiring a second mobile-only token store.
+        const user = await getMe();
+        setUser(user);
+        destination = '/(app)';
       } catch {
         setUser(null);
       }

@@ -1,7 +1,6 @@
 import {
   apiRequest,
-  removeAccessToken,
-  saveAccessToken,
+  ApiError,
 } from './api';
 
 export type AuthUser = {
@@ -13,7 +12,6 @@ export type AuthUser = {
 
 type LoginResponse = {
   user: AuthUser;
-  accessToken: string;
 };
 
 type MeResponse = {
@@ -30,26 +28,35 @@ export async function login(
   email: string,
   password: string,
 ) {
-  const result =
-    await apiRequest<LoginResponse>(
-      '/auth/mobile/login',
-      {
-        method: 'POST',
-
-        authenticated: false,
-
-        body: JSON.stringify({
-          email,
-          password,
-        }),
-      },
-    );
-
-  await saveAccessToken(
-    result.accessToken,
+  await apiRequest<LoginResponse>(
+    '/auth/login',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        email,
+        password,
+      }),
+    },
   );
 
-  return result.user;
+  // Verify that the same HTTP-only session cookie used by the web app
+  // was retained by the native client before treating login as complete.
+  try {
+    return await getMe();
+  } catch (error) {
+    if (
+      error instanceof ApiError &&
+      error.status === 401
+    ) {
+      throw new ApiError(
+        'Sign in succeeded, but the device could not establish a session. Please try again.',
+        401,
+        error.data,
+      );
+    }
+
+    throw error;
+  }
 }
 
 export async function getMe() {
@@ -62,20 +69,12 @@ export async function getMe() {
 }
 
 export async function logout() {
-  try {
-    await apiRequest(
-      '/auth/logout',
-      {
-        method: 'POST',
-      },
-    );
-  } catch {
-    // Native authentication is bearer-token based.
-    // Clearing the local token is what ends
-    // the mobile session.
-  } finally {
-    await removeAccessToken();
-  }
+  await apiRequest<{ ok: true }>(
+    '/auth/logout',
+    {
+      method: 'POST',
+    },
+  );
 }
 
 export async function signup(
@@ -87,8 +86,6 @@ export async function signup(
     '/auth/signup',
     {
       method: 'POST',
-      authenticated: false,
-
       body: JSON.stringify({
         displayName,
         email,
@@ -105,7 +102,6 @@ export async function forgotPassword(
     '/auth/forgot-password',
     {
       method: 'POST',
-      authenticated: false,
       body: JSON.stringify({
         email,
       }),
@@ -121,7 +117,6 @@ export async function resetPassword(
     '/auth/reset-password',
     {
       method: 'POST',
-      authenticated: false,
       body: JSON.stringify({
         token,
         newPassword,
