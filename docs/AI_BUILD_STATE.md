@@ -22,18 +22,17 @@ Accepted behavior now includes:
 
 ## Current Implementation
 
-The Account-management vertical slice remains the current task. Its application code is engineering-complete, but the first Cloud Run deployment of the updated API failed before the new revision began listening.
+The Account-management vertical slice remains the current task. Its application code is engineering-complete, but Cloud Run has failed to start the updated API revisions before the HTTP listener becomes ready.
 
-The deployment-repair increment now also includes:
+The deployment-repair work now includes:
 
-- The API production image uses `node:22-bookworm-slim` instead of floating `node:22-alpine`.
-- OpenSSL and CA certificates are installed explicitly in both API build and runtime stages because Prisma 6 requires OpenSSL at runtime.
-- Build and runtime use the same Debian/OpenSSL family so the generated Prisma native engine matches the production container.
-- The Docker image no longer bakes in `PORT=4000`; Cloud Run remains authoritative for the injected `PORT` value.
-- The API container exposes port 8080 and `cloudbuild.yaml` explicitly deploys the API service with `--port=8080`.
-- Nest parses and validates the injected port before listening on `0.0.0.0`.
-- Bootstrap now logs the real startup exception and exits non-zero if initialization fails, so future Cloud Run failures expose their actual cause instead of only the generic port health-check message.
-- Account behavior itself is unchanged by this repair: persisted display-name updates, authenticated password changes, session rotation/revocation, and removal of the stale mobile-only login route remain intact.
+- The API production image uses `node:22-bookworm-slim` with explicit OpenSSL and CA certificates in build and runtime stages.
+- Cloud Run owns the runtime `PORT`; the API image exposes 8080 and Cloud Build deploys the API with `--port=8080`.
+- Nest validates the injected port, binds to `0.0.0.0`, and logs bootstrap failures.
+- A production-only module-resolution defect in `AuthModule` is fixed: `PrismaModule` now uses the runtime-safe relative import `../../prisma/prisma.module` instead of the TypeScript-only `src/prisma/prisma.module` alias.
+- TypeScript CommonJS compilation was verified to emit `require("../../prisma/prisma.module")`, which plain `node dist/main.js` can resolve from the compiled auth module.
+- SMTP transport verification no longer blocks Nest module initialization. It is disabled by default and, when explicitly enabled with `MAIL_VERIFY_ON_BOOT=true`, runs asynchronously as diagnostics only.
+- Account behavior itself is unchanged by deployment repairs: persisted display-name updates, authenticated password changes, session rotation/revocation, and removal of the stale mobile-only login route remain intact.
 
 ## Completed
 
@@ -45,7 +44,8 @@ The deployment-repair increment now also includes:
 - Notifications and Prayer Reminders accepted, including the Android notification sound fix.
 - Account backend and mobile Account screen are engineering-complete but not yet accepted.
 - Duplicate mobile-only login endpoint removed from the backend.
-- Cloud Run API startup hardening is engineering-complete and awaiting deployment re-test.
+- First Cloud Run runtime hardening increment completed.
+- Runtime-safe AuthModule import and non-blocking mail startup repair completed and awaiting redeploy test.
 
 ## Next Tasks
 
@@ -58,7 +58,7 @@ After the Cloud Run deployment succeeds and Account management passes local/devi
 
 ## Known Issues
 
-- The exact stderr from failed Cloud Run revision `pray-in-verses-api-00032-g2f` was not included in the original deployment output; Cloud Build only surfaced the generic "failed to listen on PORT=8080" wrapper. The repository-level runtime issue has been hardened, and bootstrap logging will expose any remaining startup exception on the next deploy.
+- Failed Cloud Run revisions `pray-in-verses-api-00032-g2f` and `pray-in-verses-api-00035-j8j` only surfaced the generic `failed to listen on PORT=8080` wrapper in the Cloud Build output supplied for debugging; their container stderr was not included.
 - Email editing remains intentionally unavailable until a verified email-change flow exists; the Account screen shows the current email as read-only.
 - Server notifications are an authenticated in-app inbox only; there is no backend push-token registration/storage/delivery path yet.
 - Prayer reminders are OS-scheduled without Android's restricted exact-alarm permission and may vary slightly in delivery time.
@@ -74,13 +74,15 @@ Previous Reminders + Notifications cycle: PASSED per user confirmation, includin
 
 Current Account management / deployment-repair cycle:
 
-- Latest `main`, recent commits, `mobile/AGENTS.md`, this build-state file, API Dockerfile, Cloud Build configuration, Nest bootstrap, Prisma startup behavior, and Account auth changes were inspected.
-- The failed Cloud Build reached the Cloud Run deployment step, which confirms the backend image built and pushed successfully; the failure occurred when the new revision attempted to start.
-- Source inspection confirms Nest already reads `process.env.PORT` and binds to `0.0.0.0`, so simply increasing the health-check timeout was not treated as a root-cause fix.
-- The September 9 API Dockerfile change moved production to Node 22 Alpine without explicitly installing OpenSSL. Prisma 6 requires OpenSSL at runtime, and `PrismaService` connects during Nest module initialization before the HTTP listener starts.
-- The repair moves the API to Debian Bookworm slim with explicit OpenSSL and aligns Docker/Cloud Run on port 8080.
-- `cloudbuild.yaml` was parsed locally as valid YAML and contains six build/deploy steps with `--port=8080` on the API deployment.
-- Docker is not available in the execution environment, so the image itself could not be started here. Cloud Run redeployment is the required acceptance test.
+- Latest `main`, recent commits, `mobile/AGENTS.md`, this build-state file, API Dockerfile, Cloud Build configuration, Nest bootstrap, Prisma startup behavior, AuthModule, MailModule, and Account auth changes were inspected.
+- The second supplied deployment log confirms revision `pray-in-verses-api-00035-j8j` also failed before listening on port 8080.
+- The backend image build and push complete before the Cloud Run revision failure, so the failure is in container startup rather than Docker image compilation.
+- `AuthModule` contained `import { PrismaModule } from 'src/prisma/prisma.module'`. With this repository's CommonJS build and plain `node dist/main.js` runtime, TypeScript preserves that bare module specifier instead of rewriting it to a relative path.
+- The repaired AuthModule was syntax-transpiled with TypeScript 5.8.3 with no syntax diagnostics; emitted CommonJS now contains `require("../../prisma/prisma.module")`.
+- The repaired MailModule was syntax-transpiled with TypeScript 5.8.3 with no syntax diagnostics.
+- Mail verification previously defaulted to synchronous startup verification and could wait on external SMTP timeouts before the HTTP listener opened; it is now non-blocking and opt-in.
+- Prisma remains fail-fast during Nest startup so Cloud Run will not mark a revision healthy when its database connection is unusable.
+- Docker is not available in the execution environment, so the production image itself cannot be started here. Cloud Run redeployment is the acceptance test.
 - No Prisma schema change, migration, mobile dependency, EAS profile, or app native configuration change is part of this repair.
 
 ## Architecture Decisions
@@ -89,11 +91,11 @@ Current Account management / deployment-repair cycle:
 - Expo SDK 57 versioned documentation remains authoritative for mobile decisions.
 - Web and native clients share one authentication contract and one canonical session cookie.
 - Account-management API behavior remains unchanged by deployment hardening.
-- The API production container uses a stable Debian slim base with explicit OpenSSL rather than depending on floating Alpine runtime library detection.
+- Runtime imports in the Nest API must be relative unless an explicit production runtime alias loader is configured; TypeScript `baseUrl` alone is not a Node.js runtime resolver.
+- Optional third-party service verification such as SMTP must not block the HTTP listener during Cloud Run startup.
 - Cloud Run owns the runtime `PORT`; the image does not define its own `PORT` environment variable.
-- API startup remains fail-fast on initialization errors, but startup failures are now explicitly logged before process exit.
 - Prisma continues to connect during Nest startup so a revision is not considered healthy when its database/runtime dependencies are unusable.
 
 ## Last Commit
 
-Current cycle commit message: `fix(api): harden Cloud Run startup runtime`.
+Current cycle commit message: `fix(api): remove Cloud Run startup blockers`.
