@@ -19,6 +19,7 @@ export default function AppTabsLayout() {
       initialRouteName="home"
       screenOptions={{
         headerShown: false,
+        tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: '#7C879D',
         tabBarLabelStyle: {
