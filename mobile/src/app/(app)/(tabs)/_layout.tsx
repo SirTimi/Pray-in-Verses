@@ -3,7 +3,7 @@ import {
   BookOpen,
   CirclePlus,
   House,
-  Menu,
+  UserRound,
   UsersRound,
 } from 'lucide-react-native';
 
@@ -75,9 +75,9 @@ export default function AppTabsLayout() {
       <Tabs.Screen
         name="more"
         options={{
-          title: 'More',
+          title: 'Profile',
           tabBarIcon: ({ color, size }) => (
-            <Menu size={size} color={color} strokeWidth={2} />
+            <UserRound size={size} color={color} strokeWidth={2} />
           ),
         }}
       />
