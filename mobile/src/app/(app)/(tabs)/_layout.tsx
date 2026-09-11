@@ -1,4 +1,5 @@
 import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   BookOpen,
   CirclePlus,
@@ -10,6 +11,9 @@ import {
 import { colors } from '@/constants/colors';
 
 export default function AppTabsLayout() {
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, 10);
+
   return (
     <Tabs
       initialRouteName="home"
@@ -20,11 +24,12 @@ export default function AppTabsLayout() {
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '700',
-          marginBottom: 3,
+          marginBottom: 0,
         },
         tabBarStyle: {
-          height: 70,
+          height: 62 + bottomInset,
           paddingTop: 7,
+          paddingBottom: bottomInset,
           borderTopWidth: 1,
           borderTopColor: colors.border,
           backgroundColor: colors.surface,
