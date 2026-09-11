@@ -23,25 +23,27 @@ Accepted behavior now includes:
 
 ## Current Implementation
 
-The Support + Donation vertical slice is engineering-complete and awaiting physical-device/payment-flow testing.
+The Support + Donation vertical slice remains the current task and is awaiting physical-device/payment-flow testing.
 
 This slice includes:
 
-- Profile → Help & Support now opens a native mobile Support screen instead of the old website About fallback.
+- Profile → Help & Support opens a native mobile Support screen instead of the old website About fallback.
 - The Support screen uses the existing official `info@prayinverses.com` contact address and links to the Pray in Verses website and Donation Policy.
-- Profile now has a dedicated Support the Mission entry.
+- Profile has a dedicated Support the Mission entry.
+- Home now also contains a prominent full-width Support the Mission card above Recent Prayer Wall Requests, linking directly to the native donation screen.
 - The mobile donation flow uses the existing Paystack-backed `/api/donations/initialize` contract.
 - Signed-in account email/display name prefill the donation form but can be adjusted for the donation.
 - Preset and custom NGN amounts are supported, with the server minimum of ₦100 enforced client-side and server-side.
 - Optional donor name and message are forwarded through the existing donation metadata path.
 - Mobile donations are marked with server-controlled source metadata `mobile`; existing web callers continue to default to `web`.
 - Paystack opens in `expo-web-browser`; the app never treats opening/closing the browser as proof of payment.
-- A new public `GET /api/donations/:reference/status` endpoint exposes only reference, amount, currency, status, createdAt, and paidAt. It does not expose donor email, name, message, gateway payloads, or other PII.
+- A public `GET /api/donations/:reference/status` endpoint exposes only reference, amount, currency, status, createdAt, and paidAt. It does not expose donor email, name, message, gateway payloads, or other PII.
 - The mobile app polls the server while a donation is pending, rechecks when the app returns to the foreground, and provides manual Refresh status.
 - The current pending donation reference is persisted with SecureStore so confirmation can resume after the app is restarted.
 - Confirmed success and failed/abandoned states clear the persisted pending reference.
-- The missing public web `/donations/thank-you` callback page now exists so Paystack no longer returns donors to an undefined SPA route.
+- The public web `/donations/thank-you` callback page exists so Paystack does not return donors to an undefined SPA route.
 - The web thank-you page does not independently claim transaction success; it tells the donor that server confirmation may take a moment and mobile donors can return to the app.
+- After the user supplied an Android screenshot, the bottom tab bar was changed from a fixed 70px layout to an Expo SDK 57 safe-area-aware layout using `useSafeAreaInsets()` so tab icons/labels sit above the phone navigation area.
 
 ## Completed
 
@@ -55,6 +57,7 @@ This slice includes:
 - Duplicate mobile-only login endpoint removed.
 - Cloud Run startup repaired: Debian/OpenSSL runtime, runtime-safe Nest imports, non-blocking mail verification, and aligned Nest runtime packages.
 - Support + Donation implementation completed and awaiting test acceptance.
+- Home Support the Mission visibility and Android bottom-tab safe-area polish completed and awaiting device acceptance.
 
 ## Next Tasks
 
@@ -83,13 +86,16 @@ Previous Account / deployment-repair cycle: PASSED per user confirmation that th
 
 Current Support + Donation cycle:
 
-- Latest `main`, `mobile/AGENTS.md`, Expo SDK 57 WebBrowser documentation, donation controller/service/schema, existing web donation component, Donation Policy, mobile API client, and Profile screen were inspected before implementation.
-- The existing backend already creates high-entropy `PIV_...` Paystack references, stores donation state, verifies webhook signatures with SHA-512 HMAC, validates successful gateway amount/currency/status, and records successful/failed results.
-- The new status endpoint is rate-limited and accepts only Pray in Verses-shaped references; it returns a minimal non-PII projection of the database row.
+- Latest `main`, `mobile/AGENTS.md`, Expo SDK 57 safe-area documentation, donation controller/service/schema, existing web donation component, Donation Policy, mobile API client, Profile screen, Home screen, and tab layout were inspected before the latest polish.
+- The existing backend creates high-entropy `PIV_...` Paystack references, stores donation state, verifies webhook signatures with SHA-512 HMAC, validates successful gateway amount/currency/status, and records successful/failed results.
+- The donation status endpoint is rate-limited and accepts only Pray in Verses-shaped references; it returns a minimal non-PII projection of the database row.
 - Mobile transaction success is never inferred from a WebBrowser result.
-- No Prisma schema change or migration is part of this cycle.
-- `expo-web-browser` and `expo-secure-store` were already present in the Expo SDK 57 app, so no native dependency or APK rebuild is required for the mobile code itself.
-- API and web changes do require deployment before the complete production donation flow can be accepted.
+- The user-provided Android screenshot showed the custom tab bar sitting under the phone navigation area; the fixed 70px tab-bar height was confirmed in `mobile/src/app/(app)/(tabs)/_layout.tsx` and replaced with bottom-inset-aware height/padding.
+- Expo SDK 57 `react-native-safe-area-context` documentation confirms `useSafeAreaInsets()` exposes the device bottom inset for positioning content around OS interface elements.
+- Home now exposes Support the Mission directly without removing the Profile entry.
+- No Prisma schema change or migration is part of the UI polish.
+- No new native package or app configuration change is required, so a new APK is not required for these JS/TS changes.
+- API and web changes from the donation slice still require deployment before the complete production donation flow can be accepted.
 
 ## Architecture Decisions
 
@@ -100,7 +106,8 @@ Current Support + Donation cycle:
 - The mobile client receives only the minimum transaction state necessary to confirm its high-entropy donation reference.
 - Payment card/bank details remain entirely outside Pray in Verses and are handled by Paystack.
 - The app uses the existing HTTPS Pray in Verses callback origin rather than adding an unverified custom-scheme payment callback.
+- Bottom-tab layout must respect the runtime device bottom safe-area inset rather than relying on a fixed bar height.
 
 ## Last Commit
 
-Current cycle commit message: `feat: add mobile support and donation flow`.
+Latest implementation commits: `fix(mobile): respect bottom safe area in tab bar` and `feat(mobile): surface mission support on home`.
