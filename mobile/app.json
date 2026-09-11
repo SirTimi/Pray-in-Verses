@@ -30,7 +30,7 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#FFFEF8",
-          "image": "./assets/images/prayinverse-logo.png",
+          "image": "./assets/images/PIV-logo.png",
           "imageWidth": 190,
           "resizeMode": "contain"
         }

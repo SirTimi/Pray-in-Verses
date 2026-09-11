@@ -88,7 +88,7 @@ export default function LoginScreen() {
         >
           <View style={styles.brandBlock}>
             <Image
-              source={require('../../../assets/images/prayinverse-logo.png')}
+              source={require('../../../assets/images/PIV-logo.png')}
               resizeMode="contain"
               style={styles.logo}
             />

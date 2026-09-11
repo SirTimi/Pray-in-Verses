@@ -119,7 +119,7 @@ export default function LaunchScreen() {
 
       <View style={styles.centerContent}>
         <Animated.Image
-          source={require('../../assets/images/prayinverse-logo.png')}
+          source={require('../../assets/images/PIV-logo.png')}
           resizeMode="contain"
           style={[
             styles.logo,
@@ -147,7 +147,7 @@ export default function LaunchScreen() {
         </Animated.View>
       </View>
 
-      <Animated.View style={[styles.footerBlock, { opacity: copyOpacity }]}> 
+      <Animated.View style={[styles.footerBlock, { opacity: copyOpacity }]}>
         <View style={styles.goldRule} />
         <Text style={styles.footerText}>SCRIPTURE • PRAYER • REFLECTION</Text>
       </Animated.View>
