@@ -42,6 +42,13 @@ This revision responds to Android screenshots from the user and keeps all existi
   - The web Home prayer-group photo remains the banner image.
   - The banner is taller and the greeting, first name, and devotional sentence are moved visibly further down for better visual balance.
 
+### Onboarding 1 visual polish
+
+- The Scripture → Prayer connector is now a custom curved SVG arrow rather than a straight diagonal icon.
+- The first onboarding illustration has a stronger transformation flow using a soft blue backdrop, restrained gold glow, Scripture icon treatment, cleaner card overlap, lighter card rotation, and a highlighted Prayer card.
+- The copy, navigation, dots, Skip, Next, and onboarding state behavior are unchanged.
+- No new dependency or native rebuild is required for this onboarding polish.
+
 ### Splash + branding repair
 
 - `mobile/src/app/index.tsx` no longer applies a white tint to `PIV-logo.png`.
@@ -66,13 +73,14 @@ No backend, API contract, auth behavior, database schema, dependency, or payment
 
 Android device review required:
 
-1. Splash should display the actual Pray in Verses logo artwork, not a blank white square.
-2. Splash logo plate should fade/scale in cleanly and the footer tagline must remain above Android navigation.
-3. Support the Mission presets must display the full values: `₦1,000`, `₦2,000`, `₦5,000`, `₦10,000`.
-4. My Prayer editor Save Changes/Add Prayer button must be fully visible and scroll above Android system navigation.
-5. Prayer Detail Save Prayer / Add to Journal must remain fully above Android navigation.
-6. Home greeting, name, and devotional sentence should sit lower in the photo banner than in the previous screenshot.
-7. A new development APK is required to judge the launcher icon because launcher/native icon assets are baked into the Android build.
+1. Onboarding 1 should show a visibly curved gold connector flowing from the Scripture card toward the Prayer card, with no clipping on the user's device.
+2. Splash should display the actual Pray in Verses logo artwork, not a blank white square.
+3. Splash logo plate should fade/scale in cleanly and the footer tagline must remain above Android navigation.
+4. Support the Mission presets must display the full values: `₦1,000`, `₦2,000`, `₦5,000`, `₦10,000`.
+5. My Prayer editor Save Changes/Add Prayer button must be fully visible and scroll above Android system navigation.
+6. Prayer Detail Save Prayer / Add to Journal must remain fully above Android navigation.
+7. Home greeting, name, and devotional sentence should sit lower in the photo banner than in the previous screenshot.
+8. A new development APK is required to judge the launcher icon because launcher/native icon assets are baked into the Android build.
 
 ## Known Issues / Release Notes
 
@@ -100,7 +108,8 @@ After this screenshot-driven polish is accepted:
 - `react-native-safe-area-context` runtime insets are used for fixed/bottom controls rather than hard-coded Android navigation-bar guesses.
 - When the user asks mobile to reuse a web image, the exact repository asset/blob is reused rather than approximated.
 - Brand-logo placement uses the actual `PIV-logo.png` asset; functional navigation icons remain semantic icons.
+- Onboarding illustration polish should use native React Native/SVG composition rather than generated image assets so it stays responsive and editable.
 
 ## Last Commit
 
-Current visual target: visible PIV splash branding, deterministic NGN amount display, safe My Prayer editor actions, and native launcher icon validation on a fresh APK.
+Current visual target: curved Scripture-to-Prayer onboarding connector and cleaner first onboarding composition, alongside the existing splash, donation, safe-area, and launcher-icon polish awaiting device review.
