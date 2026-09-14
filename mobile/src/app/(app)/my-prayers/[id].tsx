@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -52,6 +52,7 @@ function normalizeTags(value: string) {
 
 export default function MyPrayerEditorScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ id?: string }>();
   const rawId = Array.isArray(params.id) ? params.id[0] : params.id ?? 'new';
   const isNew = rawId === 'new';
@@ -174,7 +175,7 @@ export default function MyPrayerEditorScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <View style={styles.stateWrap}>
           <AppStateView
             variant="loading"
@@ -188,7 +189,7 @@ export default function MyPrayerEditorScreen() {
 
   if (error && !isNew && !title && !body) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <View style={styles.stateWrap}>
           <AppStateView
             variant="error"
@@ -205,13 +206,16 @@ export default function MyPrayerEditorScreen() {
   const answered = status === 'ANSWERED';
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: Math.max(insets.bottom, 16) + 28 },
+          ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
@@ -353,7 +357,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   stateWrap: { flex: 1, justifyContent: 'center', padding: spacing.base },
-  content: { paddingHorizontal: spacing.base, paddingTop: spacing.sm, paddingBottom: spacing.xxl },
+  content: { paddingHorizontal: spacing.base, paddingTop: spacing.sm },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   iconButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   pageTitle: { color: colors.primaryDark, fontFamily: SERIF_FONT, fontSize: 23, fontWeight: '700' },
