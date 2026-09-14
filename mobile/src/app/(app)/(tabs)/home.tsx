@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Image,
+  ImageBackground,
   Platform,
   Pressable,
   RefreshControl,
@@ -106,30 +107,35 @@ export default function HomeScreen() {
           />
         }
       >
-        <View style={styles.hero}>
-          <View style={styles.heroHalo} />
-          <View style={styles.sun} />
-          <View style={styles.hillBack} />
-          <View style={styles.hillFront} />
+        <ImageBackground
+          source={require('../../../../assets/images/home/hero-prayer-group.jpg')}
+          resizeMode="cover"
+          style={styles.hero}
+          imageStyle={styles.heroImage}
+        >
+          <View style={styles.heroOverlay} />
+          <View style={styles.heroBottomShade} />
 
-          <View style={styles.heroTopRow}>
-            <View style={styles.heroCopy}>
-              <Text style={styles.greeting} >{getGreeting()},</Text>
-              <Text numberOfLines={1} style={styles.name}>{firstName}</Text>
+          <View style={styles.heroContent}>
+            <View style={styles.heroTopRow}>
+              <View style={styles.heroCopy}>
+                <Text style={styles.greeting}>{getGreeting()},</Text>
+                <Text numberOfLines={1} style={styles.name}>{firstName}</Text>
+              </View>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Notifications"
+                style={({ pressed }) => [styles.bellButton, pressed && styles.pressed]}
+                onPress={() => router.push('/(app)/notifications')}
+              >
+                <Bell size={21} color={colors.white} strokeWidth={1.9} />
+              </Pressable>
             </View>
 
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Notifications"
-              style={({ pressed }) => [styles.bellButton, pressed && styles.pressed]}
-              onPress={() => router.push('/(app)/notifications')}
-            >
-              <Bell size={21} color={colors.white} strokeWidth={1.9} />
-            </Pressable>
+            <Text style={styles.heroLine}>A new day. A new verse. A deeper prayer life.</Text>
           </View>
-
-          <Text style={styles.heroLine}>A new day. A new verse. A deeper prayer life.</Text>
-        </View>
+        </ImageBackground>
 
         <View style={styles.main}>
           <View style={styles.dailyCard}>
@@ -147,7 +153,10 @@ export default function HomeScreen() {
                 <Text style={styles.mutedText}>Loading today’s Scripture…</Text>
               </View>
             ) : verse ? (
-              <Pressable onPress={openVerse} style={({ pressed }) => [styles.dailyPressable, pressed && styles.pressed]}>
+              <Pressable
+                onPress={openVerse}
+                style={({ pressed }) => [styles.dailyPressable, pressed && styles.pressed]}
+              >
                 <View style={styles.dailyIcon}>
                   <BookOpen size={25} color={colors.primaryDark} strokeWidth={1.9} />
                 </View>
@@ -318,9 +327,7 @@ function QuickAction({ label, icon, tint, onPress }: QuickActionProps) {
 }
 
 function SectionHeading({ title, compact = false }: { title: string; compact?: boolean }) {
-  return (
-    <Text style={[styles.sectionTitle, compact && styles.sectionTitleCompact]}>{title}</Text>
-  );
+  return <Text style={[styles.sectionTitle, compact && styles.sectionTitleCompact]}>{title}</Text>;
 }
 
 const styles = StyleSheet.create({
@@ -330,51 +337,29 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.82 },
 
   hero: {
-    height: 238,
+    height: 260,
     overflow: 'hidden',
     backgroundColor: colors.primaryDark,
+  },
+  heroImage: {
+    transform: [{ scale: 1.03 }],
+  },
+  heroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(7, 28, 80, 0.64)',
+  },
+  heroBottomShade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 96,
+    backgroundColor: 'rgba(5, 22, 60, 0.22)',
+  },
+  heroContent: {
+    flex: 1,
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.lg,
-  },
-  heroHalo: {
-    position: 'absolute',
-    width: 255,
-    height: 255,
-    borderRadius: 128,
-    right: -74,
-    bottom: -80,
-    backgroundColor: '#FCCF3A',
-    opacity: 0.07,
-  },
-  sun: {
-    position: 'absolute',
-    width: 145,
-    height: 145,
-    borderRadius: 73,
-    right: -8,
-    bottom: -38,
-    backgroundColor: '#F6C453',
-    opacity: 0.18,
-  },
-  hillBack: {
-    position: 'absolute',
-    width: 390,
-    height: 118,
-    borderRadius: 190,
-    backgroundColor: '#2C5689',
-    left: -132,
-    bottom: -70,
-    transform: [{ rotate: '-5deg' }],
-  },
-  hillFront: {
-    position: 'absolute',
-    width: 430,
-    height: 145,
-    borderRadius: 220,
-    backgroundColor: '#153B6F',
-    right: -185,
-    bottom: -84,
-    transform: [{ rotate: '7deg' }],
+    paddingTop: 38,
   },
   heroTopRow: {
     flexDirection: 'row',
@@ -382,14 +367,25 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   heroCopy: { flex: 1, paddingRight: spacing.lg },
-  greeting: { color: 'rgba(255,255,255,0.78)', fontSize: 15, lineHeight: 21 },
+  greeting: {
+    color: 'rgba(255,255,255,0.92)',
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: '500',
+    textShadowColor: 'rgba(0,0,0,0.22)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
   name: {
     color: colors.white,
     fontFamily: SERIF_FONT,
-    fontSize: 34,
-    lineHeight: 40,
+    fontSize: 35,
+    lineHeight: 42,
     fontWeight: '700',
     letterSpacing: -0.4,
+    textShadowColor: 'rgba(0,0,0,0.25)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   bellButton: {
     width: 46,
@@ -398,18 +394,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
-    backgroundColor: 'rgba(255,255,255,0.10)',
+    borderColor: 'rgba(255,255,255,0.22)',
+    backgroundColor: 'rgba(7,28,80,0.48)',
   },
   heroLine: {
-    maxWidth: 270,
-    marginTop: 12,
-    color: 'rgba(255,255,255,0.78)',
+    maxWidth: 285,
+    marginTop: 16,
+    color: 'rgba(255,255,255,0.94)',
     fontSize: 14,
     lineHeight: 21,
+    fontWeight: '500',
+    textShadowColor: 'rgba(0,0,0,0.22)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
 
-  main: { paddingHorizontal: spacing.base, marginTop: -48 },
+  main: { paddingHorizontal: spacing.base, marginTop: -46 },
   dailyCard: {
     borderWidth: 1,
     borderColor: '#ECE7DD',
