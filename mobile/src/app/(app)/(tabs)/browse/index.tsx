@@ -84,7 +84,7 @@ export default function BrowseBooksScreen() {
         <View style={styles.headerRow}>
           <View style={styles.headerCopy}>
             <Text style={styles.title}>Browse Scripture</Text>
-            <Text style={styles.subtitle}>Explore God’s Word and turn every published verse into prayer.</Text>
+            <Text style={styles.subtitle}>Explore God's Word and turn every published verse into prayer.</Text>
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel="Search prayers" onPress={() => router.push('/(app)/(tabs)/browse/search')} style={styles.searchButton}>
             <Search size={21} color={colors.primary} />

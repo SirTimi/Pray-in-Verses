@@ -114,7 +114,7 @@ export default function HomeScreen() {
 
           <View style={styles.heroTopRow}>
             <View style={styles.heroCopy}>
-              <Text style={styles.greeting}>{getGreeting()},</Text>
+              <Text style={styles.greeting} >{getGreeting()},</Text>
               <Text numberOfLines={1} style={styles.name}>{firstName}</Text>
             </View>
 
