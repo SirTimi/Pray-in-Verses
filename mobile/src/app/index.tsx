@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import Svg, {
@@ -32,10 +32,12 @@ function sleep(ms: number) {
 
 export default function LaunchScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const setUser = useAuthStore((state) => state.setUser);
   const logoOpacity = useRef(new Animated.Value(0)).current;
   const logoScale = useRef(new Animated.Value(0.92)).current;
   const copyOpacity = useRef(new Animated.Value(0)).current;
+  const copyTranslateY = useRef(new Animated.Value(10)).current;
 
   useEffect(() => {
     const animation = Animated.sequence([
@@ -54,17 +56,25 @@ export default function LaunchScreen() {
           useNativeDriver: true,
         }),
       ]),
-      Animated.timing(copyOpacity, {
-        toValue: 1,
-        duration: 320,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }),
+      Animated.parallel([
+        Animated.timing(copyOpacity, {
+          toValue: 1,
+          duration: 320,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(copyTranslateY, {
+          toValue: 0,
+          duration: 320,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]),
     ]);
 
     animation.start();
     return () => animation.stop();
-  }, [copyOpacity, logoOpacity, logoScale]);
+  }, [copyOpacity, copyTranslateY, logoOpacity, logoScale]);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,7 +111,13 @@ export default function LaunchScreen() {
     <View style={styles.root}>
       <StatusBar style="light" />
 
-      <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" viewBox="0 0 390 844" preserveAspectRatio="none">
+      <Svg
+        style={StyleSheet.absoluteFill}
+        width="100%"
+        height="100%"
+        viewBox="0 0 390 844"
+        preserveAspectRatio="none"
+      >
         <Defs>
           <SvgLinearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
             <Stop offset="0%" stopColor="#0C338E" />
@@ -126,25 +142,44 @@ export default function LaunchScreen() {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centerBlock}>
           <Animated.View
-            style={{
-              opacity: logoOpacity,
-              transform: [{ scale: logoScale }],
-            }}
+            style={[
+              styles.logoPlate,
+              {
+                opacity: logoOpacity,
+                transform: [{ scale: logoScale }],
+              },
+            ]}
           >
             <Image
               source={require('../../assets/images/PIV-logo.png')}
               resizeMode="contain"
-              style={[styles.logo, styles.logoWhite]}
+              style={styles.logo}
             />
           </Animated.View>
 
-          <Animated.View style={[styles.statementBlock, { opacity: copyOpacity }]}>
+          <Animated.View
+            style={[
+              styles.statementBlock,
+              {
+                opacity: copyOpacity,
+                transform: [{ translateY: copyTranslateY }],
+              },
+            ]}
+          >
             <Text style={styles.statement}>Pray Scripture.</Text>
             <Text style={styles.statement}>Live Scripture.</Text>
           </Animated.View>
         </View>
 
-        <Animated.View style={[styles.footer, { opacity: copyOpacity }]}>
+        <Animated.View
+          style={[
+            styles.footer,
+            {
+              opacity: copyOpacity,
+              bottom: Math.max(insets.bottom, 20) + 18,
+            },
+          ]}
+        >
           <View style={styles.goldLine} />
           <Text style={styles.footerText}>A CLOSER WALK</Text>
           <Text style={styles.footerText}>A BRIGHTER TOMORROW</Text>
@@ -167,17 +202,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 36,
-    paddingBottom: 68,
+    paddingBottom: 78,
+  },
+  logoPlate: {
+    width: 184,
+    height: 184,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 34,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.72)',
+    backgroundColor: '#FFFEF8',
+    shadowColor: '#071F62',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.24,
+    shadowRadius: 24,
+    elevation: 8,
   },
   logo: {
-    width: 210,
-    height: 176,
-  },
-  logoWhite: {
-    tintColor: '#FFFFFF',
+    width: 158,
+    height: 158,
+    borderRadius: 24,
   },
   statementBlock: {
-    marginTop: 44,
+    marginTop: 30,
     alignItems: 'center',
   },
   statement: {
@@ -195,13 +243,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 24,
     right: 24,
-    bottom: 26,
     alignItems: 'center',
   },
   goldLine: {
     width: 34,
     height: 2,
-    marginBottom: 19,
+    marginBottom: 16,
     backgroundColor: '#F6BF21',
   },
   footerText: {
