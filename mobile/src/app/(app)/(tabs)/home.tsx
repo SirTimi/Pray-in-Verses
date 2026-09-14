@@ -345,7 +345,11 @@ const styles = StyleSheet.create({
     transform: [{ scale: 1.03 }],
   },
   heroOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     backgroundColor: 'rgba(7, 28, 80, 0.64)',
   },
   heroBottomShade: {
