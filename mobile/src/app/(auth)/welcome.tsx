@@ -12,13 +12,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle, Defs, Ellipse, Path, RadialGradient, Stop } from 'react-native-svg';
 import {
-  ArrowDown,
   BookOpen,
   ChevronRight,
   FileText,
-  Globe2,
   Heart,
   List,
   Sparkles,
@@ -52,9 +50,9 @@ function CurvedPrayerArrow() {
   return (
     <View pointerEvents="none" style={styles.curvedArrowWrap}>
       <View style={styles.curvedArrowGlow} />
-      <Svg width="100%" height="100%" viewBox="0 0 104 96">
+      <Svg width="100%" height="100%" viewBox="0 0 110 96">
         <Path
-          d="M11 10 C57 7 76 22 74 48 C73 63 81 70 92 74"
+          d="M14 12 C 56 -4 96 16 74 50 C 62 68 74 78 94 84"
           stroke={GOLD}
           strokeWidth={4}
           strokeLinecap="round"
@@ -62,7 +60,7 @@ function CurvedPrayerArrow() {
           fill="none"
         />
         <Path
-          d="M78 64 L93 74 L81 87"
+          d="M80 70 L96 84 L84 96"
           stroke={GOLD}
           strokeWidth={4}
           strokeLinecap="round"
@@ -122,6 +120,29 @@ const FLOW_STEPS = [
   { title: 'Prayer', subtitle: 'Get a guided prayer', Icon: Sparkles },
 ];
 
+function SnakeConnector({ flip }: { flip: boolean }) {
+  const d = flip
+    ? 'M12 2 C 12 14 48 10 48 20 C 48 30 18 26 18 33'
+    : 'M48 2 C 48 14 12 10 12 20 C 12 30 42 26 42 33';
+  const arrowD = flip ? 'M11 27 L18 34 L25 28' : 'M35 27 L42 34 L49 28';
+
+  return (
+    <View style={styles.flowArrowWrap}>
+      <Svg width="60" height="36" viewBox="0 0 60 36">
+        <Path d={d} stroke={GOLD} strokeWidth={3} strokeLinecap="round" fill="none" />
+        <Path
+          d={arrowD}
+          stroke={GOLD}
+          strokeWidth={3}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+      </Svg>
+    </View>
+  );
+}
+
 function VerseFlowVisual({ compact }: { compact: boolean }) {
   return (
     <View style={[styles.flowStage, compact && styles.flowStageCompact]}>
@@ -139,11 +160,7 @@ function VerseFlowVisual({ compact }: { compact: boolean }) {
               </View>
               <ChevronRight size={19} color="#9AA7BB" strokeWidth={2} />
             </View>
-            {index < FLOW_STEPS.length - 1 && (
-              <View style={styles.flowArrowWrap}>
-                <ArrowDown size={19} color={GOLD} strokeWidth={2.2} />
-              </View>
-            )}
+            {index < FLOW_STEPS.length - 1 && <SnakeConnector flip={index % 2 === 0} />}
           </View>
         );
       })}
@@ -196,10 +213,46 @@ function CommunityCard({
   );
 }
 
+function Globe() {
+  return (
+    <Svg width="100%" height="100%" viewBox="0 0 220 150">
+      <Defs>
+        <RadialGradient id="globeGrad" cx="38%" cy="32%" r="75%">
+          <Stop offset="0%" stopColor="#F4F8FF" stopOpacity={1} />
+          <Stop offset="55%" stopColor="#D3E4FC" stopOpacity={1} />
+          <Stop offset="100%" stopColor="#A2C2ED" stopOpacity={1} />
+        </RadialGradient>
+      </Defs>
+
+      {/* sphere body */}
+      <Circle cx="110" cy="78" r="62" fill="url(#globeGrad)" />
+
+      {/* meridians */}
+      <Path d="M110 16 L110 140" stroke="#A9C6F0" strokeWidth={1.3} fill="none" opacity={0.85} />
+      <Path d="M110 16 A 44 62 0 0 1 110 140" stroke="#A9C6F0" strokeWidth={1.3} fill="none" opacity={0.85} />
+      <Path d="M110 16 A 44 62 0 0 0 110 140" stroke="#A9C6F0" strokeWidth={1.3} fill="none" opacity={0.85} />
+      <Path d="M110 16 A 20 62 0 0 1 110 140" stroke="#A9C6F0" strokeWidth={1} fill="none" opacity={0.55} />
+      <Path d="M110 16 A 20 62 0 0 0 110 140" stroke="#A9C6F0" strokeWidth={1} fill="none" opacity={0.55} />
+
+      {/* parallels */}
+      <Ellipse cx="110" cy="78" rx="62" ry="15" stroke="#A9C6F0" strokeWidth={1.3} fill="none" opacity={0.85} />
+      <Ellipse cx="110" cy="50" rx="53" ry="8" stroke="#A9C6F0" strokeWidth={1.1} fill="none" opacity={0.65} />
+      <Ellipse cx="110" cy="106" rx="53" ry="8" stroke="#A9C6F0" strokeWidth={1.1} fill="none" opacity={0.65} />
+
+      {/* outline */}
+      <Circle cx="110" cy="78" r="62" fill="none" stroke="#89ADE2" strokeWidth={1.6} />
+
+      {/* shine */}
+      <Ellipse cx="85" cy="52" rx="22" ry="13" fill="#FFFFFF" opacity={0.32} />
+    </Svg>
+  );
+}
+
 function CommunityVisual({ compact }: { compact: boolean }) {
   return (
     <View style={[styles.communityStage, compact && styles.communityStageCompact]}>
       <View style={styles.communityGlow} />
+
       <CommunityCard
         name="Sarah M."
         time="2h ago"
@@ -216,13 +269,7 @@ function CommunityVisual({ compact }: { compact: boolean }) {
       />
 
       <View style={styles.globeWrap}>
-        <Svg width="100%" height="100%" viewBox="0 0 240 120">
-          <Circle cx="120" cy="92" r="88" fill="#DFEAFF" />
-          <Path d="M44 88 C66 72 87 68 104 76 C123 85 135 69 152 65 C174 60 196 73 211 88" stroke="#B8CFF1" strokeWidth="3" fill="none" />
-          <Path d="M78 43 C91 52 91 63 84 71 C78 79 80 91 96 99" stroke="#B8CFF1" strokeWidth="3" fill="none" />
-          <Path d="M154 42 C142 53 143 66 156 74 C169 82 166 95 157 104" stroke="#B8CFF1" strokeWidth="3" fill="none" />
-        </Svg>
-        <Globe2 size={104} color="#ABC4EA" strokeWidth={1.1} style={styles.globeIcon} />
+        <Globe />
         <Avatar style={styles.globeAvatarLeft} />
         <Avatar style={styles.globeAvatarRight} />
       </View>
@@ -471,9 +518,9 @@ const styles = StyleSheet.create({
   },
   curvedArrowWrap: {
     position: 'absolute',
-    width: 104,
+    width: 110,
     height: 96,
-    right: 32,
+    right: 26,
     top: 150,
     zIndex: 8,
   },
@@ -584,18 +631,18 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   flowArrowWrap: {
-    height: 23,
+    height: 34,
     alignItems: 'center',
     justifyContent: 'center',
   },
   communityStage: {
     width: '100%',
-    height: 360,
+    height: 400,
     position: 'relative',
     overflow: 'hidden',
   },
   communityStageCompact: {
-    height: 310,
+    height: 350,
     transform: [{ scale: 0.92 }],
   },
   communityGlow: {
@@ -621,12 +668,14 @@ const styles = StyleSheet.create({
     zIndex: 4,
   },
   communityOne: {
-    top: 16,
-    right: 6,
+    top: 6,
+    left: 8,
+    transform: [{ rotate: '-3deg' }],
   },
   communityTwo: {
-    top: 147,
-    right: 0,
+    top: 172,
+    right: 6,
+    transform: [{ rotate: '3deg' }],
   },
   communityHeader: {
     flexDirection: 'row',
@@ -680,26 +729,21 @@ const styles = StyleSheet.create({
   },
   globeWrap: {
     position: 'absolute',
-    width: 250,
-    height: 128,
-    left: 31,
+    width: 220,
+    height: 150,
+    left: '50%',
+    marginLeft: -110,
     bottom: -4,
-  },
-  globeIcon: {
-    position: 'absolute',
-    left: 74,
-    top: 14,
-    opacity: 0.55,
   },
   globeAvatarLeft: {
     position: 'absolute',
-    left: 20,
-    top: 37,
+    left: 27,
+    top: 59,
   },
   globeAvatarRight: {
     position: 'absolute',
-    right: 16,
-    top: 50,
+    right: 31,
+    top: 59,
   },
   bottomArea: {
     width: '100%',
