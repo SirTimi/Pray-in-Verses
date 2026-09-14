@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Platform,
   Pressable,
   RefreshControl,
@@ -106,33 +107,39 @@ export default function HomeScreen() {
         }
       >
         <View style={styles.hero}>
+          <View style={styles.heroHalo} />
           <View style={styles.sun} />
-          <View style={styles.hillOne} />
-          <View style={styles.hillTwo} />
+          <View style={styles.hillBack} />
+          <View style={styles.hillFront} />
 
           <View style={styles.heroTopRow}>
-            <View>
+            <View style={styles.heroCopy}>
               <Text style={styles.greeting}>{getGreeting()},</Text>
-              <Text style={styles.name}>{firstName}</Text>
+              <Text numberOfLines={1} style={styles.name}>{firstName}</Text>
             </View>
 
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Notifications"
-              style={styles.bellButton}
+              style={({ pressed }) => [styles.bellButton, pressed && styles.pressed]}
               onPress={() => router.push('/(app)/notifications')}
             >
-              <Bell size={21} color={colors.white} />
+              <Bell size={21} color={colors.white} strokeWidth={1.9} />
             </Pressable>
           </View>
 
-          <Text style={styles.heroLine}>A new day. A new verse.</Text>
-          <Text style={styles.heroLine}>A deeper prayer life.</Text>
+          <Text style={styles.heroLine}>A new day. A new verse. A deeper prayer life.</Text>
         </View>
 
         <View style={styles.main}>
           <View style={styles.dailyCard}>
-            <Text style={styles.sectionEyebrow}>VERSE OF THE DAY</Text>
+            <View style={styles.dailyHeaderRow}>
+              <View style={styles.dailyEyebrowWrap}>
+                <View style={styles.goldDot} />
+                <Text style={styles.sectionEyebrow}>VERSE OF THE DAY</Text>
+              </View>
+              <Text style={styles.todayLabel}>TODAY</Text>
+            </View>
 
             {loading ? (
               <View style={styles.loadingRow}>
@@ -140,9 +147,9 @@ export default function HomeScreen() {
                 <Text style={styles.mutedText}>Loading today’s Scripture…</Text>
               </View>
             ) : verse ? (
-              <Pressable onPress={openVerse} style={styles.dailyPressable}>
+              <Pressable onPress={openVerse} style={({ pressed }) => [styles.dailyPressable, pressed && styles.pressed]}>
                 <View style={styles.dailyIcon}>
-                  <BookOpen size={24} color={colors.primaryDark} />
+                  <BookOpen size={25} color={colors.primaryDark} strokeWidth={1.9} />
                 </View>
                 <View style={styles.dailyTextBlock}>
                   <Text style={styles.dailyReference}>
@@ -151,9 +158,10 @@ export default function HomeScreen() {
                   <Text numberOfLines={3} style={styles.dailyScripture}>
                     “{verse.scriptureText}”
                   </Text>
-                </View>
-                <View style={styles.circleArrow}>
-                  <ChevronRight size={18} color={colors.primary} />
+                  <View style={styles.readRow}>
+                    <Text style={styles.readText}>Read & pray</Text>
+                    <ChevronRight size={14} color={colors.primary} strokeWidth={2.2} />
+                  </View>
                 </View>
               </Pressable>
             ) : (
@@ -168,56 +176,82 @@ export default function HomeScreen() {
             </Pressable>
           )}
 
-          <Text style={styles.sectionEyebrow}>BROWSE SCRIPTURE</Text>
+          <SectionHeading title="Browse Scripture" />
           <View style={styles.actionsGrid}>
             <QuickAction
               label="Bible Books"
-              icon={<BookOpen size={24} color={colors.primary} />}
+              tint="#EEF3FF"
+              icon={<BookOpen size={24} color={colors.primary} strokeWidth={1.9} />}
               onPress={() => router.push('/(app)/(tabs)/browse')}
             />
             <QuickAction
               label="Search"
-              icon={<Search size={24} color={colors.primary} />}
+              tint="#F1F5FF"
+              icon={<Search size={24} color={colors.primary} strokeWidth={1.9} />}
               onPress={() => router.push('/(app)/(tabs)/browse/search')}
             />
             <QuickAction
               label="Daily Verse"
-              icon={<Sparkles size={24} color="#C58A00" />}
+              tint="#FFF8DF"
+              icon={<Sparkles size={24} color="#B77A00" strokeWidth={1.9} />}
               onPress={openVerse}
             />
             <QuickAction
               label="Prayer Wall"
-              icon={<UsersRound size={24} color="#D44755" />}
+              tint="#FFF0F1"
+              icon={<UsersRound size={24} color="#C94150" strokeWidth={1.9} />}
               onPress={() => router.push('/(app)/(tabs)/community')}
             />
           </View>
 
           <View style={styles.twoCards}>
-            <Pressable style={[styles.featureCard, styles.savedCard]} onPress={() => router.push('/(app)/saved')}>
-              <Heart size={22} color="#C58A00" />
+            <Pressable
+              style={({ pressed }) => [styles.featureCard, styles.savedCard, pressed && styles.pressed]}
+              onPress={() => router.push('/(app)/saved')}
+            >
+              <View style={styles.featureTopRow}>
+                <View style={[styles.featureIcon, styles.savedIcon]}>
+                  <Heart size={21} color="#B77A00" strokeWidth={1.9} />
+                </View>
+                <ChevronRight size={17} color="#A18A4C" />
+              </View>
               <Text style={styles.featureTitle}>Saved Prayers</Text>
-              <Text style={styles.featureBody}>Your prayer library</Text>
+              <Text style={styles.featureBody}>Return to the prayers that spoke to you.</Text>
             </Pressable>
-            <Pressable style={[styles.featureCard, styles.journalCard]} onPress={() => router.push('/(app)/journal')}>
-              <BookOpen size={22} color="#2A7582" />
+
+            <Pressable
+              style={({ pressed }) => [styles.featureCard, styles.journalCard, pressed && styles.pressed]}
+              onPress={() => router.push('/(app)/journal')}
+            >
+              <View style={styles.featureTopRow}>
+                <View style={[styles.featureIcon, styles.journalIcon]}>
+                  <BookOpen size={21} color="#2A7582" strokeWidth={1.9} />
+                </View>
+                <ChevronRight size={17} color="#6F979D" />
+              </View>
               <Text style={styles.featureTitle}>Journal</Text>
-              <Text style={styles.featureBody}>Record what God is doing</Text>
+              <Text style={styles.featureBody}>Record what God is doing in your prayer life.</Text>
             </Pressable>
           </View>
 
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Support the Mission"
-            style={styles.supportCard}
+            style={({ pressed }) => [styles.supportCard, pressed && styles.pressed]}
             onPress={() => router.push('/(app)/support/donate')}
           >
-            <View style={styles.supportIcon}>
-              <Heart size={22} color="#C58A00" />
+            <View style={styles.supportGlow} />
+            <View style={styles.supportLogoWrap}>
+              <Image
+                source={require('../../../../assets/images/PIV-logo.png')}
+                resizeMode="contain"
+                style={styles.supportLogo}
+              />
             </View>
             <View style={styles.supportCopy}>
               <Text style={styles.supportEyebrow}>SUPPORT PRAY IN VERSES</Text>
               <Text style={styles.supportTitle}>Support the Mission</Text>
-              <Text style={styles.supportBody}>Help us keep prayer resources free and growing.</Text>
+              <Text style={styles.supportBody}>Help keep Scripture-led prayer resources free and growing.</Text>
             </View>
             <View style={styles.supportArrow}>
               <ChevronRight size={18} color={colors.white} />
@@ -225,7 +259,7 @@ export default function HomeScreen() {
           </Pressable>
 
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionEyebrow}>RECENT PRAYER WALL REQUESTS</Text>
+            <SectionHeading title="Recent Prayer Wall Requests" compact />
             <Pressable onPress={() => router.push('/(app)/(tabs)/community')}>
               <Text style={styles.viewAll}>View all</Text>
             </Pressable>
@@ -239,18 +273,25 @@ export default function HomeScreen() {
             wall.map((request) => (
               <Pressable
                 key={request.id}
-                style={styles.wallCard}
+                style={({ pressed }) => [styles.wallCard, pressed && styles.pressed]}
                 onPress={() => router.push('/(app)/(tabs)/community')}
               >
                 <View style={styles.avatarCircle}>
-                  <Text style={styles.avatarText}>{request.anonymous ? '🙏' : request.title.slice(0, 1).toUpperCase()}</Text>
+                  <Text style={styles.avatarText}>
+                    {request.anonymous ? 'A' : request.title.slice(0, 1).toUpperCase()}
+                  </Text>
                 </View>
                 <View style={styles.wallBody}>
-                  <Text style={styles.wallTitle}>{request.title}</Text>
+                  <Text numberOfLines={1} style={styles.wallTitle}>{request.title}</Text>
                   <Text numberOfLines={2} style={styles.wallDescription}>{request.description}</Text>
-                  <Text style={styles.wallMeta}>♥ {request._count?.likes ?? 0} prayers</Text>
+                  <View style={styles.wallMetaRow}>
+                    <Heart size={13} color="#D44755" fill="#D44755" />
+                    <Text style={styles.wallMeta}>{request._count?.likes ?? 0} prayers</Text>
+                  </View>
                 </View>
-                <ChevronRight size={18} color={colors.textMuted} />
+                <View style={styles.wallChevron}>
+                  <ChevronRight size={17} color={colors.textMuted} />
+                </View>
               </Pressable>
             ))
           )}
@@ -263,120 +304,316 @@ export default function HomeScreen() {
 type QuickActionProps = {
   label: string;
   icon: ReactNode;
+  tint: string;
   onPress: () => void;
 };
 
-function QuickAction({ label, icon, onPress }: QuickActionProps) {
+function QuickAction({ label, icon, tint, onPress }: QuickActionProps) {
   return (
-    <Pressable style={styles.actionCard} onPress={onPress}>
-      <View style={styles.actionIcon}>{icon}</View>
+    <Pressable style={({ pressed }) => [styles.actionCard, pressed && styles.pressed]} onPress={onPress}>
+      <View style={[styles.actionIcon, { backgroundColor: tint }]}>{icon}</View>
       <Text style={styles.actionLabel}>{label}</Text>
     </Pressable>
   );
 }
 
+function SectionHeading({ title, compact = false }: { title: string; compact?: boolean }) {
+  return (
+    <Text style={[styles.sectionTitle, compact && styles.sectionTitleCompact]}>{title}</Text>
+  );
+}
+
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.primaryDark },
-  scroll: { flex: 1, backgroundColor: colors.background },
-  content: { paddingBottom: 28 },
+  scroll: { flex: 1, backgroundColor: '#FFFDF8' },
+  content: { paddingBottom: 132 },
+  pressed: { opacity: 0.82 },
+
   hero: {
-    height: 225,
+    height: 238,
     overflow: 'hidden',
     backgroundColor: colors.primaryDark,
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.lg,
   },
+  heroHalo: {
+    position: 'absolute',
+    width: 255,
+    height: 255,
+    borderRadius: 128,
+    right: -74,
+    bottom: -80,
+    backgroundColor: '#FCCF3A',
+    opacity: 0.07,
+  },
   sun: {
-    position: 'absolute', width: 210, height: 210, borderRadius: 105,
-    backgroundColor: '#F6C453', opacity: 0.28, right: -50, bottom: -55,
+    position: 'absolute',
+    width: 145,
+    height: 145,
+    borderRadius: 73,
+    right: -8,
+    bottom: -38,
+    backgroundColor: '#F6C453',
+    opacity: 0.18,
   },
-  hillOne: {
-    position: 'absolute', width: 350, height: 120, borderRadius: 180,
-    backgroundColor: '#315B8E', left: -130, bottom: -58, transform: [{ rotate: '-7deg' }],
+  hillBack: {
+    position: 'absolute',
+    width: 390,
+    height: 118,
+    borderRadius: 190,
+    backgroundColor: '#2C5689',
+    left: -132,
+    bottom: -70,
+    transform: [{ rotate: '-5deg' }],
   },
-  hillTwo: {
-    position: 'absolute', width: 390, height: 145, borderRadius: 210,
-    backgroundColor: '#183F73', right: -160, bottom: -72, transform: [{ rotate: '8deg' }],
+  hillFront: {
+    position: 'absolute',
+    width: 430,
+    height: 145,
+    borderRadius: 220,
+    backgroundColor: '#153B6F',
+    right: -185,
+    bottom: -84,
+    transform: [{ rotate: '7deg' }],
   },
-  heroTopRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
-  greeting: { color: 'rgba(255,255,255,0.86)', fontSize: 16, lineHeight: 22 },
-  name: { color: colors.white, fontFamily: SERIF_FONT, fontSize: 31, lineHeight: 37, fontWeight: '700' },
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  heroCopy: { flex: 1, paddingRight: spacing.lg },
+  greeting: { color: 'rgba(255,255,255,0.78)', fontSize: 15, lineHeight: 21 },
+  name: {
+    color: colors.white,
+    fontFamily: SERIF_FONT,
+    fontSize: 34,
+    lineHeight: 40,
+    fontWeight: '700',
+    letterSpacing: -0.4,
+  },
   bellButton: {
-    width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.13)',
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(255,255,255,0.10)',
   },
-  heroLine: { color: 'rgba(255,255,255,0.82)', fontSize: 14, lineHeight: 20 },
-  main: { paddingHorizontal: spacing.base, marginTop: -42 },
+  heroLine: {
+    maxWidth: 270,
+    marginTop: 12,
+    color: 'rgba(255,255,255,0.78)',
+    fontSize: 14,
+    lineHeight: 21,
+  },
+
+  main: { paddingHorizontal: spacing.base, marginTop: -48 },
   dailyCard: {
-    borderRadius: radius.lg, backgroundColor: colors.surface, padding: spacing.base,
-    shadowColor: '#0B1F4D', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.10, shadowRadius: 14, elevation: 4,
-    marginBottom: spacing.xl,
+    borderWidth: 1,
+    borderColor: '#ECE7DD',
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    padding: 18,
+    shadowColor: '#0B1F4D',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.10,
+    shadowRadius: 18,
+    elevation: 5,
+    marginBottom: 28,
   },
-  sectionEyebrow: { color: '#52627B', fontSize: 10, fontWeight: '800', letterSpacing: 1.35 },
-  dailyPressable: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.md },
-  dailyIcon: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.goldSoft },
+  dailyHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dailyEyebrowWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  goldDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#E1AC17' },
+  sectionEyebrow: { color: '#56657A', fontSize: 10, fontWeight: '900', letterSpacing: 1.45 },
+  todayLabel: { color: '#A3ABBA', fontSize: 9, fontWeight: '800', letterSpacing: 1.2 },
+  dailyPressable: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, marginTop: 15 },
+  dailyIcon: {
+    width: 54,
+    height: 54,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF8D9',
+  },
   dailyTextBlock: { flex: 1 },
-  dailyReference: { color: colors.primaryDark, fontFamily: SERIF_FONT, fontSize: 19, lineHeight: 24, fontWeight: '700' },
-  dailyScripture: { color: colors.textSecondary, fontSize: 13, lineHeight: 19, marginTop: 3 },
-  circleArrow: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft },
-  loadingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.lg },
+  dailyReference: {
+    color: colors.primaryDark,
+    fontFamily: SERIF_FONT,
+    fontSize: 21,
+    lineHeight: 26,
+    fontWeight: '700',
+  },
+  dailyScripture: { color: '#667085', fontSize: 13, lineHeight: 19, marginTop: 4 },
+  readRow: { flexDirection: 'row', alignItems: 'center', marginTop: 9 },
+  readText: { color: colors.primary, fontSize: 11, fontWeight: '800' },
+  loadingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.xl },
   mutedText: { color: colors.textSecondary, fontSize: 14, lineHeight: 20 },
+
   errorBox: { backgroundColor: '#FFF1F0', borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.xl },
   errorText: { color: colors.error, fontSize: 13, lineHeight: 19 },
   retryText: { color: colors.primary, fontSize: 12, fontWeight: '800', marginTop: 5 },
-  actionsGrid: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md, marginBottom: spacing.lg },
-  actionCard: { flex: 1, alignItems: 'center' },
-  actionIcon: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  actionLabel: { color: colors.primaryDark, fontSize: 11, fontWeight: '700', textAlign: 'center', marginTop: 7 },
-  twoCards: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.lg },
-  featureCard: { flex: 1, minHeight: 112, borderRadius: radius.lg, padding: spacing.base, borderWidth: 1 },
-  savedCard: { backgroundColor: '#FFF9E7', borderColor: '#F7E5A5' },
-  journalCard: { backgroundColor: '#F2FAFB', borderColor: '#D7ECEF' },
-  featureTitle: { color: colors.primaryDark, fontFamily: SERIF_FONT, fontSize: 16, fontWeight: '700', marginTop: spacing.md },
-  featureBody: { color: colors.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 2 },
-  supportCard: {
-    minHeight: 104,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: colors.primaryDark,
-    padding: spacing.base,
-    marginBottom: spacing.xl,
-    shadowColor: '#0B1F4D',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.10,
-    shadowRadius: 12,
-    elevation: 3,
+
+  sectionTitle: {
+    color: colors.primaryDark,
+    fontFamily: SERIF_FONT,
+    fontSize: 18,
+    lineHeight: 23,
+    fontWeight: '700',
+    marginBottom: 14,
   },
-  supportIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+  sectionTitleCompact: { fontSize: 16, marginBottom: 0 },
+  actionsGrid: { flexDirection: 'row', gap: 8, marginBottom: 24 },
+  actionCard: { flex: 1, alignItems: 'center' },
+  actionIcon: {
+    width: 58,
+    height: 58,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.goldSoft,
+    borderWidth: 1,
+    borderColor: '#E8E7E4',
   },
+  actionLabel: {
+    color: colors.primaryDark,
+    fontSize: 10.5,
+    lineHeight: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+
+  twoCards: { flexDirection: 'row', gap: 12, marginBottom: 18 },
+  featureCard: {
+    flex: 1,
+    minHeight: 142,
+    borderRadius: 22,
+    padding: 16,
+    borderWidth: 1,
+  },
+  savedCard: { backgroundColor: '#FFF9E8', borderColor: '#F3E2A3' },
+  journalCard: { backgroundColor: '#F1FAFB', borderColor: '#D4EBEE' },
+  featureTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  featureIcon: { width: 40, height: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  savedIcon: { backgroundColor: '#FFF2BC' },
+  journalIcon: { backgroundColor: '#DFF2F4' },
+  featureTitle: {
+    color: colors.primaryDark,
+    fontFamily: SERIF_FONT,
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: '700',
+    marginTop: 14,
+  },
+  featureBody: { color: colors.textSecondary, fontSize: 11.5, lineHeight: 17, marginTop: 4 },
+
+  supportCard: {
+    minHeight: 116,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    overflow: 'hidden',
+    borderRadius: 22,
+    backgroundColor: colors.primaryDark,
+    padding: 16,
+    marginBottom: 28,
+    shadowColor: '#0B1F4D',
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.13,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  supportGlow: {
+    position: 'absolute',
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    right: -44,
+    top: -72,
+    backgroundColor: '#FCCF3A',
+    opacity: 0.10,
+  },
+  supportLogoWrap: {
+    width: 58,
+    height: 58,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFEF8',
+  },
+  supportLogo: { width: 49, height: 49 },
   supportCopy: { flex: 1 },
-  supportEyebrow: { color: colors.gold, fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
-  supportTitle: { color: colors.white, fontFamily: SERIF_FONT, fontSize: 18, fontWeight: '700', marginTop: 4 },
-  supportBody: { color: 'rgba(255,255,255,0.78)', fontSize: 12, lineHeight: 17, marginTop: 3 },
+  supportEyebrow: { color: colors.gold, fontSize: 9, fontWeight: '900', letterSpacing: 1.15 },
+  supportTitle: {
+    color: colors.white,
+    fontFamily: SERIF_FONT,
+    fontSize: 19,
+    lineHeight: 24,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  supportBody: { color: 'rgba(255,255,255,0.74)', fontSize: 11.5, lineHeight: 16, marginTop: 3 },
   supportArrow: {
     width: 34,
     height: 34,
     borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255,255,255,0.10)',
   },
-  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md },
+
+  sectionHeaderRow: {
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
   viewAll: { color: colors.primary, fontSize: 12, fontWeight: '800' },
-  wallCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.sm },
-  avatarCircle: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: '#DDE8FF' },
-  avatarText: { color: colors.primaryDark, fontSize: 14, fontWeight: '800' },
+  emptyWall: {
+    borderWidth: 1,
+    borderColor: '#ECE7DD',
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    padding: spacing.lg,
+  },
+  wallCard: {
+    minHeight: 96,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#ECE7DD',
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+  },
+  avatarCircle: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E8F0FF',
+  },
+  avatarText: { color: colors.primaryDark, fontFamily: SERIF_FONT, fontSize: 17, fontWeight: '700' },
   wallBody: { flex: 1 },
-  wallTitle: { color: colors.primaryDark, fontSize: 14, fontWeight: '800' },
-  wallDescription: { color: colors.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 2 },
-  wallMeta: { color: '#D44755', fontSize: 11, fontWeight: '700', marginTop: 5 },
-  emptyWall: { padding: spacing.lg, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  wallTitle: { color: colors.primaryDark, fontFamily: SERIF_FONT, fontSize: 15, fontWeight: '700' },
+  wallDescription: { color: colors.textSecondary, fontSize: 11.5, lineHeight: 16, marginTop: 3 },
+  wallMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
+  wallMeta: { color: '#B33E4B', fontSize: 10.5, fontWeight: '700' },
+  wallChevron: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F7F8FA',
+  },
 });

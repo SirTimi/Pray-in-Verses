@@ -16,60 +16,56 @@ Accepted product work also includes the 19 reference-board screens, shared web/m
 
 ## Current Implementation
 
-### Current visual-polish slice: Reference Screens 1–5
+### Visual polish: Reference Screens 1–5
 
-The user supplied a five-screen design board and asked that the real mobile app replicate it closely.
+- Screen 1 JS launch/splash matches the supplied scenic navy/gold reference direction and uses the actual `PIV-logo.png`.
+- Screens 2–4 onboarding now use the simpler reference-board hierarchy: Skip, centered serif title/copy, the three matching illustration compositions, three dots, and Next/Get Started.
+- Screen 5 Sign In uses `PIV-logo.png`, the white/navy/blue/gold reference composition, and keeps real email/password authentication intact.
+- Social sign-in remains visual-only and explicitly explains that OAuth is not connected rather than fabricating support.
 
-Implemented in this slice:
+### Current polish slice: Home + logo consistency
 
-- Screen 1 JS launch/splash rebuilt around the supplied board:
-  - deep blue-to-gold scenic background built with `react-native-svg`,
-  - layered mountain silhouettes and a warm horizon glow,
-  - white-tinted `PIV-logo.png`,
-  - `Pray Scripture. Live Scripture.` statement,
-  - small gold rule and `A CLOSER WALK / A BRIGHTER TOMORROW` footer,
-  - existing calm fade/scale entrance retained,
-  - session restoration behavior unchanged.
-- Screens 2–4 onboarding rebuilt to match the supplied board rather than the previous custom interpretation:
-  - clean warm-white canvas,
-  - Skip only in the top-right,
-  - large centered serif titles and matching board copy,
-  - Scripture-to-prayer stacked/rotated card composition,
-  - Book → Chapter → Verse → Prayer card flow,
-  - Prayer Wall community cards with globe/community treatment,
-  - three circular progress dots,
-  - bottom blue `Next` / `Get Started` CTA,
-  - subtle page fade/translate retained without adding visual elements not present on the board.
-- Screen 5 Sign In rebuilt to match the board:
-  - centered `PIV-logo.png`,
-  - navy serif heading and matching support copy,
-  - rounded email/password fields with icons,
-  - right-aligned forgot-password link,
-  - full-width blue Sign In CTA,
-  - `OR CONTINUE WITH` divider and three visual social buttons,
-  - social buttons explicitly explain that OAuth is not yet connected instead of pretending unsupported backend behavior exists,
-  - account creation link retained,
-  - pale blue top-right and gold bottom-left background accents.
-- No authentication endpoint, backend contract, routing behavior, database schema, or supported login method changed.
-- Expo SDK 57 reference documentation was re-read before this mobile code change.
+The signed-in Home screen has been visually refined without changing its real data sources or navigation behavior:
+
+- calmer deep-navy hero with subtler sunrise/hill treatment,
+- tighter personalized greeting hierarchy and refined notification button,
+- more premium Verse of the Day card with clearer reference/scripture hierarchy and a `Read & pray` cue,
+- softer and more consistent Browse Scripture quick-action surfaces,
+- stronger Saved Prayers and Journal feature cards,
+- Support the Mission now uses the actual Pray in Verses logo instead of a generic heart mark,
+- cleaner Prayer Wall preview cards,
+- substantially larger bottom content padding so lower content scrolls comfortably above the tab bar.
+
+Logo consistency has also been normalized in `mobile/app.json`:
+
+- top-level Expo app icon now points to `PIV-logo.png`,
+- iOS icon now points to `PIV-logo.png`,
+- Android adaptive icon foreground now points to `PIV-logo.png` on the warm off-white brand background,
+- old adaptive-icon background/monochrome template assets are no longer configured,
+- mobile web favicon now points to `PIV-logo.png`,
+- native Expo splash already uses `PIV-logo.png` and remains unchanged.
+
+Functional/navigation icons such as Home, Search, Bell, Book, Heart and Profile remain semantic icons. They are not brand-logo surfaces and are intentionally not replaced with the PIV logo.
+
+No backend contract, API endpoint, database schema, authentication behavior, payment behavior, or navigation route changed in this Home/logo polish slice.
 
 ## Testing Status
 
-Android device review required for this reference-replication slice:
+Android device review required:
 
-1. Cold/JS launch should visually read like Screen 1 of the supplied board, with no extra previous cream/orb composition.
-2. Onboarding should contain exactly three pages matching the board hierarchy and copy; no step badge, eyebrow, bottom helper text, or oversized framed panel from the prior version should remain.
-3. Page 1 should show the tilted Scripture card, prayer card and gold transformation cue.
-4. Page 2 should show Book, Chapter, Verse and highlighted Prayer rows with gold downward connectors.
-5. Page 3 should show the two Prayer Wall cards and pale globe/community scene.
-6. Dots and buttons should sit at the bottom like the board and remain reachable on shorter Android screens.
-7. Sign In should use the PIV logo and the board's white/navy/blue/gold composition.
-8. Email/password login, forgot-password navigation and Create account navigation must still work.
-9. Social buttons must not fake successful authentication; they should explain that email/password is currently supported.
+1. Home should feel calmer and less crowded while retaining the same personalized greeting, real Verse of the Day, Browse actions, Saved Prayers, Journal, Support the Mission and Prayer Wall preview.
+2. Verse of the Day should have clearer spacing and hierarchy and still open the correct verse/prayer flow.
+3. All four Browse actions should still route correctly.
+4. Saved Prayers, Journal and Support the Mission should still open their existing real screens.
+5. Lower Home content should scroll fully clear of the bottom tab bar.
+6. Support the Mission should show the actual `PIV-logo.png` inside its branded card.
+7. A fresh development/release APK is required to judge the launcher/native icon changes in `app.json`; Metro alone is sufficient to review the Home screen polish.
+8. After a fresh APK build, verify the PIV logo is legible and safely contained by the Android adaptive-icon mask on the target device.
 
 ## Known Issues / Release Notes
 
-- The native Expo splash and the JavaScript launch screen are separate layers. The current reference replication primarily targets the real JS launch screen; native cold-start artwork can be finalized during Android release polish if a dedicated white splash logo asset is supplied.
+- Android adaptive launcher icons apply platform masks and safe zones. The exact `PIV-logo.png` is now configured as requested, but its launcher presentation must be visually reviewed in a fresh APK because full wordmark-style artwork can render smaller than an icon-only mark.
+- The native Expo splash and JavaScript launch screen are separate layers.
 - `api/package-lock.json` still records mixed NestJS patch versions; the production Docker image normalizes the runtime Nest trio to 11.2.3.
 - Donation confirmation depends on Paystack webhook state and may remain Pending briefly after return.
 - Server notifications are an in-app inbox only; remote push-token delivery is not yet implemented.
@@ -80,21 +76,21 @@ Android device review required for this reference-replication slice:
 
 ## Next Tasks
 
-After Screens 1–5 are accepted:
+After the current Home/logo polish is accepted:
 
-1. Continue board-by-board visual polish through the signed-in app screens.
+1. Continue board-by-board polish through the remaining signed-in screens.
 2. Complete remaining About/Mission/Legal native screens and navigation.
-3. Finish Android release polish, App Links, icon/splash release assets, release build checks and Play Store readiness.
+3. Finish Android release polish, App Links, release build checks and Play Store readiness.
 4. Begin iOS release work after Android acceptance.
 
 ## Architecture Decisions
 
 - GitHub `main` remains the source of truth.
 - Expo SDK 57 versioned docs are authoritative.
-- The actual supplied `PIV-logo.png` is the selected in-app logo.
-- Reference-board fidelity takes priority during the polish pass, while unsupported backend behavior must not be fabricated.
-- Native UI primitives, `react-native-svg`, and existing `lucide-react-native` are used so the reference visuals remain responsive without adding a new native dependency.
+- `mobile/assets/images/PIV-logo.png` is the single selected mobile brand-logo asset.
+- Brand-logo surfaces use PIV artwork; functional UI icons remain semantic icons for clarity and accessibility.
+- Real API data and working navigation take priority over decorative changes during visual polish.
 
 ## Last Commit
 
-Current visual target: `polish(mobile): replicate reference screens 1-5`.
+Current visual target: `polish(mobile): refine home and unify PIV branding`.
