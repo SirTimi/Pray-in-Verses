@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   CheckCircle2,
   ChevronRight,
@@ -63,6 +63,7 @@ function formatRelativeDate(value: string) {
 
 export default function PrayTab() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [stats, setStats] = useState<PrayerStats>(EMPTY_STATS);
   const [prayers, setPrayers] = useState<PrayerPoint[]>([]);
@@ -151,7 +152,7 @@ export default function PrayTab() {
     }
   }
 
-  const showHeaderAdd = !loading && stats.total > 0;
+  const showFloatingAdd = !loading && stats.total > 0;
   const showEmptyAdd = !query && stats.total === 0;
 
   return (
@@ -180,17 +181,6 @@ export default function PrayTab() {
               Track what you are praying for and remember what God has answered.
             </Text>
           </View>
-
-          {showHeaderAdd ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Add prayer"
-              onPress={() => openEditor('new')}
-              style={styles.addIconButton}
-            >
-              <Plus size={23} color={colors.white} />
-            </Pressable>
-          ) : null}
         </View>
 
         <View style={styles.statsRow}>
@@ -371,6 +361,20 @@ export default function PrayTab() {
           </View>
         )}
       </ScrollView>
+
+      {showFloatingAdd ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Add prayer"
+          onPress={() => openEditor('new')}
+          style={[
+            styles.floatingAdd,
+            { bottom: Math.max(insets.bottom, 12) + 145 },
+          ]}
+        >
+          <Plus size={27} color={colors.white} strokeWidth={2.2} />
+        </Pressable>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -414,7 +418,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.base,
     paddingTop: spacing.lg,
-    paddingBottom: spacing.xxxl,
+    paddingBottom: 110,
   },
   headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
   headerCopy: { flex: 1 },
@@ -438,13 +442,23 @@ const styles = StyleSheet.create({
     marginTop: 6,
     maxWidth: 310,
   },
-  addIconButton: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+  floatingAdd: {
+    position: 'absolute',
+    right: 20,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primary,
+    borderWidth: 4,
+    borderColor: '#D8E5FF',
+    shadowColor: '#071F62',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 12,
+    elevation: 8,
+    zIndex: 20,
   },
   statsRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xl },
   statCard: {

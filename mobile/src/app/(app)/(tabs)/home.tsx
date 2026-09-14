@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.82 },
 
   hero: {
-    height: 260,
+    height: 292,
     overflow: 'hidden',
     backgroundColor: colors.primaryDark,
   },
@@ -357,20 +357,24 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: 96,
+    height: 110,
     backgroundColor: 'rgba(5, 22, 60, 0.22)',
   },
   heroContent: {
     flex: 1,
     paddingHorizontal: spacing.xl,
-    paddingTop: 38,
+    paddingTop: 18,
   },
   heroTopRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
   },
-  heroCopy: { flex: 1, paddingRight: spacing.lg },
+  heroCopy: {
+    flex: 1,
+    paddingRight: spacing.lg,
+    marginTop: 34,
+  },
   greeting: {
     color: 'rgba(255,255,255,0.92)',
     fontSize: 15,
@@ -403,7 +407,7 @@ const styles = StyleSheet.create({
   },
   heroLine: {
     maxWidth: 285,
-    marginTop: 16,
+    marginTop: 20,
     color: 'rgba(255,255,255,0.94)',
     fontSize: 14,
     lineHeight: 21,

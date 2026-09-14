@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  ImageBackground,
   Modal,
   Platform,
   Pressable,
@@ -13,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
   Bookmark,
@@ -47,6 +48,7 @@ const SERIF_FONT = Platform.select({
 
 export default function PrayerDetailScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ book?: string; chapter?: string; verse?: string }>();
   const book = Array.isArray(params.book) ? params.book[0] : params.book ?? '';
   const chapterValue = Array.isArray(params.chapter) ? params.chapter[0] : params.chapter;
@@ -186,11 +188,17 @@ export default function PrayerDetailScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.screen}>
-        <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-          <View style={styles.hero}>
-            <View style={styles.sunGlow} />
-            <View style={styles.hillOne} />
-            <View style={styles.hillTwo} />
+        <ScrollView
+          style={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          <ImageBackground
+            source={require('../../../../../../assets/images/prayer/prayer-detail-banner.jpg')}
+            resizeMode="cover"
+            style={styles.hero}
+          >
+            <View style={styles.heroOverlay} />
 
             <View style={styles.heroControls}>
               <Pressable accessibilityLabel="Back" onPress={() => router.back()} style={styles.heroButton}>
@@ -202,82 +210,91 @@ export default function PrayerDetailScreen() {
             </View>
 
             <View style={styles.heroCopy}>
-              <Text style={styles.reference}>{prayer.reference}</Text>
               <Text style={styles.version}>SCRIPTURE PRAYER</Text>
+              <Text style={styles.reference}>{prayer.reference}</Text>
               <Text style={styles.scripture}>“{prayer.scriptureText}”</Text>
             </View>
-          </View>
+          </ImageBackground>
 
           <View style={styles.content}>
-            <View style={styles.infoCard}>
-              <View style={[styles.cardIcon, styles.leafIcon]}>
-                <Leaf size={22} color="#4E9B70" />
+            <View style={styles.focusStrip}>
+              <View style={[styles.smallIcon, styles.leafIcon]}>
+                <Leaf size={19} color="#4E9B70" />
               </View>
-              <View style={styles.cardBody}>
-                <Text style={styles.cardLabel}>Theme / Focus</Text>
-                <Text style={styles.cardText}>{prayer.theme}</Text>
-              </View>
-            </View>
-
-            <View style={styles.infoCard}>
-              <View style={[styles.cardIcon, styles.bookIcon]}>
-                <BookOpen size={22} color={colors.primary} />
-              </View>
-              <View style={styles.cardBody}>
-                <Text style={styles.cardLabel}>Short Insight</Text>
-                <Text style={styles.cardText}>{prayer.insight}</Text>
+              <View style={styles.flexOne}>
+                <Text style={styles.miniLabel}>THEME / FOCUS</Text>
+                <Text style={styles.focusText}>{prayer.theme}</Text>
               </View>
             </View>
 
-            <View style={styles.infoCard}>
-              <View style={[styles.cardIcon, styles.listIcon]}>
-                <ListChecks size={22} color={colors.primary} />
-              </View>
-              <View style={styles.cardBody}>
-                <Text style={styles.cardLabel}>Prayer Points</Text>
-                <View style={styles.pointsList}>
-                  {prayer.prayerPoints.map((point, index) => {
-                    const saved = prayer.savedPointIndexes.includes(index);
-                    return (
-                      <View key={`${index}-${point}`} style={styles.pointRow}>
-                        <View style={styles.pointNumber}>
-                          <Text style={styles.pointNumberText}>{index + 1}</Text>
-                        </View>
-                        <Text style={styles.pointText}>{point}</Text>
-                        <Pressable
-                          accessibilityLabel={saved ? 'Unsave prayer point' : 'Save prayer point'}
-                          disabled={pointBusy !== null}
-                          onPress={() => void handlePointSave(index)}
-                          style={styles.pointSave}
-                        >
-                          {pointBusy === index ? (
-                            <ActivityIndicator size="small" color={colors.primary} />
-                          ) : saved ? (
-                            <Check size={17} color={colors.primary} />
-                          ) : (
-                            <Bookmark size={17} color={colors.textMuted} />
-                          )}
-                        </Pressable>
-                      </View>
-                    );
-                  })}
+            <View style={styles.sectionCard}>
+              <View style={styles.sectionHeader}>
+                <View style={[styles.smallIcon, styles.bookIcon]}>
+                  <BookOpen size={19} color={colors.primary} />
                 </View>
+                <Text style={styles.sectionTitle}>Short Insight</Text>
+              </View>
+              <Text style={styles.bodyText}>{prayer.insight}</Text>
+            </View>
+
+            <View style={styles.sectionCard}>
+              <View style={styles.sectionHeaderRow}>
+                <View style={styles.sectionHeader}>
+                  <View style={[styles.smallIcon, styles.listIcon]}>
+                    <ListChecks size={19} color={colors.primary} />
+                  </View>
+                  <Text style={styles.sectionTitle}>Prayer Points</Text>
+                </View>
+                <Text style={styles.savedCount}>{prayer.savedPointsCount}/{prayer.prayerPoints.length} saved</Text>
+              </View>
+
+              <View style={styles.pointsList}>
+                {prayer.prayerPoints.map((point, index) => {
+                  const saved = prayer.savedPointIndexes.includes(index);
+                  return (
+                    <View key={`${index}-${point}`} style={[styles.pointRow, index > 0 && styles.pointDivider]}>
+                      <View style={styles.pointNumber}>
+                        <Text style={styles.pointNumberText}>{index + 1}</Text>
+                      </View>
+                      <Text style={styles.pointText}>{point}</Text>
+                      <Pressable
+                        accessibilityLabel={saved ? 'Unsave prayer point' : 'Save prayer point'}
+                        disabled={pointBusy !== null}
+                        onPress={() => void handlePointSave(index)}
+                        style={[styles.pointSave, saved && styles.pointSaveActive]}
+                      >
+                        {pointBusy === index ? (
+                          <ActivityIndicator size="small" color={colors.primary} />
+                        ) : saved ? (
+                          <Check size={17} color={colors.primary} />
+                        ) : (
+                          <Bookmark size={17} color={colors.textMuted} />
+                        )}
+                      </Pressable>
+                    </View>
+                  );
+                })}
               </View>
             </View>
 
-            <View style={styles.infoCard}>
-              <View style={[styles.cardIcon, styles.prayerIcon]}>
-                <Sparkles size={22} color="#C58A00" />
+            <View style={styles.closingCard}>
+              <View style={styles.sectionHeader}>
+                <View style={[styles.smallIcon, styles.prayerIcon]}>
+                  <Sparkles size={19} color="#B77A00" />
+                </View>
+                <Text style={styles.sectionTitle}>Closing Prayer</Text>
               </View>
-              <View style={styles.cardBody}>
-                <Text style={styles.cardLabel}>Closing Prayer</Text>
-                <Text style={styles.cardText}>{prayer.closing}</Text>
-              </View>
+              <Text style={styles.closingText}>{prayer.closing}</Text>
             </View>
           </View>
         </ScrollView>
 
-        <View style={styles.footerActions}>
+        <View
+          style={[
+            styles.footerActions,
+            { paddingBottom: Math.max(insets.bottom, 12) },
+          ]}
+        >
           <Pressable
             disabled={saving}
             onPress={() => void handleSavePrayer()}
@@ -302,9 +319,9 @@ export default function PrayerDetailScreen() {
 
       <Modal visible={journalOpen} transparent animationType="slide" onRequestClose={() => setJournalOpen(false)}>
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
+          <View style={[styles.modalCard, { paddingBottom: Math.max(insets.bottom, 24) }]}>
             <View style={styles.modalHeader}>
-              <View>
+              <View style={styles.flexOne}>
                 <Text style={styles.modalEyebrow}>PRAYER JOURNAL</Text>
                 <Text style={styles.modalTitle}>Reflect on {prayer.reference}</Text>
               </View>
@@ -340,39 +357,225 @@ export default function PrayerDetailScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.primaryDark },
-  screen: { flex: 1, backgroundColor: colors.background },
+  screen: { flex: 1, backgroundColor: '#FFFDF8' },
   scroll: { flex: 1 },
-  hero: { minHeight: 330, overflow: 'hidden', backgroundColor: colors.primaryDark, paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xxl },
-  sunGlow: { position: 'absolute', width: 260, height: 260, borderRadius: 130, backgroundColor: '#F6C453', opacity: 0.25, right: -75, bottom: -70 },
-  hillOne: { position: 'absolute', width: 420, height: 150, borderRadius: 210, backgroundColor: '#315B8E', left: -155, bottom: -70, transform: [{ rotate: '-8deg' }] },
-  hillTwo: { position: 'absolute', width: 440, height: 165, borderRadius: 220, backgroundColor: '#173D70', right: -180, bottom: -90, transform: [{ rotate: '7deg' }] },
+  scrollContent: { paddingBottom: 18 },
+  hero: {
+    minHeight: 310,
+    overflow: 'hidden',
+    backgroundColor: colors.primaryDark,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xxl,
+  },
+  heroOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(7, 28, 80, 0.66)',
+  },
   heroControls: { flexDirection: 'row', justifyContent: 'space-between' },
-  heroButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.12)' },
-  heroCopy: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.md, paddingTop: spacing.lg },
-  reference: { color: colors.white, fontFamily: SERIF_FONT, fontSize: 27, lineHeight: 34, fontWeight: '700', textAlign: 'center' },
-  version: { color: 'rgba(255,255,255,0.72)', fontSize: 9, fontWeight: '800', letterSpacing: 1.7, marginTop: 4 },
-  scripture: { color: colors.white, fontFamily: SERIF_FONT, fontSize: 20, lineHeight: 29, textAlign: 'center', marginTop: spacing.lg },
-  content: { paddingHorizontal: spacing.base, paddingTop: spacing.base, paddingBottom: spacing.lg, gap: spacing.sm },
-  infoCard: { flexDirection: 'row', gap: spacing.md, padding: spacing.base, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
-  cardIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  heroButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: 'rgba(7,28,80,0.42)',
+  },
+  heroCopy: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    paddingTop: 20,
+  },
+  reference: {
+    color: colors.white,
+    fontFamily: SERIF_FONT,
+    fontSize: 29,
+    lineHeight: 35,
+    fontWeight: '700',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0,0,0,0.25)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  version: {
+    color: '#F8D86A',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.8,
+    marginBottom: 6,
+  },
+  scripture: {
+    maxWidth: 360,
+    color: colors.white,
+    fontFamily: SERIF_FONT,
+    fontSize: 18,
+    lineHeight: 27,
+    textAlign: 'center',
+    marginTop: 16,
+    textShadowColor: 'rgba(0,0,0,0.24)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  content: {
+    paddingHorizontal: spacing.base,
+    paddingTop: 18,
+    gap: 12,
+  },
+  flexOne: { flex: 1 },
+  focusStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#DDE9E2',
+    backgroundColor: '#F8FCF9',
+  },
+  miniLabel: {
+    color: '#6E7A73',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.25,
+  },
+  focusText: {
+    color: colors.primaryDark,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '800',
+    marginTop: 3,
+  },
+  sectionCard: {
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E6E8ED',
+    backgroundColor: colors.surface,
+  },
+  closingCard: {
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#F0DEA3',
+    backgroundColor: '#FFFBED',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  smallIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   leafIcon: { backgroundColor: '#EAF7EF' },
   bookIcon: { backgroundColor: '#EAF1FF' },
   listIcon: { backgroundColor: '#EEF3FF' },
-  prayerIcon: { backgroundColor: colors.goldSoft },
-  cardBody: { flex: 1 },
-  cardLabel: { color: colors.primary, fontSize: 12, fontWeight: '800', marginBottom: 4 },
-  cardText: { color: colors.textSecondary, fontSize: 14, lineHeight: 21 },
-  pointsList: { gap: 10, marginTop: 3 },
-  pointRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
-  pointNumber: { width: 23, height: 23, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.gold },
+  prayerIcon: { backgroundColor: '#FFF3C7' },
+  sectionTitle: {
+    color: colors.primaryDark,
+    fontFamily: SERIF_FONT,
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  savedCount: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  bodyText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 22,
+    marginTop: 13,
+  },
+  pointsList: { marginTop: 8 },
+  pointRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    paddingVertical: 12,
+  },
+  pointDivider: {
+    borderTopWidth: 1,
+    borderTopColor: '#EEF0F3',
+  },
+  pointNumber: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.gold,
+  },
   pointNumberText: { color: '#805700', fontSize: 11, fontWeight: '900' },
   pointText: { flex: 1, color: colors.textSecondary, fontSize: 13, lineHeight: 20 },
-  pointSave: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  footerActions: { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.base, paddingTop: spacing.sm, paddingBottom: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface },
-  secondaryButton: { flex: 1, minHeight: 52, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.primary, flexDirection: 'row', gap: 7, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
+  pointSave: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F7F8FA',
+  },
+  pointSaveActive: { backgroundColor: colors.primarySoft },
+  closingText: {
+    color: '#5F5A4A',
+    fontSize: 14,
+    lineHeight: 22,
+    marginTop: 13,
+    fontStyle: 'italic',
+  },
+  footerActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.base,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  secondaryButton: {
+    flex: 1,
+    minHeight: 52,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    flexDirection: 'row',
+    gap: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+  },
   savedButton: { backgroundColor: colors.primarySoft },
   secondaryButtonText: { color: colors.primary, fontSize: 13, fontWeight: '800' },
-  primaryButton: { flex: 1.25, minHeight: 52, borderRadius: radius.md, flexDirection: 'row', gap: 7, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
+  primaryButton: {
+    flex: 1.25,
+    minHeight: 52,
+    borderRadius: radius.md,
+    flexDirection: 'row',
+    gap: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+  },
   primaryButtonText: { color: colors.white, fontSize: 13, fontWeight: '800' },
   stateScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, padding: spacing.xl, backgroundColor: colors.background },
   stateText: { color: colors.textSecondary, fontSize: 14, lineHeight: 21, textAlign: 'center' },
@@ -382,7 +585,7 @@ const styles = StyleSheet.create({
   backLink: { padding: spacing.md },
   backLinkText: { color: colors.primary, fontSize: 13, fontWeight: '700' },
   modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(8,20,45,0.46)' },
-  modalCard: { borderTopLeftRadius: 26, borderTopRightRadius: 26, padding: spacing.xl, paddingBottom: 34, backgroundColor: colors.surface },
+  modalCard: { borderTopLeftRadius: 26, borderTopRightRadius: 26, paddingHorizontal: spacing.xl, paddingTop: spacing.xl, backgroundColor: colors.surface },
   modalHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md },
   modalEyebrow: { color: colors.primary, fontSize: 10, fontWeight: '900', letterSpacing: 1.3 },
   modalTitle: { color: colors.primaryDark, fontFamily: SERIF_FONT, fontSize: 22, fontWeight: '700', marginTop: 5 },
