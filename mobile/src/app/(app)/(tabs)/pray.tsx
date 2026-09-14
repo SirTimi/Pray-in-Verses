@@ -369,7 +369,7 @@ export default function PrayTab() {
           onPress={() => openEditor('new')}
           style={[
             styles.floatingAdd,
-            { bottom: Math.max(insets.bottom, 12) + 145 },
+            { bottom: Math.max(insets.bottom, 12) + 50 },
           ]}
         >
           <Plus size={27} color={colors.white} strokeWidth={2.2} />
@@ -444,7 +444,7 @@ const styles = StyleSheet.create({
   },
   floatingAdd: {
     position: 'absolute',
-    right: 20,
+    right: 15,
     width: 58,
     height: 58,
     borderRadius: 29,
@@ -457,8 +457,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.22,
     shadowRadius: 12,
-    elevation: 8,
-    zIndex: 20,
+    elevation: 10,
+    zIndex: 30,
   },
   statsRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xl },
   statCard: {

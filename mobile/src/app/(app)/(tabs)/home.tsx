@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.82 },
 
   hero: {
-    height: 292,
+    height: 250,
     overflow: 'hidden',
     backgroundColor: colors.primaryDark,
   },
@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
   heroContent: {
     flex: 1,
     paddingHorizontal: spacing.xl,
-    paddingTop: 18,
+    paddingTop: 20,
   },
   heroTopRow: {
     flexDirection: 'row',
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
   },
   heroLine: {
     maxWidth: 285,
-    marginTop: 20,
+    marginTop: 8,
     color: 'rgba(255,255,255,0.94)',
     fontSize: 14,
     lineHeight: 21,
