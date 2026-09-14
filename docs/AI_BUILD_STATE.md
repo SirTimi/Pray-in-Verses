@@ -16,85 +16,63 @@ Accepted product work also includes the 19 reference-board screens, shared web/m
 
 ## Current Implementation
 
-### Signed-in visual polish
+### Intro visual replication
 
-This revision responds to Android screenshots from the user and keeps all existing API behavior intact.
+The current visual target is the four ideal images generated and approved in chat: Splash, Turn Scripture Into Prayer, Pray Through Every Verse, and Pray Together.
 
-- **My Prayers list**
-  - The Add Prayer action is a floating circular `+` button on the right side instead of living in the page header.
-  - The floating action is only shown when prayers already exist; the empty-state Add Prayer button remains the single create action for a completely empty list.
-  - The FAB position includes the runtime bottom safe-area inset and stays above the app tab bar/system navigation area.
+- **Splash**
+  - `mobile/src/app/index.tsx` now uses the generated ideal sunrise/mountain Splash render as its full-screen visual layer.
+  - The visual therefore preserves the approved composition: Pray in Verses branding, blue-to-gold sunrise, mountain depth, “Pray Scripture. Live Scripture.” and the bottom “A CLOSER WALK / A BRIGHTER TOMORROW” treatment.
+  - A short fade plus very subtle zoom remains on launch.
+  - Existing `/auth/me` session restoration and routing to the signed-in app or onboarding are unchanged.
 
-- **My Prayer editor**
-  - The editor now includes the bottom safe area and adds runtime inset padding below the Save/Add Prayer button.
-  - Android keyboard avoidance now uses `height` instead of being disabled.
-  - The final action button can be fully scrolled above Android system navigation instead of ending underneath it.
+- **Onboarding 1 — Turn Scripture Into Prayer**
+  - Rebuilt to match the approved ideal: centered PIV branding, large navy serif heading, muted two-line support copy, tilted Philippians Scripture card, soft blue organic backdrop, large bent gold Scripture-to-Prayer connector, highlighted Prayer card, pale botanical accents, first active progress dot, and rounded royal-blue Next action.
 
-- **Prayer Detail**
-  - The hero uses the exact image used by the web `VerseDetails.jsx` page: `two-lovers-studying-the-bible-it-is-god-s-love-for-2022-06-18-20-18-08-utc.jpg`.
-  - The mobile asset is stored at `mobile/assets/images/prayer/prayer-detail-banner.jpg` using the same Git blob as the web image.
-  - The visual hierarchy is simplified: photo hero, compact Theme/Focus strip, one clean Short Insight card, cleaner Prayer Point rows with saved count, and a warm Closing Prayer card.
-  - Existing share, whole-prayer save, point save/unsave, and Add to Journal behavior is unchanged.
-  - The fixed Save Prayer / Add to Journal action bar pads itself with `useSafeAreaInsets()` so it stays above Android system navigation.
-  - The Journal bottom sheet also respects the bottom safe-area inset.
+- **Onboarding 2 — Pray Through Every Verse**
+  - Rebuilt to match the approved ideal: centered PIV branding, large navy serif heading, structured Book → Chapter → Verse → Prayer cards, pale-blue icon wells, gold vertical connectors, highlighted warm Prayer state, second active progress dot, and wide royal-blue Next action.
 
-- **Home**
-  - The web Home prayer-group photo remains the banner image.
-  - The banner is taller and the greeting, first name, and devotional sentence are moved visibly further down for better visual balance.
+- **Onboarding 3 — Pray Together**
+  - Rebuilt to match the approved ideal: large navy title, muted Prayer Wall copy, two floating community request cards, pale globe/network treatment, avatar nodes, restrained gold arc, third active progress dot, and wide Get Started action.
 
-### Onboarding 1 visual polish
+- Skip, Next, Get Started, page state, page-change fade, Login routing, and authentication behavior remain functional and unchanged.
+- The gray floating gear visible in development screenshots remains an Expo Dev Client overlay and is not app UI.
 
-- The Scripture → Prayer connector is now a custom curved SVG arrow rather than a straight diagonal icon.
-- The first onboarding illustration has a stronger transformation flow using a soft blue backdrop, restrained gold glow, Scripture icon treatment, cleaner card overlap, lighter card rotation, and a highlighted Prayer card.
-- The copy, navigation, dots, Skip, Next, and onboarding state behavior are unchanged.
-- No new dependency or native rebuild is required for this onboarding polish.
+### Existing signed-in polish retained
 
-### Splash + branding repair
+- My Prayers uses one floating Add action when the list contains prayers.
+- My Prayer editor bottom actions respect Android safe-area navigation.
+- Prayer Detail uses the exact web detail photograph and safe-area-aware Save/Journal actions.
+- Home uses the web prayer-group hero image and lowered greeting/name copy.
+- Donation presets format NGN values deterministically and the donation screen respects safe areas.
+- App/native icon configuration points to `PIV-logo.png`; a fresh APK is required to see launcher-icon changes.
 
-- `mobile/src/app/index.tsx` no longer applies a white tint to `PIV-logo.png`.
-- The previous tint turned every pixel in the opaque PNG white, which produced the blank white square seen on Android.
-- The actual PIV artwork now renders inside a deliberate rounded light brand plate with shadow instead of an accidental blank square.
-- The logo keeps the existing fade/scale entrance and the devotional copy keeps a subtle fade/up transition.
-- The splash footer now uses the runtime bottom inset so its small tagline stays above Android navigation.
-- `mobile/app.json` already points the general app icon, iOS icon, Android adaptive-icon foreground, web favicon, and native Expo splash image to `PIV-logo.png`.
-- A fresh native APK is required before the installed launcher icon can visibly change; Metro/JS reload cannot replace an already-installed Android launcher icon.
-
-### Support the Mission / donation repair
-
-- NGN amounts are now formatted with a deterministic thousands separator instead of relying on runtime `toLocaleString()` behavior.
-- Presets render as `₦1,000`, `₦2,000`, `₦5,000`, and `₦10,000`.
-- Preset labels use one-line font fitting and a limited font-scale multiplier so large Android accessibility text does not clip the final digit.
-- The donation screen now also respects the bottom safe area and uses Android `KeyboardAvoidingView` height behavior.
-- Paystack initialization, pending-reference persistence, webhook-backed status checks, success/failure handling, and Donation Policy behavior are unchanged.
-
-No backend, API contract, auth behavior, database schema, dependency, or payment contract changed in this revision.
+No backend, API contract, auth behavior, database schema, dependency, or payment contract changed in this intro visual cycle.
 
 ## Testing Status
 
 Android device review required:
 
-1. Onboarding 1 should show a visibly curved gold connector flowing from the Scripture card toward the Prayer card, with no clipping on the user's device.
-2. Splash should display the actual Pray in Verses logo artwork, not a blank white square.
-3. Splash logo plate should fade/scale in cleanly and the footer tagline must remain above Android navigation.
-4. Support the Mission presets must display the full values: `₦1,000`, `₦2,000`, `₦5,000`, `₦10,000`.
-5. My Prayer editor Save Changes/Add Prayer button must be fully visible and scroll above Android system navigation.
-6. Prayer Detail Save Prayer / Add to Journal must remain fully above Android navigation.
-7. Home greeting, name, and devotional sentence should sit lower in the photo banner than in the previous screenshot.
-8. A new development APK is required to judge the launcher icon because launcher/native icon assets are baked into the Android build.
+1. Splash should visually match the approved ideal sunrise reference and still route correctly after session restoration.
+2. Onboarding 1 should match the approved Scripture → Prayer composition, especially the curved gold connector and overlapping cards.
+3. Onboarding 2 should show the four-step Book → Chapter → Verse → Prayer stack with the final Prayer card highlighted.
+4. Onboarding 3 should show the two Prayer Wall cards over the globe/community network treatment.
+5. Skip must go to Login; Next must move 1 → 2 → 3; Get Started must go to Login.
+6. All four intro screens must fit the user's Android viewport without clipped CTA controls or text.
 
 ## Known Issues / Release Notes
 
-- The gray floating gear visible in development screenshots belongs to Expo Dev Client, not the Pray in Verses application UI.
-- Expo SDK 57 documentation notes that development builds do not fully reproduce the final standalone splash-screen experience; release/native builds remain the final splash validation target.
+- Different phone aspect ratios can slightly change native spacing; the target Android device remains the visual acceptance reference.
+- The first native cold-start frame still comes from Expo splash configuration; the JavaScript Splash implementation is the approved full visual Splash and can be reviewed immediately through Metro.
+- The gray floating gear belongs to Expo Dev Client, not Pray in Verses.
 - Donation confirmation depends on Paystack webhook state and may remain Pending briefly after return.
 - Server notifications are an in-app inbox only; remote push-token delivery is not yet implemented.
 - Prayer reminders remain device-local.
 - Verified Android App Links for password-reset emails remain part of Android release polish.
-- Email editing remains intentionally unavailable until verified email-change support exists.
 
 ## Next Tasks
 
-After this screenshot-driven polish is accepted:
+After these four intro screens are accepted:
 
 1. Continue signed-in screen visual polish screen by screen.
 2. Complete remaining About/Mission/Legal native screens and navigation.
@@ -105,11 +83,10 @@ After this screenshot-driven polish is accepted:
 
 - GitHub `main` remains the source of truth.
 - Expo SDK 57 versioned documentation is authoritative.
-- `react-native-safe-area-context` runtime insets are used for fixed/bottom controls rather than hard-coded Android navigation-bar guesses.
-- When the user asks mobile to reuse a web image, the exact repository asset/blob is reused rather than approximated.
-- Brand-logo placement uses the actual `PIV-logo.png` asset; functional navigation icons remain semantic icons.
-- Onboarding illustration polish should use native React Native/SVG composition rather than generated image assets so it stays responsive and editable.
+- The approved generated visuals are the visual specification for the current Splash/onboarding polish.
+- Session/auth/navigation behavior must remain native and functional even when visual treatment is heavily polished.
+- Brand-logo placement uses the actual `PIV-logo.png` asset on native onboarding layouts.
 
 ## Last Commit
 
-Current visual target: curved Scripture-to-Prayer onboarding connector and cleaner first onboarding composition, alongside the existing splash, donation, safe-area, and launcher-icon polish awaiting device review.
+Current visual target: pixel-close replication of the approved ideal Splash and three onboarding references. Status remains AWAITING USER TEST.
