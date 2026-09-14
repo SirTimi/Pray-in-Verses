@@ -15,14 +15,12 @@ import { StatusBar } from 'expo-status-bar';
 import Svg, { Circle, Path } from 'react-native-svg';
 import {
   ArrowDown,
-  ArrowDownRight,
   BookOpen,
   ChevronRight,
   FileText,
   Globe2,
   Heart,
   List,
-  MessageCircle,
   Sparkles,
   UserRound,
 } from 'lucide-react-native';
@@ -31,7 +29,6 @@ const NAVY = '#071C50';
 const BLUE = '#0B3BA7';
 const BLUE_SOFT = '#EAF2FF';
 const GOLD = '#F4B400';
-const GOLD_SOFT = '#FFF8DF';
 const MUTED = '#66758D';
 const BORDER = '#E2E8F0';
 const SERIF_FONT = Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' });
@@ -51,25 +48,60 @@ const PAGES = [
   },
 ] as const;
 
+function CurvedPrayerArrow() {
+  return (
+    <View pointerEvents="none" style={styles.curvedArrowWrap}>
+      <View style={styles.curvedArrowGlow} />
+      <Svg width="100%" height="100%" viewBox="0 0 104 96">
+        <Path
+          d="M11 10 C57 7 76 22 74 48 C73 63 81 70 92 74"
+          stroke={GOLD}
+          strokeWidth={4}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+        <Path
+          d="M78 64 L93 74 L81 87"
+          stroke={GOLD}
+          strokeWidth={4}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+      </Svg>
+    </View>
+  );
+}
+
 function ScriptureToPrayerVisual({ compact }: { compact: boolean }) {
   return (
     <View style={[styles.visualStage, compact && styles.visualStageCompact]}>
       <View style={styles.softBlob} />
+      <View style={styles.goldGlow} />
 
       <View style={[styles.paperCard, styles.scriptureCard]}>
-        <Text style={styles.cardReference}>Philippians 4:6</Text>
+        <View style={styles.scriptureHeadingRow}>
+          <View style={styles.scriptureIconBox}>
+            <BookOpen size={17} color={BLUE} strokeWidth={2.1} />
+          </View>
+          <View>
+            <Text style={styles.cardEyebrow}>SCRIPTURE</Text>
+            <Text style={styles.cardReference}>Philippians 4:6</Text>
+          </View>
+        </View>
         <Text style={styles.scriptureText}>
           “Do not be anxious{`\n`}about anything, but in{`\n`}everything by prayer{`\n`}and petition...”
         </Text>
       </View>
 
-      <View style={styles.arrowBubble}>
-        <ArrowDownRight size={31} color={GOLD} strokeWidth={2.3} />
-      </View>
+      <CurvedPrayerArrow />
 
       <View style={[styles.paperCard, styles.prayerCard]}>
         <View style={styles.prayerLabelRow}>
-          <Sparkles size={17} color={GOLD} fill="#FFE58A" />
+          <View style={styles.prayerSparkleBox}>
+            <Sparkles size={17} color="#B47B00" fill="#FFE58A" />
+          </View>
           <View style={styles.prayerLabel}>
             <Text style={styles.prayerLabelText}>YOUR PRAYER</Text>
           </View>
@@ -77,6 +109,7 @@ function ScriptureToPrayerVisual({ compact }: { compact: boolean }) {
         <Text style={styles.prayerText}>
           Lord, help me to bring{`\n`}every concern to You.{`\n`}Teach me to trust You{`\n`}in all things...
         </Text>
+        <View style={styles.prayerAccent} />
       </View>
     </View>
   );
@@ -360,82 +393,139 @@ const styles = StyleSheet.create({
   },
   softBlob: {
     position: 'absolute',
-    width: 245,
-    height: 245,
-    borderRadius: 123,
-    left: 22,
-    top: 48,
+    width: 270,
+    height: 236,
+    borderRadius: 132,
+    left: 18,
+    top: 54,
     backgroundColor: '#EDF3FF',
+    transform: [{ rotate: '-6deg' }],
+  },
+  goldGlow: {
+    position: 'absolute',
+    width: 128,
+    height: 128,
+    borderRadius: 64,
+    right: 4,
+    bottom: 12,
+    backgroundColor: '#FFF7D7',
+    opacity: 0.82,
   },
   paperCard: {
     position: 'absolute',
-    width: 205,
-    borderRadius: 14,
+    borderRadius: 18,
     backgroundColor: '#FFFFFF',
     padding: 18,
-    shadowColor: '#1A2B50',
-    shadowOffset: { width: 0, height: 8 },
+    borderWidth: 1,
+    borderColor: '#EDF0F5',
+    shadowColor: '#13264B',
+    shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.12,
-    shadowRadius: 14,
-    elevation: 5,
+    shadowRadius: 18,
+    elevation: 6,
   },
   scriptureCard: {
-    left: 24,
-    top: 40,
-    transform: [{ rotate: '-5deg' }],
+    width: 224,
+    left: 13,
+    top: 28,
+    transform: [{ rotate: '-4deg' }],
   },
   prayerCard: {
-    right: 20,
-    bottom: 22,
-    transform: [{ rotate: '4deg' }],
+    width: 232,
+    right: 5,
+    bottom: 15,
+    borderColor: '#F1E0A4',
+    transform: [{ rotate: '2.5deg' }],
+  },
+  scriptureHeadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  scriptureIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: BLUE_SOFT,
+  },
+  cardEyebrow: {
+    color: BLUE,
+    fontSize: 8,
+    fontWeight: '800',
+    letterSpacing: 1.15,
+    marginBottom: 2,
   },
   cardReference: {
     color: NAVY,
     fontFamily: SERIF_FONT,
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
   },
   scriptureText: {
-    marginTop: 12,
+    marginTop: 14,
     color: '#40506A',
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 21,
   },
-  arrowBubble: {
+  curvedArrowWrap: {
     position: 'absolute',
-    right: 56,
-    top: 174,
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFF3C8',
-    zIndex: 5,
+    width: 104,
+    height: 96,
+    right: 32,
+    top: 150,
+    zIndex: 8,
+  },
+  curvedArrowGlow: {
+    position: 'absolute',
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    right: 4,
+    bottom: 1,
+    backgroundColor: '#FFF2BF',
+    opacity: 0.78,
   },
   prayerLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    gap: 8,
+  },
+  prayerSparkleBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF3C8',
   },
   prayerLabel: {
     borderRadius: 999,
     backgroundColor: '#FFF5D5',
-    paddingHorizontal: 9,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
   prayerLabelText: {
-    color: '#B17A00',
+    color: '#9C6C00',
     fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.6,
+    fontWeight: '900',
+    letterSpacing: 0.75,
   },
   prayerText: {
-    marginTop: 12,
+    marginTop: 13,
     color: '#202B3D',
     fontSize: 15,
-    lineHeight: 20,
+    lineHeight: 21,
     fontWeight: '600',
+  },
+  prayerAccent: {
+    width: 42,
+    height: 3,
+    borderRadius: 2,
+    marginTop: 14,
+    backgroundColor: GOLD,
+    opacity: 0.72,
   },
   flowStage: {
     width: '100%',
