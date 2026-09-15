@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -64,13 +63,6 @@ export default function LoginScreen() {
     } finally {
       setLoading(false);
     }
-  }
-
-  function explainSocialLogin() {
-    Alert.alert(
-      'Email sign-in for now',
-      'Apple, Google and Facebook sign-in are not connected to the Pray in Verses backend yet. Please use your email and password.',
-    );
   }
 
   return (
@@ -178,24 +170,6 @@ export default function LoginScreen() {
               ) : (
                 <Text style={styles.signInText}>Sign In</Text>
               )}
-            </Pressable>
-          </View>
-
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>OR CONTINUE WITH</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          <View style={styles.socialRow}>
-            <Pressable onPress={explainSocialLogin} style={styles.socialButton}>
-              <Text style={[styles.socialGlyph, styles.appleGlyph]}>●</Text>
-            </Pressable>
-            <Pressable onPress={explainSocialLogin} style={styles.socialButton}>
-              <Text style={[styles.socialGlyph, styles.googleGlyph]}>G</Text>
-            </Pressable>
-            <Pressable onPress={explainSocialLogin} style={styles.socialButton}>
-              <Text style={[styles.socialGlyph, styles.facebookGlyph]}>f</Text>
             </Pressable>
           </View>
 
@@ -342,58 +316,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
-  },
-  dividerRow: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 26,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E3E8EF',
-  },
-  dividerText: {
-    marginHorizontal: 12,
-    color: '#99A3B2',
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 1.7,
-  },
-  socialRow: {
-    width: '100%',
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 16,
-  },
-  socialButton: {
-    flex: 1,
-    height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: BORDER,
-    borderRadius: 13,
-    backgroundColor: '#FFFFFF',
-  },
-  socialGlyph: {
-    fontSize: 24,
-    lineHeight: 28,
-    fontWeight: '800',
-  },
-  appleGlyph: {
-    color: '#0B0B0D',
-    transform: [{ scaleX: 0.78 }, { scaleY: 0.95 }],
-  },
-  googleGlyph: {
-    color: '#4285F4',
-    fontSize: 22,
-  },
-  facebookGlyph: {
-    color: '#1877F2',
-    fontFamily: Platform.select({ ios: 'Arial', android: 'sans-serif', default: 'sans-serif' }),
-    fontSize: 26,
   },
   createBlock: {
     marginTop: 22,
