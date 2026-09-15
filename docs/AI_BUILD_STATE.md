@@ -18,24 +18,18 @@ Accepted product work also includes the 19 reference-board screens, shared web/m
 
 ### Splash
 
-- The JavaScript Splash is intentionally minimal again: clean light background, centered `PIV-logo.png`, and a subtle fade/scale/up settle.
-- The logo asset already contains the Pray in Verses name and tagline, so no duplicate brand text is rendered in code.
+- The JavaScript Splash remains intentionally minimal: clean light background, centered `PIV-logo.png`, and a subtle fade/scale/up settle.
 - Existing `/auth/me` session restoration and routing are unchanged.
 
 ### Onboarding 1 — Turn Scripture Into Prayer
 
-- The previous code-built Scripture card, Prayer card, and curved arrow composition has been replaced by one image asset at `mobile/assets/images/onboarding/scripture-prayer-art.jpg`.
-- That image was created from the approved visual shown by the user, so the card relationship and curved arrow stay visually consistent.
-- The artwork is deliberately scaled smaller than before (`82%` width, capped at `310px`) so it no longer dominates the entire screen.
-- The page-one logo block is smaller.
-- The heading is reduced to `32px` / `36px` line height.
-- The description is reduced to `15px` / `21px` line height.
-- The page-one Next button is slightly shorter and its label is smaller.
-- Skip, dots, Next behavior, onboarding state, and Login routing are unchanged.
+- The first onboarding screen now uses the newly uploaded repository asset `mobile/assets/images/scripture-prayer-image.png` as its Scripture → Prayer artwork.
+- The uploaded image is applied through the existing onboarding artwork slot so the current responsive layout, sizing, title, description, dots, Skip action, and Next action remain unchanged.
+- No onboarding navigation or state logic was modified in this cycle.
 
 ### Onboarding 2 and 3
 
-- Existing Book → Chapter → Verse → Prayer and Prayer Wall community implementations are unchanged in this revision.
+- Existing Book → Chapter → Verse → Prayer and Prayer Wall community implementations are unchanged.
 
 ### Existing signed-in polish retained
 
@@ -48,25 +42,9 @@ Accepted product work also includes the 19 reference-board screens, shared web/m
 
 No backend, API contract, auth behavior, database schema, dependency, or payment contract changed in this revision.
 
-## Testing Status
+## Completed
 
-Android device review required:
-
-1. Splash should show the simplified PIV logo fade correctly.
-2. Onboarding 1 should now feel smaller and less crowded than the previous screenshot.
-3. The Scripture + Prayer cards + curved arrow should appear as one image composition, not separately built React Native cards.
-4. Heading, description, logo, and button should no longer visually overpower the screen.
-5. Skip must still go to Login; Next must still move to Onboarding 2.
-6. Onboarding 2 and 3 must remain unchanged and functional.
-
-## Known Issues / Release Notes
-
-- The gray floating gear visible in development screenshots belongs to Expo Dev Client, not the Pray in Verses application UI.
-- Different phone aspect ratios can slightly alter visual spacing; the user's Android device remains the acceptance reference.
-- Donation confirmation depends on Paystack webhook state and may remain Pending briefly after return.
-- Server notifications are an in-app inbox only; remote push-token delivery is not yet implemented.
-- Prayer reminders remain device-local.
-- Verified Android App Links for password-reset emails remain part of Android release polish.
+- Uploaded Scripture → Prayer artwork is now wired into Onboarding 1 for device review.
 
 ## Next Tasks
 
@@ -78,13 +56,37 @@ After Onboarding 1 is visually accepted:
 4. Finish Android release polish, App Links, launcher/splash checks, and Play Store readiness.
 5. Begin iOS release work after Android acceptance.
 
+## Known Issues
+
+- The gray floating gear visible in development screenshots belongs to Expo Dev Client, not the Pray in Verses application UI.
+- Different phone aspect ratios can slightly alter visual spacing; the user's Android device remains the acceptance reference.
+- Donation confirmation depends on Paystack webhook state and may remain Pending briefly after return.
+- Server notifications are an in-app inbox only; remote push-token delivery is not yet implemented.
+- Prayer reminders remain device-local.
+- Verified Android App Links for password-reset emails remain part of Android release polish.
+
+## Testing Status
+
+Engineering change is pushed for manual Android review.
+
+Test Onboarding 1 and confirm:
+
+1. The newly uploaded Scripture → Prayer image is the artwork shown on screen 1.
+2. The artwork is clear, centered, and visually balanced with the heading and description.
+3. Nothing is clipped on the target phone.
+4. Skip still routes to Login.
+5. Next still moves to Onboarding 2.
+6. Onboarding 2 and 3 remain unchanged and functional.
+
+Automated executable checks were not required for this asset-only change because no TypeScript, dependency, API, schema, or native configuration changed. Repository structure and references were inspected against current `main`.
+
 ## Architecture Decisions
 
 - GitHub `main` remains the source of truth.
 - Expo SDK 57 versioned documentation is authoritative.
-- Where exact decorative card compositions are difficult to reproduce reliably with layout code, use a committed image asset while keeping navigation, headings, buttons, and accessibility-relevant interactions native.
+- Decorative onboarding artwork may be committed as an image asset while navigation, headings, buttons, and accessibility-relevant interactions remain native.
 - Brand-logo placement uses the actual `PIV-logo.png` asset.
 
 ## Last Commit
 
-Current visual target: smaller page-one typography and a single image-based Scripture → Prayer artwork composition. Status remains AWAITING USER TEST.
+Current cycle: use the newly uploaded Scripture → Prayer image on Onboarding 1. Status: AWAITING USER TEST.
