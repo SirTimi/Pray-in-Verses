@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   AlarmClock,
   ArrowLeft,
@@ -19,7 +19,6 @@ import {
   ChevronRight,
   Clock3,
   Plus,
-  Send,
   Trash2,
 } from 'lucide-react-native';
 
@@ -31,7 +30,6 @@ import {
   getReminderPermissionStatus,
   listPrayerReminders,
   requestReminderPermission,
-  sendTestPrayerReminder,
   setPrayerReminderActive,
   type PrayerReminder,
 } from '@/services/reminders';
@@ -95,19 +93,21 @@ function nextReminderLabel(reminders: PrayerReminder[]) {
 
 export default function RemindersScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [reminders, setReminders] = useState<PrayerReminder[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState('');
   const [error, setError] = useState('');
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [canAskAgain, setCanAskAgain] = useState(true);
-  const [testing, setTesting] = useState(false);
 
   const activeCount = useMemo(
     () => reminders.filter((reminder) => reminder.isActive).length,
     [reminders],
   );
   const upcoming = useMemo(() => nextReminderLabel(reminders), [reminders]);
+  const hasReminders = reminders.length > 0;
+  const showFloatingAdd = !loading && hasReminders;
 
   const load = useCallback(async () => {
     setError('');
@@ -212,22 +212,6 @@ export default function RemindersScreen() {
     }
   }
 
-  async function sendTest() {
-    if (testing) return;
-    setTesting(true);
-    setError('');
-
-    try {
-      await sendTestPrayerReminder();
-      setPermissionGranted(true);
-      Alert.alert('Test scheduled', 'A test prayer reminder should appear in about 3 seconds.');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to send a test reminder.');
-    } finally {
-      setTesting(false);
-    }
-  }
-
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
@@ -238,14 +222,12 @@ export default function RemindersScreen() {
           <Text style={styles.title}>Prayer Reminders</Text>
           <Text style={styles.subtitle}>Build a rhythm of prayer</Text>
         </View>
-        <Pressable onPress={() => openEditor('new')} style={styles.addButton} accessibilityLabel="Add reminder">
-          <Plus size={22} color={colors.white} />
-        </Pressable>
+        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, hasReminders && styles.contentWithFloatingAdd]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.summaryCard}>
@@ -279,15 +261,12 @@ export default function RemindersScreen() {
               }}
               style={styles.permissionButton}
             >
-              <Text style={styles.permissionButtonText}>{canAskAgain ? 'Enable Notifications' : 'Open Phone Settings'}</Text>
+              <Text style={styles.permissionButtonText}>
+                {canAskAgain ? 'Enable Notifications' : 'Open Phone Settings'}
+              </Text>
             </Pressable>
           </View>
         )}
-
-        <Pressable onPress={() => void sendTest()} disabled={testing} style={[styles.testButton, testing && styles.disabled]}>
-          <Send size={17} color={colors.primary} />
-          <Text style={styles.testText}>{testing ? 'Scheduling test…' : 'Send a test reminder'}</Text>
-        </Pressable>
 
         {!!error && (
           <Pressable style={styles.errorBox} onPress={() => void load()}>
@@ -371,6 +350,21 @@ export default function RemindersScreen() {
           Reminder times are scheduled by your phone’s notification system. Battery and system settings can affect exact delivery timing.
         </Text>
       </ScrollView>
+
+      {showFloatingAdd && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Add reminder"
+          onPress={() => openEditor('new')}
+          style={({ pressed }) => [
+            styles.floatingAdd,
+            { bottom: Math.max(insets.bottom + 22, 28) },
+            pressed && styles.floatingAddPressed,
+          ]}
+        >
+          <Plus size={28} color={colors.white} strokeWidth={2.2} />
+        </Pressable>
+      )}
     </SafeAreaView>
   );
 }
@@ -379,12 +373,13 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   header: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.base, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.surface },
   headerButton: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft },
+  headerSpacer: { width: 42, height: 42 },
   headerCopy: { flex: 1, alignItems: 'center' },
   title: { color: colors.primaryDark, fontSize: 20, fontWeight: '800' },
   subtitle: { color: colors.textSecondary, fontSize: 11, marginTop: 2 },
-  addButton: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
   scroll: { flex: 1 },
   content: { padding: spacing.base, paddingBottom: spacing.xxxl },
+  contentWithFloatingAdd: { paddingBottom: 124 },
   summaryCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderRadius: radius.lg, padding: spacing.lg, backgroundColor: colors.primaryDark },
   summaryIcon: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.white },
   summaryCopy: { flex: 1 },
@@ -398,8 +393,6 @@ const styles = StyleSheet.create({
   permissionBody: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 3 },
   permissionButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: spacing.md, borderRadius: radius.md, backgroundColor: colors.primary },
   permissionButtonText: { color: colors.white, fontSize: 13, fontWeight: '800' },
-  testButton: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, marginTop: spacing.md, borderWidth: 1, borderColor: '#C9D9FF', borderRadius: radius.md, backgroundColor: colors.primarySoft },
-  testText: { color: colors.primary, fontSize: 13, fontWeight: '800' },
   errorBox: { marginTop: spacing.md, padding: spacing.md, borderRadius: radius.md, backgroundColor: '#FFF1F0' },
   errorText: { color: colors.error, fontSize: 13, lineHeight: 19 },
   retryText: { color: colors.primary, fontSize: 12, fontWeight: '800', marginTop: 4 },
@@ -421,4 +414,20 @@ const styles = StyleSheet.create({
   deleteButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 21, backgroundColor: '#FFF1F0' },
   disabled: { opacity: 0.45 },
   footnote: { color: colors.textMuted, fontSize: 10, lineHeight: 16, textAlign: 'center', marginTop: spacing.xl, paddingHorizontal: spacing.lg },
+  floatingAdd: {
+    position: 'absolute',
+    right: spacing.lg,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    shadowColor: colors.primaryDark,
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.22,
+    shadowRadius: 13,
+    elevation: 8,
+  },
+  floatingAddPressed: { opacity: 0.9, transform: [{ scale: 0.97 }] },
 });
