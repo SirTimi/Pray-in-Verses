@@ -81,7 +81,7 @@ export default function HomeScreen() {
   const openVerse = () => {
     if (!verse) return;
     router.push({
-      pathname: '/(app)/(tabs)/browse/[book]/[chapter]',
+      pathname: '/(app)/prayer/[book]/[chapter]/[verse]',
       params: {
         book: verse.book,
         chapter: String(verse.chapter),
