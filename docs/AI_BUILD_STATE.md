@@ -10,57 +10,52 @@ AWAITING USER TEST
 
 ## Last Accepted Task
 
-Login social-login cleanup was accepted by the user on 2026-09-15. The mobile Login screen now exposes email/password authentication only; the Apple, Google, Facebook, and `OR CONTINUE WITH` placeholder UI is removed.
+Home Verse of the Day direct-to-detail navigation was accepted by the user on 2026-09-15. `Read & pray` and the Daily Verse shortcut now open the exact verse Prayer Detail screen directly.
 
-Previously accepted work also includes all three onboarding screens, removal of onboarding page fade/slide transitions, the 19 reference-board screens, shared web/mobile auth, My Prayers, Prayer Wall, Saved Prayers, Journal, notifications, device-local reminders, account management, Support + Donation implementation, keyboard/safe-area repairs, Cloud Run deployment repair, and the selected `PIV-logo.png` branding asset.
+Previously accepted work also includes all three onboarding screens, removal of onboarding page fade/slide transitions, email/password-only Login, the 19 reference-board screens, My Prayers, Prayer Wall, Saved Prayers, Journal, notifications, device-local reminders, account management, Support + Donation, keyboard/safe-area repairs, Cloud Run deployment repair, and the selected `PIV-logo.png` branding asset.
 
 ## Current Implementation
 
-### Onboarding
+### Journal actions
 
-- Onboarding 1 uses the accepted Scripture → Prayer artwork.
-- Onboarding 2 uses `mobile/assets/images/guided-bible-image.png` with the accepted zig-zag guided Bible flow.
-- Onboarding 3 uses `mobile/assets/images/prayers-around-the-world.png`.
-- Page changes are immediate with no page-level fade/upward-slide animation.
-- Splash animation remains unchanged.
+- The top-right Journal `+` action has been removed so the header now contains only Back and the centered Journal title.
+- When at least one journal entry exists, Journal shows one circular floating `+` action near the lower-right area of the screen.
+- The floating action respects the device bottom safe area and opens the existing new-entry route `/(app)/journal/new` through the current `[id]` route with `id: new`.
+- The large full-width `New Entry` footer is shown only when the journal has zero entries.
+- Search/filter states do not bring the large footer back when entries already exist; the floating add action remains available instead.
+- The empty-state card no longer adds a duplicate New Entry action because the empty journal already has the full-width footer CTA.
+- Existing journal loading, refresh, search, filters, entry cards, detail navigation, and create/edit behavior are unchanged.
+
+### Home — Verse of the Day
+
+- Verse of the Day and Daily Verse open `/(app)/prayer/[book]/[chapter]/[verse]` directly with the current verse reference.
+- Manual Bible book → chapter → verse browsing retains the normal selection flow.
 
 ### Login
 
 - Email/password login is the only visible sign-in method.
-- Existing validation, login API call, auth-store update, forgot-password navigation, password visibility toggle, error/loading handling, and Create an account navigation are unchanged.
+- Existing validation, forgot-password, password visibility, loading/error handling, and signup navigation remain unchanged.
 
-### Home — Verse of the Day
+### Onboarding
 
-- Home loads the current Verse of the Day through the existing `getVerseOfTheDay()` service.
-- The Verse of the Day card and the existing Daily Verse quick action share the `openVerse` navigation handler.
-- `openVerse` now routes directly to the existing verse/prayer detail route `/(app)/prayer/[book]/[chapter]/[verse]` with the current verse's book, chapter, and verse parameters.
-- The previous behavior routed first to the chapter verse-selection screen; that intermediate step is removed for the daily verse flow.
-- The existing Prayer Detail screen continues to load the actual prayer through `getPrayerDetail(book, chapter, verse)`.
-- No Verse of the Day API, prayer-detail API, database, or content behavior changed.
-
-### Existing signed-in polish retained
-
-- My Prayers uses one floating Add action when the list contains prayers.
-- My Prayer editor bottom actions respect Android safe-area navigation.
-- Prayer Detail uses the web detail photograph and safe-area-aware Save/Journal actions.
-- Home uses the prayer-group hero image and existing Home layout.
-- Donation presets format NGN values deterministically and Donation respects safe areas.
-- App/native icon configuration points to `PIV-logo.png`.
+- All three onboarding screens use their accepted artwork.
+- Page changes remain immediate with no page-level fade/upward-slide animation.
 
 ## Completed
 
-- Onboarding 1 image-based polish accepted.
+- Onboarding 1 artwork accepted.
 - Onboarding 2 zig-zag guided Bible artwork accepted.
 - Onboarding 3 globe/prayer artwork accepted.
-- Onboarding page-change fade/slide removal accepted.
+- Onboarding transition fade/slide removal accepted.
 - Login social-login placeholder removal accepted.
-- Verse of the Day direct-to-detail navigation implemented for device review.
+- Verse of the Day direct-to-detail navigation accepted.
+- Journal add-action layout updated for device review.
 
 ## Next Tasks
 
-After the Verse of the Day navigation is accepted:
+After the Journal action layout is accepted:
 
-1. Continue Home and signed-in screen polish screen by screen.
+1. Continue signed-in screen polish screen by screen.
 2. Continue auth-screen polish where needed.
 3. Complete remaining About/Mission/Legal native screens and navigation.
 4. Finish Android release polish, App Links, launcher/splash checks, and Play Store readiness.
@@ -68,9 +63,9 @@ After the Verse of the Day navigation is accepted:
 
 ## Known Issues
 
-- The onboarding artwork files have light backgrounds rather than transparency, so different displays can make image edges slightly more noticeable.
 - The gray floating gear visible in development screenshots belongs to Expo Dev Client, not the Pray in Verses application UI.
 - Different phone aspect ratios can slightly alter visual spacing; the user's Android device remains the acceptance reference.
+- The onboarding artwork files have light backgrounds rather than transparency, so different displays can make image edges slightly more noticeable.
 - Donation confirmation depends on Paystack webhook state and may remain Pending briefly after return.
 - Server notifications are an in-app inbox only; remote push-token delivery is not yet implemented.
 - Prayer reminders remain device-local.
@@ -80,36 +75,35 @@ After the Verse of the Day navigation is accepted:
 
 Engineering change is pushed for manual Android review.
 
-Test Home and confirm:
+Test Journal and confirm:
 
-1. Load Home while a Verse of the Day is available.
-2. Tap the Verse of the Day card / `Read & pray` area.
-3. Confirm it opens that exact verse's Prayer Detail screen directly instead of opening the chapter verse-selection screen first.
-4. Confirm the Prayer Detail reference and Scripture match the Verse of the Day shown on Home.
-5. Press Back and confirm navigation returns to Home normally.
-6. Tap the `Daily Verse` quick action and confirm it opens the same current verse detail directly.
-7. Confirm Bible Books and normal chapter/verse browsing still retain their existing selection flow.
+1. With at least one existing journal entry, the top-right `+` is gone.
+2. With at least one existing journal entry, the large bottom `New Entry` button is gone.
+3. A circular floating `+` appears near the lower-right area without overlapping the Android navigation area.
+4. Tapping the floating `+` opens a new journal entry.
+5. Existing journal cards still open normally.
+6. Search and filters still work; a filter/search with no visible matches does not bring back the large footer button when entries exist.
+7. With a truly empty journal, the large `New Entry` footer appears and creates the first entry.
+8. Pull-to-refresh and return-from-entry refresh behavior still work.
 
 Validation performed in this environment:
 
 - Inspected latest remote `main` and recent commits before editing.
-- Confirmed `main` pointed to `e39b28dcd6fb6897852957bd228d6278014f2586` before this cycle.
-- Read `mobile/AGENTS.md`, `docs/AI_BUILD_STATE.md`, and the Expo Router navigation guidance before changing mobile code.
-- Inspected `HomeScreen`, the chapter verse-selection screen, and the existing `PrayerDetailScreen` route before editing.
-- Confirmed the Prayer Detail route accepts exactly `book`, `chapter`, and `verse` route parameters and loads its data using those values.
-- The implementation changes only the Home navigation pathname; no API, service, schema, dependency, migration, environment, authentication, or native configuration changed.
-- No repository CI checks are currently configured for these direct commits; physical-device navigation remains the acceptance gate.
+- Confirmed `main` pointed to `71cc3f37d02772c90b052f078bac41009350e012` before this cycle.
+- Read `mobile/AGENTS.md`, `docs/AI_BUILD_STATE.md`, and the Expo SDK 57 reference before changing mobile code.
+- Inspected the existing Journal list implementation and retained the current `openNewEntry`, journal service calls, search/filter logic, and entry navigation.
+- Used `useSafeAreaInsets()` only for lower action positioning/padding; no dependency change was required because `react-native-safe-area-context` is already used by the screen.
+- No API, service, schema, dependency, migration, environment, authentication, payment, or native configuration changed.
+- No repository CI checks are configured for these direct commits; physical-device layout remains the acceptance gate.
 
 ## Architecture Decisions
 
 - GitHub `main` remains the source of truth.
-- Expo SDK 57 versioned documentation is authoritative for mobile implementation.
-- Verse of the Day should deep-link directly to its existing verse/prayer detail screen because the verse is already known; users should not be forced through the chapter verse picker again.
-- Manual book → chapter → verse browsing keeps the existing selection flow.
-- Login exposes only authentication methods actually connected to the backend.
-- Onboarding page changes remain immediate.
-- Brand-logo placement uses the actual `PIV-logo.png` asset.
+- Expo SDK 57 versioned documentation remains authoritative for mobile implementation.
+- Journal should expose one primary add affordance for populated state: a lower floating action rather than simultaneous header and footer actions.
+- The large full-width New Entry CTA is reserved for a truly empty journal where a stronger first-action prompt is useful.
+- Manual user/device testing remains the acceptance gate after each pushed development increment.
 
 ## Last Commit
 
-Current cycle: route the Home Verse of the Day / Daily Verse action directly to the existing verse Prayer Detail screen. Status: AWAITING USER TEST.
+Current cycle: move Journal add action to a lower floating button for populated journals and hide the large New Entry footer whenever journal entries already exist. Status: AWAITING USER TEST.
