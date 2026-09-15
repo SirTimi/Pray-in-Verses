@@ -10,21 +10,30 @@ AWAITING USER TEST
 
 ## Last Accepted Task
 
-Home Verse of the Day direct-to-detail navigation was accepted by the user on 2026-09-15. `Read & pray` and the Daily Verse shortcut now open the exact verse Prayer Detail screen directly.
+Journal add-action layout was accepted by the user on 2026-09-15. The Journal list now uses one lower floating `+` action when entries exist, removes the top-right `+`, and reserves the large full-width `New Entry` CTA for a truly empty journal.
 
-Previously accepted work also includes all three onboarding screens, removal of onboarding page fade/slide transitions, email/password-only Login, the 19 reference-board screens, My Prayers, Prayer Wall, Saved Prayers, Journal, notifications, device-local reminders, account management, Support + Donation, keyboard/safe-area repairs, Cloud Run deployment repair, and the selected `PIV-logo.png` branding asset.
+Previously accepted work also includes all three onboarding screens, removal of onboarding page fade/slide transitions, email/password-only Login, Verse of the Day direct-to-detail navigation, the 19 reference-board screens, My Prayers, Prayer Wall, Saved Prayers, Journal, notifications, device-local reminders, account management, Support + Donation, keyboard/safe-area repairs, Cloud Run deployment repair, and the selected `PIV-logo.png` branding asset.
 
 ## Current Implementation
 
-### Journal actions
+### Journal entry actions
 
-- The top-right Journal `+` action has been removed so the header now contains only Back and the centered Journal title.
-- When at least one journal entry exists, Journal shows one circular floating `+` action near the lower-right area of the screen.
-- The floating action respects the device bottom safe area and opens the existing new-entry route `/(app)/journal/new` through the current `[id]` route with `id: new`.
-- The large full-width `New Entry` footer is shown only when the journal has zero entries.
-- Search/filter states do not bring the large footer back when entries already exist; the floating add action remains available instead.
-- The empty-state card no longer adds a duplicate New Entry action because the empty journal already has the full-width footer CTA.
-- Existing journal loading, refresh, search, filters, entry cards, detail navigation, and create/edit behavior are unchanged.
+- Existing Journal entries no longer show a trash icon in the top-right header.
+- The header keeps Back on the left, the centered Journal Entry title, and a matching empty spacer on the right so the title remains visually centered.
+- Existing entries now show `Delete` and `Update Entry` side by side in one persistent bottom action area.
+- Delete retains the existing destructive confirmation dialog before calling the existing `deleteJournal` service.
+- Update retains the existing `updateJournal` flow and validation.
+- Delete and update use separate busy states so one action does not incorrectly show the other action as loading.
+- The bottom action area uses `useSafeAreaInsets()` and pads below the controls with at least the device bottom inset, keeping both buttons above Android system navigation.
+- New journal entries continue to show a single full-width `Save Entry` action in the same safe-area-aware bottom area.
+- The editable content scrolls independently above the action area, so long entries remain reachable without placing the controls under the navigation bar.
+
+### Journal list actions
+
+- Populated Journal lists show one floating lower-right `+` action.
+- The top-right `+` is removed.
+- The large full-width `New Entry` footer appears only when the journal has zero entries.
+- Search/filter empty states do not reintroduce duplicate add actions.
 
 ### Home — Verse of the Day
 
@@ -49,11 +58,12 @@ Previously accepted work also includes all three onboarding screens, removal of 
 - Onboarding transition fade/slide removal accepted.
 - Login social-login placeholder removal accepted.
 - Verse of the Day direct-to-detail navigation accepted.
-- Journal add-action layout updated for device review.
+- Journal list add-action layout accepted.
+- Journal entry delete/update bottom action layout implemented for device review.
 
 ## Next Tasks
 
-After the Journal action layout is accepted:
+After the Journal entry action layout is accepted:
 
 1. Continue signed-in screen polish screen by screen.
 2. Continue auth-screen polish where needed.
@@ -75,35 +85,37 @@ After the Journal action layout is accepted:
 
 Engineering change is pushed for manual Android review.
 
-Test Journal and confirm:
+Test an existing Journal entry and confirm:
 
-1. With at least one existing journal entry, the top-right `+` is gone.
-2. With at least one existing journal entry, the large bottom `New Entry` button is gone.
-3. A circular floating `+` appears near the lower-right area without overlapping the Android navigation area.
-4. Tapping the floating `+` opens a new journal entry.
-5. Existing journal cards still open normally.
-6. Search and filters still work; a filter/search with no visible matches does not bring back the large footer button when entries exist.
-7. With a truly empty journal, the large `New Entry` footer appears and creates the first entry.
-8. Pull-to-refresh and return-from-entry refresh behavior still work.
+1. The top-right trash icon is gone.
+2. `Delete` and `Update Entry` appear side by side at the bottom.
+3. Both buttons stay fully above the Android navigation bar and remain tappable.
+4. Update still saves title, mood, and journal body changes correctly.
+5. Delete still asks for confirmation and removes the entry only after confirming.
+6. Cancelling the delete confirmation leaves the entry unchanged.
+7. Scrolling the journal body/content works normally while the bottom actions remain available.
+8. Opening a brand-new entry shows only the safe-area-aware `Save Entry` button, with no Delete action.
+9. Returning to the Journal list still refreshes the list after save, update, or delete.
 
 Validation performed in this environment:
 
 - Inspected latest remote `main` and recent commits before editing.
-- Confirmed `main` pointed to `71cc3f37d02772c90b052f078bac41009350e012` before this cycle.
-- Read `mobile/AGENTS.md`, `docs/AI_BUILD_STATE.md`, and the Expo SDK 57 reference before changing mobile code.
-- Inspected the existing Journal list implementation and retained the current `openNewEntry`, journal service calls, search/filter logic, and entry navigation.
-- Used `useSafeAreaInsets()` only for lower action positioning/padding; no dependency change was required because `react-native-safe-area-context` is already used by the screen.
-- No API, service, schema, dependency, migration, environment, authentication, payment, or native configuration changed.
+- Confirmed `main` pointed to `85bd53bc6c60938e220d3a4347f6f1297e09922b` before this cycle.
+- Read `mobile/AGENTS.md`, `docs/AI_BUILD_STATE.md`, the current Journal entry implementation, and the shared `AppButton` implementation before changing code.
+- Read the Expo SDK 57 reference required by `mobile/AGENTS.md`.
+- Retained the existing `createJournal`, `updateJournal`, `deleteJournal`, and `getJournal` service integrations and existing delete confirmation behavior.
+- Added no dependency, API, schema, migration, environment, authentication, payment, or native configuration changes.
 - No repository CI checks are configured for these direct commits; physical-device layout remains the acceptance gate.
 
 ## Architecture Decisions
 
 - GitHub `main` remains the source of truth.
 - Expo SDK 57 versioned documentation remains authoritative for mobile implementation.
-- Journal should expose one primary add affordance for populated state: a lower floating action rather than simultaneous header and footer actions.
-- The large full-width New Entry CTA is reserved for a truly empty journal where a stronger first-action prompt is useful.
+- Existing Journal entries should place destructive and primary edit actions together at the bottom rather than splitting Delete into the header.
+- Bottom mobile actions must respect safe-area insets rather than relying on fixed padding that can overlap Android system navigation.
+- New-entry mode should not expose Delete because no persisted entry exists yet.
 - Manual user/device testing remains the acceptance gate after each pushed development increment.
 
 ## Last Commit
 
-Current cycle: move Journal add action to a lower floating button for populated journals and hide the large New Entry footer whenever journal entries already exist. Status: AWAITING USER TEST.
+Current cycle: remove the top Journal Entry trash icon, place Delete and Update Entry side by side in a safe-area-aware bottom action row, and preserve a single Save Entry action for new entries. Status: AWAITING USER TEST.

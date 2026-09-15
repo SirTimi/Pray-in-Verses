@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -11,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, CalendarDays, Trash2 } from 'lucide-react-native';
 
 import AppButton from '@/components/ui/AppButton';
@@ -24,6 +25,7 @@ const SERIF_FONT = Platform.select({ ios: 'Georgia', android: 'serif', default: 
 
 export default function JournalEntryScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ id?: string }>();
   const rawId = Array.isArray(params.id) ? params.id[0] : params.id ?? 'new';
   const isNew = rawId === 'new';
@@ -34,6 +36,7 @@ export default function JournalEntryScreen() {
   const [createdAt, setCreatedAt] = useState(new Date().toISOString());
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
@@ -53,12 +56,14 @@ export default function JournalEntryScreen() {
     }
   }, [isNew, rawId]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const canSave = title.trim().length > 0 && body.trim().length > 0;
 
   async function save() {
-    if (!canSave || saving) return;
+    if (!canSave || saving || deleting) return;
     setSaving(true);
     setError('');
     try {
@@ -74,6 +79,7 @@ export default function JournalEntryScreen() {
   }
 
   function confirmDelete() {
+    if (saving || deleting) return;
     Alert.alert('Delete journal entry?', 'This action cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () => void remove() },
@@ -81,8 +87,8 @@ export default function JournalEntryScreen() {
   }
 
   async function remove() {
-    if (isNew || saving) return;
-    setSaving(true);
+    if (isNew || saving || deleting) return;
+    setDeleting(true);
     setError('');
     try {
       await deleteJournal(rawId);
@@ -90,53 +96,157 @@ export default function JournalEntryScreen() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to delete this journal entry.');
     } finally {
-      setSaving(false);
+      setDeleting(false);
     }
   }
 
   if (loading) {
-    return <SafeAreaView style={styles.safeArea} edges={['top']}><View style={styles.stateWrap}><AppStateView variant="loading" title="Opening journal entry…" /></View></SafeAreaView>;
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <View style={styles.stateWrap}>
+          <AppStateView variant="loading" title="Opening journal entry…" />
+        </View>
+      </SafeAreaView>
+    );
   }
 
   if (error && !isNew && !title && !body) {
-    return <SafeAreaView style={styles.safeArea} edges={['top']}><View style={styles.stateWrap}><AppStateView variant="error" title="Could not open this entry" body={error} actionLabel="Try Again" onAction={() => void load()} /></View></SafeAreaView>;
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <View style={styles.stateWrap}>
+          <AppStateView
+            variant="error"
+            title="Could not open this entry"
+            body={error}
+            actionLabel="Try Again"
+            onAction={() => void load()}
+          />
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.topRow}>
-            <Pressable onPress={() => router.back()} style={styles.iconButton}><ArrowLeft size={22} color={colors.primary} /></Pressable>
+            <Pressable onPress={() => router.back()} style={styles.iconButton}>
+              <ArrowLeft size={22} color={colors.primary} />
+            </Pressable>
             <Text style={styles.pageTitle}>{isNew ? 'New Journal Entry' : 'Journal Entry'}</Text>
-            {!isNew ? <Pressable onPress={confirmDelete} style={styles.iconButton}><Trash2 size={20} color={colors.error} /></Pressable> : <View style={styles.iconButton} />}
+            <View style={styles.iconButton} />
           </View>
 
           <Text style={styles.label}>Date</Text>
           <View style={styles.readOnlyBox}>
             <CalendarDays size={19} color={colors.primary} />
-            <Text style={styles.readOnlyText}>{new Date(createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</Text>
+            <Text style={styles.readOnlyText}>
+              {new Date(createdAt).toLocaleDateString(undefined, {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </Text>
           </View>
 
           <Text style={styles.label}>Entry title</Text>
-          <TextInput value={title} onChangeText={setTitle} placeholder="What is on your heart today?" placeholderTextColor={colors.textMuted} style={styles.titleInput} />
+          <TextInput
+            value={title}
+            onChangeText={setTitle}
+            placeholder="What is on your heart today?"
+            placeholderTextColor={colors.textMuted}
+            style={styles.titleInput}
+          />
 
           <Text style={styles.label}>Mood</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.moods}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.moods}
+          >
             {JOURNAL_MOODS.map((item) => (
-              <Pressable key={item} onPress={() => setMood(item)} style={[styles.moodChip, mood === item && styles.moodChipActive]}>
+              <Pressable
+                key={item}
+                onPress={() => setMood(item)}
+                style={[styles.moodChip, mood === item && styles.moodChipActive]}
+              >
                 <Text style={[styles.moodText, mood === item && styles.moodTextActive]}>{item}</Text>
               </Pressable>
             ))}
           </ScrollView>
 
           <Text style={styles.label}>Your Journal Entry</Text>
-          <TextInput value={body} onChangeText={setBody} placeholder="Write your thoughts, prayers, reflections…" placeholderTextColor={colors.textMuted} multiline textAlignVertical="top" maxLength={4000} style={styles.bodyInput} />
+          <TextInput
+            value={body}
+            onChangeText={setBody}
+            placeholder="Write your thoughts, prayers, reflections…"
+            placeholderTextColor={colors.textMuted}
+            multiline
+            textAlignVertical="top"
+            maxLength={4000}
+            style={styles.bodyInput}
+          />
           <Text style={styles.counter}>{body.length}/4,000</Text>
-          <Text style={styles.tip}>Tip: include a Scripture reference in your title or reflection whenever it helps you remember the moment.</Text>
+          <Text style={styles.tip}>
+            Tip: include a Scripture reference in your title or reflection whenever it helps you remember the moment.
+          </Text>
           {!!error && <Text style={styles.errorText}>{error}</Text>}
-          <AppButton label={isNew ? 'Save Entry' : 'Update Entry'} loading={saving} disabled={!canSave} onPress={save} style={styles.saveButton} />
         </ScrollView>
+
+        <View
+          style={[
+            styles.footerActions,
+            { paddingBottom: Math.max(insets.bottom, 12) },
+          ]}
+        >
+          {isNew ? (
+            <AppButton
+              label="Save Entry"
+              loading={saving}
+              disabled={!canSave || deleting}
+              onPress={save}
+            />
+          ) : (
+            <View style={styles.actionRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Delete journal entry"
+                disabled={saving || deleting}
+                onPress={confirmDelete}
+                style={({ pressed }) => [
+                  styles.deleteButton,
+                  pressed && styles.deleteButtonPressed,
+                  (saving || deleting) && styles.actionDisabled,
+                ]}
+              >
+                {deleting ? (
+                  <ActivityIndicator size="small" color={colors.error} />
+                ) : (
+                  <Trash2 size={19} color={colors.error} />
+                )}
+                <Text style={styles.deleteButtonText}>{deleting ? 'Deleting…' : 'Delete'}</Text>
+              </Pressable>
+
+              <View style={styles.updateButtonWrap}>
+                <AppButton
+                  label="Update Entry"
+                  loading={saving}
+                  disabled={!canSave || deleting}
+                  onPress={save}
+                />
+              </View>
+            </View>
+          )}
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -145,23 +255,110 @@ export default function JournalEntryScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
+  scroll: { flex: 1 },
   stateWrap: { flex: 1, justifyContent: 'center', padding: spacing.base },
-  content: { paddingHorizontal: spacing.base, paddingTop: spacing.sm, paddingBottom: 34 },
-  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xl },
-  iconButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  pageTitle: { color: colors.primaryDark, fontFamily: SERIF_FONT, fontSize: 23, fontWeight: '700' },
-  label: { color: colors.primaryDark, fontSize: 13, fontWeight: '800', marginTop: spacing.lg, marginBottom: spacing.sm },
-  readOnlyBox: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface },
+  content: { paddingHorizontal: spacing.base, paddingTop: spacing.sm, paddingBottom: spacing.xl },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xl,
+  },
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pageTitle: {
+    color: colors.primaryDark,
+    fontFamily: SERIF_FONT,
+    fontSize: 23,
+    fontWeight: '700',
+  },
+  label: {
+    color: colors.primaryDark,
+    fontSize: 13,
+    fontWeight: '800',
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  readOnlyBox: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+  },
   readOnlyText: { color: colors.textSecondary, fontSize: 14, fontWeight: '600' },
-  titleInput: { minHeight: 54, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface, paddingHorizontal: spacing.md, color: colors.text, fontSize: 15 },
+  titleInput: {
+    minHeight: 54,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+    color: colors.text,
+    fontSize: 15,
+  },
   moods: { gap: spacing.sm },
-  moodChip: { minHeight: 36, paddingHorizontal: 14, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EEF2F7' },
+  moodChip: {
+    minHeight: 36,
+    paddingHorizontal: 14,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EEF2F7',
+  },
   moodChipActive: { backgroundColor: colors.primary },
   moodText: { color: colors.textSecondary, fontSize: 11, fontWeight: '700' },
   moodTextActive: { color: colors.white },
-  bodyInput: { minHeight: 230, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface, padding: spacing.md, color: colors.text, fontSize: 15, lineHeight: 23 },
+  bodyInput: {
+    minHeight: 230,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    color: colors.text,
+    fontSize: 15,
+    lineHeight: 23,
+  },
   counter: { color: colors.textMuted, fontSize: 11, textAlign: 'right', marginTop: 5 },
   tip: { color: colors.textMuted, fontSize: 11, lineHeight: 17, marginTop: spacing.md },
   errorText: { color: colors.error, fontSize: 13, lineHeight: 20, marginTop: spacing.md },
-  saveButton: { marginTop: spacing.xl },
+  footerActions: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.base,
+    paddingTop: 12,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  deleteButton: {
+    flex: 0.9,
+    minHeight: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1.5,
+    borderColor: colors.error,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 14,
+  },
+  deleteButtonPressed: { opacity: 0.84 },
+  deleteButtonText: { color: colors.error, fontSize: 15, fontWeight: '800' },
+  updateButtonWrap: { flex: 1.1 },
+  actionDisabled: { opacity: 0.5 },
 });
