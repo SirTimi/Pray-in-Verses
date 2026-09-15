@@ -26,11 +26,11 @@ const PAGES = [
   },
   {
     title: 'Pray Through\nEvery Verse',
-    description: 'Go step by step — from book to chapter\nto verse — and turn every verse into prayer.',
+    description: 'Go step by step, from book to chapter\nto verse and turn every verse into prayer.',
   },
   {
     title: 'Pray Together',
-    description: 'Join the Prayer Wall — share your\nprayers, be encouraged, and pray for\nothers around the world.',
+    description: 'Join the Prayer Wall & share your\nprayers, be encouraged, and pray for\nothers around the world.',
   },
 ] as const;
 
