@@ -1,12 +1,17 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
+import {
+  Animated,
+  Easing,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
 import { getMe } from '@/services/auth';
 import { useAuthStore } from '@/stores/auth.store';
 
-const MIN_SPLASH_MS = 1450;
+const MIN_SPLASH_MS = 1650;
 
 function sleep(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -15,20 +20,32 @@ function sleep(ms: number) {
 export default function LaunchScreen() {
   const router = useRouter();
   const setUser = useAuthStore((state) => state.setUser);
+
   const opacity = useRef(new Animated.Value(0)).current;
-  const scale = useRef(new Animated.Value(1.025)).current;
+  const scale = useRef(new Animated.Value(0.92)).current;
+  const translateY = useRef(new Animated.Value(8)).current;
 
   useEffect(() => {
     const animation = Animated.parallel([
       Animated.timing(opacity, {
         toValue: 1,
-        duration: 520,
+        duration: 700,
+        delay: 120,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
-      Animated.timing(scale, {
+      Animated.spring(scale, {
         toValue: 1,
-        duration: 1050,
+        delay: 120,
+        damping: 14,
+        stiffness: 95,
+        mass: 0.8,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 700,
+        delay: 120,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
@@ -36,7 +53,7 @@ export default function LaunchScreen() {
 
     animation.start();
     return () => animation.stop();
-  }, [opacity, scale]);
+  }, [opacity, scale, translateY]);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,6 +81,7 @@ export default function LaunchScreen() {
     }
 
     void bootstrap();
+
     return () => {
       cancelled = true;
     };
@@ -71,16 +89,20 @@ export default function LaunchScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
+
       <Animated.Image
-        accessibilityLabel="Pray in Verses. Pray Scripture. Live Scripture. A closer walk, a brighter tomorrow."
-        source={require('../../assets/images/intro/splash-ideal.jpg')}
-        resizeMode="cover"
+        accessibilityLabel="Pray in Verses. Pray the Bible Verse by Verse."
+        source={require('../../assets/images/PIV-logo.png')}
+        resizeMode="contain"
         style={[
-          StyleSheet.absoluteFill,
+          styles.logoLockup,
           {
             opacity,
-            transform: [{ scale }],
+            transform: [
+              { scale },
+              { translateY },
+            ],
           },
         ]}
       />
@@ -91,7 +113,12 @@ export default function LaunchScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#062A69',
-    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  logoLockup: {
+    width: 260,
+    height: 260,
   },
 });
