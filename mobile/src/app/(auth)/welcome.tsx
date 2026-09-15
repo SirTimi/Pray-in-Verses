@@ -14,24 +14,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import Svg, { Circle, Path } from 'react-native-svg';
-import {
-  ArrowRight,
-  BookOpen,
-  ChevronRight,
-  FileText,
-  Heart,
-  List,
-  Sparkles,
-  UserRound,
-} from 'lucide-react-native';
+import { ArrowRight, Heart, UserRound } from 'lucide-react-native';
 
 const NAVY = '#061B50';
 const BLUE = '#0D43B6';
-const BLUE_SOFT = '#EAF3FF';
-const GOLD = '#F4B400';
-const GOLD_SOFT = '#FFF3C8';
 const MUTED = '#60739A';
-const BORDER = '#E6EBF2';
 const PAPER = '#FFFEFB';
 const SERIF_FONT = Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' });
 
@@ -72,43 +59,14 @@ function ScriptureToPrayerVisual({ compact }: { compact: boolean }) {
   );
 }
 
-const FLOW_STEPS = [
-  { title: 'Book', subtitle: 'Choose a book of the Bible', Icon: BookOpen },
-  { title: 'Chapter', subtitle: 'Select a chapter', Icon: FileText },
-  { title: 'Verse', subtitle: 'Pick a verse', Icon: List },
-  { title: 'Prayer', subtitle: 'Get a guided prayer', Icon: Sparkles },
-] as const;
-
 function VerseFlowVisual({ compact }: { compact: boolean }) {
   return (
-    <View style={[styles.flowStage, compact && styles.flowStageCompact]}>
-      {FLOW_STEPS.map(({ title, subtitle, Icon }, index) => {
-        const isPrayer = index === FLOW_STEPS.length - 1;
-        return (
-          <View key={title} style={styles.flowGroup}>
-            <View style={[styles.flowCard, isPrayer && styles.flowPrayerCard]}>
-              <View style={[styles.flowIconBox, isPrayer && styles.flowIconGold]}>
-                <Icon
-                  size={27}
-                  color={isPrayer ? '#B67C00' : '#0861C7'}
-                  strokeWidth={2}
-                />
-              </View>
-              <View style={styles.flowCopy}>
-                <Text style={styles.flowTitle}>{title}</Text>
-                <Text style={styles.flowSubtitle}>{subtitle}</Text>
-              </View>
-              <ChevronRight size={22} color="#53647F" strokeWidth={2} />
-            </View>
-
-            {index < FLOW_STEPS.length - 1 ? (
-              <View style={styles.flowConnector}>
-                <Text style={styles.flowArrow}>↓</Text>
-              </View>
-            ) : null}
-          </View>
-        );
-      })}
+    <View style={[styles.flowArtStage, compact && styles.flowArtStageCompact]}>
+      <Image
+        source={require('../../../assets/images/guided-bible-image.png')}
+        resizeMode="contain"
+        style={styles.flowArt}
+      />
     </View>
   );
 }
@@ -315,10 +273,7 @@ export default function WelcomeScreen() {
         <View style={styles.bottomArea}>
           <View style={styles.dotsRow}>
             {[0, 1, 2].map((index) => (
-              <View
-                key={index}
-                style={[styles.dot, index === page && styles.dotActive]}
-              />
+              <View key={index} style={[styles.dot, index === page && styles.dotActive]} />
             ))}
           </View>
 
@@ -339,9 +294,7 @@ export default function WelcomeScreen() {
             >
               {page === 2 ? 'Get Started' : 'Next'}
             </Text>
-            {page === 0 ? (
-              <ArrowRight size={20} color="#FFFFFF" strokeWidth={2} />
-            ) : null}
+            {page === 0 ? <ArrowRight size={20} color="#FFFFFF" strokeWidth={2} /> : null}
           </Pressable>
         </View>
       </View>
@@ -480,76 +433,22 @@ const styles = StyleSheet.create({
     aspectRatio: 540 / 583,
     borderRadius: 20,
   },
-
-  flowStage: {
-    width: '100%',
-    paddingTop: 16,
-  },
-  flowStageCompact: {
-    paddingTop: 0,
-    transform: [{ scale: 0.9 }],
-  },
-  flowGroup: {
-    alignItems: 'center',
-  },
-  flowCard: {
-    width: '100%',
-    minHeight: 76,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: BORDER,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    shadowColor: '#203A70',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.07,
-    shadowRadius: 14,
-    elevation: 3,
-  },
-  flowPrayerCard: {
-    borderColor: '#F1CB68',
-    backgroundColor: '#FFFBF0',
-  },
-  flowIconBox: {
-    width: 55,
-    height: 55,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: BLUE_SOFT,
-  },
-  flowIconGold: {
-    backgroundColor: GOLD_SOFT,
-  },
-  flowCopy: {
+  flowArtStage: {
     flex: 1,
-    marginLeft: 16,
-  },
-  flowTitle: {
-    color: NAVY,
-    fontFamily: SERIF_FONT,
-    fontSize: 19,
-    fontWeight: '700',
-  },
-  flowSubtitle: {
-    marginTop: 3,
-    color: MUTED,
-    fontSize: 13,
-  },
-  flowConnector: {
-    height: 30,
+    width: '100%',
+    minHeight: 330,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  flowArrow: {
-    color: GOLD,
-    fontSize: 28,
-    lineHeight: 29,
-    fontWeight: '600',
+  flowArtStageCompact: {
+    minHeight: 285,
   },
-
+  flowArt: {
+    width: '100%',
+    height: '100%',
+    maxWidth: 360,
+    maxHeight: 430,
+  },
   communityStage: {
     width: '100%',
     height: 430,
@@ -681,7 +580,6 @@ const styles = StyleSheet.create({
     right: 33,
     bottom: 18,
   },
-
   bottomArea: {
     width: '100%',
     paddingTop: 2,
