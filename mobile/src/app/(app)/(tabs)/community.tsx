@@ -13,7 +13,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Bookmark,
   ChevronRight,
-  Filter,
   Heart,
   MessageCircle,
   Plus,
@@ -98,6 +97,8 @@ export default function CommunityTab() {
     return requests;
   }, [mode, requests, user?.id]);
 
+  const hasRequests = requests.length > 0;
+
   async function handleLike(request: PrayerWallRequest) {
     if (busyId) return;
     setBusyId(request.id);
@@ -140,7 +141,7 @@ export default function CommunityTab() {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, hasRequests && styles.contentWithFab]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -158,18 +159,7 @@ export default function CommunityTab() {
             <Text style={styles.title}>Prayer Wall</Text>
             <Text style={styles.subtitle}>A community lifted by prayer</Text>
           </View>
-          <View style={styles.filterIcon}>
-            <Filter size={20} color={colors.primary} />
-          </View>
         </View>
-
-        <Pressable
-          onPress={() => router.push('/(app)/prayer-wall/create')}
-          style={styles.createButton}
-        >
-          <View style={styles.createIcon}><Plus size={20} color={colors.primary} /></View>
-          <Text style={styles.createText}>Share a Prayer Request</Text>
-        </Pressable>
 
         <View style={styles.modeRow}>
           {([
@@ -216,7 +206,20 @@ export default function CommunityTab() {
           <View style={styles.stateBox}>
             <UsersRound size={30} color={colors.textMuted} />
             <Text style={styles.stateTitle}>No requests here yet</Text>
-            <Text style={styles.stateText}>Try another filter or share a prayer request with the community.</Text>
+            <Text style={styles.stateText}>
+              {hasRequests
+                ? 'No requests match this view yet. Try another filter.'
+                : 'Be the first to share a prayer request with the community.'}
+            </Text>
+            {!hasRequests && !error && (
+              <Pressable
+                onPress={() => router.push('/(app)/prayer-wall/create')}
+                style={styles.createButton}
+              >
+                <View style={styles.createIcon}><Plus size={20} color={colors.primary} /></View>
+                <Text style={styles.createText}>Share a Prayer Request</Text>
+              </Pressable>
+            )}
           </View>
         ) : (
           <View style={styles.list}>
@@ -279,6 +282,17 @@ export default function CommunityTab() {
           </View>
         )}
       </ScrollView>
+
+      {!loading && hasRequests && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Share a prayer request"
+          onPress={() => router.push('/(app)/prayer-wall/create')}
+          style={({ pressed }) => [styles.floatingAdd, pressed && styles.floatingAddPressed]}
+        >
+          <Plus size={26} color={colors.white} />
+        </Pressable>
+      )}
     </SafeAreaView>
   );
 }
@@ -287,13 +301,40 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   scroll: { flex: 1 },
   content: { paddingHorizontal: spacing.base, paddingTop: spacing.lg, paddingBottom: 30 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  contentWithFab: { paddingBottom: 104 },
+  headerRow: { flexDirection: 'row', alignItems: 'center' },
   title: { color: colors.primaryDark, fontSize: 31, lineHeight: 37, fontWeight: '800' },
   subtitle: { color: colors.textSecondary, fontSize: 14, marginTop: 2 },
-  filterIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft },
-  createButton: { minHeight: 56, marginTop: spacing.lg, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, backgroundColor: colors.primary },
+  createButton: {
+    minHeight: 56,
+    width: '100%',
+    marginTop: spacing.md,
+    borderRadius: radius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.primary,
+  },
   createIcon: { width: 29, height: 29, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.white },
   createText: { color: colors.white, fontSize: 15, fontWeight: '800' },
+  floatingAdd: {
+    position: 'absolute',
+    right: spacing.lg,
+    bottom: spacing.lg,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    elevation: 8,
+    shadowColor: '#0B1F4D',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22,
+    shadowRadius: 8,
+  },
+  floatingAddPressed: { opacity: 0.82 },
   modeRow: { flexDirection: 'row', marginTop: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.border },
   modeButton: { flex: 1, minHeight: 46, alignItems: 'center', justifyContent: 'center' },
   modeText: { color: colors.textSecondary, fontSize: 12, fontWeight: '700' },
