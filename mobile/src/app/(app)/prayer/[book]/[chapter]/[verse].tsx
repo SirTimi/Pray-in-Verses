@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   ImageBackground,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -318,38 +319,44 @@ export default function PrayerDetailScreen() {
       </View>
 
       <Modal visible={journalOpen} transparent animationType="slide" onRequestClose={() => setJournalOpen(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCard, { paddingBottom: Math.max(insets.bottom, 24) }]}>
-            <View style={styles.modalHeader}>
-              <View style={styles.flexOne}>
-                <Text style={styles.modalEyebrow}>PRAYER JOURNAL</Text>
-                <Text style={styles.modalTitle}>Reflect on {prayer.reference}</Text>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
+          style={styles.modalKeyboardAvoider}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={[styles.modalCard, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+              <View style={styles.modalHeader}>
+                <View style={styles.flexOne}>
+                  <Text style={styles.modalEyebrow}>PRAYER JOURNAL</Text>
+                  <Text style={styles.modalTitle}>Reflect on {prayer.reference}</Text>
+                </View>
+                <Pressable onPress={() => setJournalOpen(false)} style={styles.modalClose}>
+                  <X size={20} color={colors.primaryDark} />
+                </Pressable>
               </View>
-              <Pressable onPress={() => setJournalOpen(false)} style={styles.modalClose}>
-                <X size={20} color={colors.primaryDark} />
+
+              <TextInput
+                autoFocus
+                multiline
+                value={journalBody}
+                onChangeText={setJournalBody}
+                placeholder="Write what stood out to you, what you're praying, or what God is teaching you…"
+                placeholderTextColor={colors.textMuted}
+                style={styles.journalInput}
+                textAlignVertical="top"
+              />
+
+              <Pressable
+                disabled={journalBody.trim().length === 0 || journalSaving}
+                onPress={() => void handleJournalSave()}
+                style={[styles.modalSave, (journalBody.trim().length === 0 || journalSaving) && styles.disabledButton]}
+              >
+                {journalSaving ? <ActivityIndicator color={colors.white} /> : <Text style={styles.modalSaveText}>Save Reflection</Text>}
               </Pressable>
             </View>
-
-            <TextInput
-              autoFocus
-              multiline
-              value={journalBody}
-              onChangeText={setJournalBody}
-              placeholder="Write what stood out to you, what you're praying, or what God is teaching you…"
-              placeholderTextColor={colors.textMuted}
-              style={styles.journalInput}
-              textAlignVertical="top"
-            />
-
-            <Pressable
-              disabled={journalBody.trim().length === 0 || journalSaving}
-              onPress={() => void handleJournalSave()}
-              style={[styles.modalSave, (journalBody.trim().length === 0 || journalSaving) && styles.disabledButton]}
-            >
-              {journalSaving ? <ActivityIndicator color={colors.white} /> : <Text style={styles.modalSaveText}>Save Reflection</Text>}
-            </Pressable>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -585,6 +592,7 @@ const styles = StyleSheet.create({
   retryText: { color: colors.white, fontSize: 14, fontWeight: '800' },
   backLink: { padding: spacing.md },
   backLinkText: { color: colors.primary, fontSize: 13, fontWeight: '700' },
+  modalKeyboardAvoider: { flex: 1 },
   modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(8,20,45,0.46)' },
   modalCard: { borderTopLeftRadius: 26, borderTopRightRadius: 26, paddingHorizontal: spacing.xl, paddingTop: spacing.xl, backgroundColor: colors.surface },
   modalHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md },
