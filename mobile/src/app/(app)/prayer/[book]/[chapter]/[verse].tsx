@@ -505,6 +505,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
     marginTop: 13,
+    textAlign: 'justify',
   },
   pointsList: { marginTop: 8 },
   pointRow: {

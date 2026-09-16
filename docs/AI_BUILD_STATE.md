@@ -10,41 +10,51 @@ AWAITING USER TEST
 
 ## Last Accepted Task
 
-Journal entry action layout was accepted by the user on 2026-09-15. Existing Journal entries now place Delete and Update Entry side by side in a safe-area-aware bottom action row, with no trash icon in the header.
+Prayer Reminders action simplification was accepted by the user on 2026-09-16. Prayer Reminders now uses the large `Add Reminder` CTA only when empty, one lower floating `+` when reminders exist, no header `+`, and no `Send a test reminder` control.
 
-Previously accepted work also includes all three onboarding screens, removal of onboarding page fade/slide transitions, email/password-only Login, Verse of the Day direct-to-detail navigation, Journal list floating-add behavior, the 19 reference-board screens, My Prayers, Prayer Wall, Saved Prayers, Journal, notifications, device-local reminders, account management, Support + Donation, keyboard/safe-area repairs, Cloud Run deployment repair, and the selected `PIV-logo.png` branding asset.
+Previously accepted work also includes all three onboarding screens, removal of onboarding page fade/slide transitions, email/password-only Login, Verse of the Day direct-to-detail navigation, Journal list floating-add behavior, Journal entry safe-area actions, the 19 reference-board screens, My Prayers, Prayer Wall, Saved Prayers, Journal, notifications, device-local reminders, account management, Support + Donation, keyboard/safe-area repairs, Cloud Run deployment repair, and the selected `PIV-logo.png` branding asset.
 
 ## Current Implementation
 
+### Shared signed-in app navigation
+
+- Signed-in screens now use one shared primary bottom navigation from the parent `(app)` layout.
+- The shared navigation exposes the same five destinations everywhere: Home, Browse, Pray, Community, and Profile.
+- The nested `(tabs)` navigator remains responsible for the five main tab routes but no longer renders a second tab bar.
+- Signed-in detail screens outside `(tabs)` now retain the primary app navigation instead of losing it when pushed on the parent Stack.
+- Route-aware active states map Bible browsing to Browse, prayer/journal/saved/reminders flows to Pray, Prayer Wall/community flows to Community, and account/support/notifications flows to Profile.
+- The shared navigation hides while the software keyboard is visible and restores when the keyboard closes.
+- Existing Stack navigation and screen-level Back actions are preserved.
+- Authentication and onboarding routes remain outside `(app)` and therefore do not show the signed-in navigation.
+
+### Prayer Detail — Short Insight
+
+- The Short Insight body now uses justified text alignment for a cleaner block layout.
+- Prayer content, API loading, Save Prayer, prayer-point saving, sharing, and Add to Journal behavior are unchanged.
+
 ### Prayer Reminders actions
 
-- The top-right Prayer Reminders `+` action has been removed from the header.
-- The header keeps the Back action on the left, centered Prayer Reminders copy, and a matching right spacer so the title stays visually centered.
-- The `Send a test reminder` control has been removed from the Prayer Reminders screen together with its screen-only test state, handler, icon import, and `sendTestPrayerReminder` import.
-- When there are zero reminders, the existing empty-state `Add Reminder` CTA remains the only creation action.
-- When at least one reminder exists, a single circular floating `+` appears near the lower-right area of the screen.
-- The floating action uses `useSafeAreaInsets()` so it stays above Android system navigation.
-- Extra bottom scroll padding is applied when the floating action is present so the final reminder/footnote can scroll clear of it.
-- Existing reminder permission prompts, local scheduling, edit navigation, active/paused toggle, delete confirmation, and reminder cards are unchanged.
+- The top-right Prayer Reminders `+` is removed.
+- `Send a test reminder` is removed from the end-user screen.
+- Zero reminders use the existing large `Add Reminder` empty-state CTA.
+- Populated reminder lists use one lower floating `+` action.
+- Reminder permission prompts, local scheduling, editing, active/paused toggles, and delete confirmation are unchanged.
 
 ### Journal entry actions
 
-- Existing Journal entries do not show a trash icon in the top-right header.
-- Existing entries show `Delete` and `Update Entry` side by side in one persistent bottom action area.
-- Delete retains the existing destructive confirmation dialog.
-- Update retains the existing update flow and validation.
-- The bottom action area respects the device bottom safe area.
-- New journal entries show a single safe-area-aware `Save Entry` action.
+- Existing Journal entries do not show a trash icon in the header.
+- Existing entries show `Delete` and `Update Entry` side by side in a persistent bottom action area.
+- New entries show one `Save Entry` action.
 
 ### Journal list actions
 
 - Populated Journal lists show one floating lower-right `+` action.
 - The top-right `+` is removed.
-- The large full-width `New Entry` footer appears only when the journal has zero entries.
+- The large full-width `New Entry` CTA appears only when the journal has zero entries.
 
 ### Home — Verse of the Day
 
-- Verse of the Day and Daily Verse open `/(app)/prayer/[book]/[chapter]/[verse]` directly with the current verse reference.
+- Verse of the Day and Daily Verse open the exact prayer detail route directly.
 - Manual Bible book → chapter → verse browsing retains the normal selection flow.
 
 ### Login
@@ -54,7 +64,7 @@ Previously accepted work also includes all three onboarding screens, removal of 
 ### Onboarding
 
 - All three onboarding screens use their accepted artwork.
-- Page changes remain immediate with no page-level fade/upward-slide animation.
+- Page changes are immediate with no page-level fade/upward-slide animation.
 
 ## Completed
 
@@ -66,14 +76,15 @@ Previously accepted work also includes all three onboarding screens, removal of 
 - Verse of the Day direct-to-detail navigation accepted.
 - Journal list add-action layout accepted.
 - Journal entry delete/update bottom action layout accepted.
-- Prayer Reminders action simplification implemented for device review.
+- Prayer Reminders action simplification accepted.
+- Shared signed-in app navigation and Short Insight justification implemented for device review.
 
 ## Next Tasks
 
-After the Prayer Reminders action layout is accepted:
+After the shared navigation and Short Insight polish are accepted:
 
-1. Continue signed-in screen polish screen by screen.
-2. Continue auth-screen polish where needed.
+1. Finish any remaining signed-in screen polish found during the full navigation pass.
+2. Re-run Expo dependency alignment/doctor checks before generating the preview APK.
 3. Complete remaining About/Mission/Legal native screens and navigation.
 4. Finish Android release polish, App Links, launcher/splash checks, and Play Store readiness.
 5. Begin iOS release work after Android acceptance.
@@ -87,45 +98,47 @@ After the Prayer Reminders action layout is accepted:
 - Server notifications are an in-app inbox only; remote push-token delivery is not yet implemented.
 - Prayer reminders remain device-local.
 - Verified Android App Links for password-reset emails remain part of Android release polish.
+- The latest local `expo-doctor` run reported Expo SDK 57 patch-version drift; dependency alignment still needs to be completed and committed before the preview APK build is treated as release-ready.
 
 ## Testing Status
 
 Engineering change is pushed for manual Android review.
 
-Test Prayer Reminders and confirm:
+Test the signed-in app and confirm:
 
-1. With zero reminders, there is no top-right `+` in the header.
-2. With zero reminders, the empty-state `Add Reminder` button remains visible and opens the reminder editor.
-3. `Send a test reminder` is completely removed from the screen.
-4. After creating the first reminder, the empty-state Add Reminder CTA disappears and one floating circular `+` appears near the lower-right area.
-5. The floating `+` stays fully above the Android navigation bar and opens a new reminder.
-6. Existing reminder cards still open for editing.
-7. Active/paused toggles still work.
-8. Reminder deletion still asks for confirmation and removes the reminder after confirmation.
-9. Notification permission UI still works when permission has not been granted.
-10. After deleting the last reminder, the screen returns to the empty state with the large `Add Reminder` CTA and no floating `+`.
+1. The Prayer Detail `Short Insight` text is justified and remains readable without clipping or broken spacing.
+2. Home, Browse, Pray, Community, and Profile show one consistent bottom navigation bar.
+3. There is never a duplicate tab bar on the five main tab screens.
+4. The same bottom navigation remains visible on signed-in detail screens, especially Prayer Detail, Journal, Journal Entry, Prayer Reminders, Saved Prayers, My Prayers, Account, Support, Notifications, and Prayer Wall detail/create flows.
+5. Home, Browse, Pray, Community, and Profile can each be opened from those detail screens.
+6. Back buttons still return to the expected previous screen and no existing detail route is broken.
+7. The active navigation item is sensible for each flow: Browse for Bible browsing, Pray for prayer/journal/saved/reminders, Community for Prayer Wall/community, and Profile for account/support/notifications.
+8. Fixed screen actions such as Prayer Detail `Save Prayer` / `Add to Journal` and Journal `Delete` / `Update Entry` remain usable above the shared app navigation and Android system navigation.
+9. Opening the keyboard hides the shared navigation so text-entry screens are not cramped; dismissing the keyboard restores it.
+10. Authentication, signup, forgot-password, splash, and onboarding screens do not show the signed-in navigation.
 
 Validation performed in this environment:
 
-- Inspected latest remote `main` and recent commits before editing.
-- Confirmed `main` pointed to `908f2842438d2754b9e2751f5c47e922fc3a2bf4` before this cycle.
-- Read `mobile/AGENTS.md`, `docs/AI_BUILD_STATE.md`, and the current Prayer Reminders implementation before changing code.
-- Read the Expo SDK 57 reference required by `mobile/AGENTS.md`.
-- Retained the existing reminder service calls for listing, permission checks, activation toggling, and deletion.
-- Removed only the screen exposure and imports for the test-reminder action; the underlying service module was not changed.
-- Added no dependency, API, schema, migration, environment, authentication, payment, or native configuration changes.
-- Physical-device layout and behavior remain the acceptance gate.
+- Inspected the latest remote `main` and recent commits before editing.
+- Read `mobile/AGENTS.md`, `docs/AI_BUILD_STATE.md`, the parent `(app)` layout, nested `(tabs)` layout, Prayer Detail implementation, route tree, and existing navigation styling.
+- Reviewed Expo Router SDK 57 navigation/layout guidance before changing the navigator structure.
+- Confirmed the navigation inconsistency came from signed-in detail routes living in the parent Stack outside the nested Tabs navigator.
+- Kept the parent Stack so existing push/back semantics remain intact instead of moving every detail route into individual tab directories.
+- Reused the existing five primary destinations, colors, labels, icon family, sizing, safe-area behavior, and keyboard-hide behavior in the shared navigation.
+- No API, database, schema, migration, authentication, payment, or environment changes were introduced.
+- Repository CI status checks are not configured for these direct commits; physical-device navigation and layout remain the acceptance gate.
 
 ## Architecture Decisions
 
 - GitHub `main` remains the source of truth.
 - Expo SDK 57 versioned documentation remains authoritative for mobile implementation.
-- Empty collection screens should use one strong first-action CTA rather than duplicate creation controls.
-- Populated collection screens should expose one lower floating add action when appropriate.
-- Floating lower actions must respect safe-area insets and leave sufficient scroll clearance.
-- Test/developer actions should not occupy primary end-user UI when they are no longer needed for the intended product flow.
+- The authenticated application has one shared primary bottom navigation owned by the parent `(app)` layout so it remains consistent across main and detail screens.
+- The nested Tabs navigator manages the five primary route groups but does not render its own separate tab bar.
+- The parent Stack remains in place to preserve detail-screen Back behavior and route history.
+- Signed-in navigation hides while the keyboard is open, matching the previous `tabBarHideOnKeyboard` behavior.
+- Authentication/onboarding routes remain navigation-free because they are intentionally outside the authenticated `(app)` layout.
 - Manual user/device testing remains the acceptance gate after each pushed development increment.
 
 ## Last Commit
 
-Current cycle: remove the Prayer Reminders header add button and test-reminder control, preserve the empty-state Add Reminder CTA, and show one safe-area-aware floating add action only when reminders already exist. Status: AWAITING USER TEST.
+Current cycle: justify Prayer Detail Short Insight text and make the five-item primary app navigation persistent and consistent across all authenticated screens while preserving existing Stack/back behavior. Status: AWAITING USER TEST.
