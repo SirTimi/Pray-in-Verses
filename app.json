@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "7447cbeb-366b-4403-916c-61871556c057"
+      }
+    },
+    "android": {
+      "package": "com.mykiel.prayinverses"
+    }
+  }
+}
