@@ -1,18 +1,19 @@
 import { Stack } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import AppBottomNavigation from '@/components/navigation/AppBottomNavigation';
 
 export default function AppLayout() {
   return (
     <View style={styles.container}>
-      <View style={styles.stack}>
+      <SafeAreaProvider style={styles.stack}>
         <Stack
           screenOptions={{
             headerShown: false,
           }}
         />
-      </View>
+      </SafeAreaProvider>
       <AppBottomNavigation />
     </View>
   );
