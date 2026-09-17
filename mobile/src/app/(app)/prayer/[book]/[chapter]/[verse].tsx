@@ -290,12 +290,7 @@ export default function PrayerDetailScreen() {
           </View>
         </ScrollView>
 
-        <View
-          style={[
-            styles.footerActions,
-            { paddingBottom: Math.max(insets.bottom, 12) },
-          ]}
-        >
+        <View style={styles.footerActions}>
           <Pressable
             disabled={saving}
             onPress={() => void handleSavePrayer()}
@@ -556,6 +551,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: spacing.base,
     paddingTop: 10,
+    paddingBottom: 10,
     borderTopWidth: 1,
     borderTopColor: colors.border,
     backgroundColor: colors.surface,
