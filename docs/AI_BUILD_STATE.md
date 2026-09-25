@@ -2,7 +2,7 @@
 
 ## Current Goal
 
-Complete the Pray in Verses mobile application in focused, testable slices while keeping GitHub `main` as the source of truth, then produce a stable Android preview APK.
+Complete the Pray in Verses mobile application in focused, testable slices while keeping GitHub `main` as the source of truth, then complete the iOS App Store release workflow.
 
 ## Current Status
 
@@ -15,6 +15,15 @@ The Prayer Detail bottom-action spacing correction is accepted as the reference 
 Previously accepted mobile polish also includes the shared signed-in bottom navigation, justified Prayer Detail Short Insight text, keyboard-safe Add to Journal sheet, Prayer Wall empty/populated creation actions, removal of the Prayer Wall funnel icon, explicit TSX/JSX TypeScript configuration, all three onboarding screens, onboarding transition removal, email/password-only Login, Verse of the Day direct-to-detail navigation, Journal action patterns, Prayer Reminders action simplification, My Prayers, Saved Prayers, notifications, account management, Support + Donation, and the selected `PIV-logo.png` branding asset.
 
 ## Current Implementation
+
+### iOS release identity
+
+- `mobile/` is confirmed as the authoritative Expo/EAS project directory for mobile builds.
+- `npx eas-cli@latest project:info` run from `mobile/` resolves to `@mykiel/pray-in-verses` with EAS project ID `283c8c7d-7fed-4822-ae3e-07d50a2a6d9c`.
+- `mobile/app.json` now defines `ios.bundleIdentifier` as `com.prayinverses.app`.
+- The repository-root `app.json` and `eas.json` files introduced by an accidental root-level EAS initialization are removed so they cannot redirect future builds to a different Expo project.
+- Android package identity in `mobile/app.json` remains `com.prayinverses.app`.
+
 
 ### Authenticated safe-area ownership
 
@@ -71,13 +80,11 @@ Scrollable content padding that is intentionally used to keep content clear of a
 
 ## Next Tasks
 
-After the safe-area audit is accepted:
-
-1. Re-run TypeScript/Expo validation locally and clear any remaining real diagnostics.
-2. Align the Expo SDK 57 patch versions reported by `expo-doctor` and commit the resulting package/package-lock changes.
-3. Verify/fix the EAS project linkage before generating the next preview APK.
-4. Complete remaining Android release polish and Play Store readiness.
-5. Begin iOS release work after Android acceptance.
+1. Pull the iOS identity commit locally and verify `npx eas-cli@latest project:info` still resolves to `@mykiel/pray-in-verses`.
+2. Confirm the Apple Developer membership / App Store Connect account to use for Pray in Verses.
+3. Configure iOS signing credentials through EAS.
+4. Generate the first iOS production build and send it to TestFlight.
+5. Complete App Store metadata, privacy answers, screenshots, review credentials, and submission.
 
 ## Known Issues
 
@@ -89,11 +96,11 @@ After the safe-area audit is accepted:
 - Prayer reminders remain device-local.
 - Verified Android App Links for password reset remain part of Android release polish.
 - Local `expo-doctor` reported Expo SDK 57 patch-version drift; dependency alignment still needs to be completed before the preview APK is treated as release-ready.
-- EAS was previously observed building under a different Expo project; `extra.eas.projectId` must be verified against the intended Pray in Verses project before the next preview build.
+- EAS previously had conflicting root/mobile configuration. The authoritative mobile project has now been confirmed as `@mykiel/pray-in-verses` (`283c8c7d-7fed-4822-ae3e-07d50a2a6d9c`), and the accidental root Expo/EAS configs are removed in the current cycle.
 
 ## Testing Status
 
-Engineering change is pushed for manual Android review.
+Engineering change is pushed for local configuration verification before Apple credential setup.
 
 Test representative screens that previously had bottom actions or floating buttons:
 
@@ -129,4 +136,4 @@ Validation performed in this environment:
 
 ## Last Commit
 
-Current cycle: audit and fix repeated authenticated-screen bottom safe-area spacing by moving safe-area ownership to the authenticated Stack boundary while leaving the shared app navigation responsible for the real device bottom inset. Status: AWAITING USER TEST.
+Current cycle: establish the authoritative iOS application identity by adding `com.prayinverses.app` to `mobile/app.json` and removing conflicting root-level Expo/EAS configuration. Status: AWAITING USER TEST.

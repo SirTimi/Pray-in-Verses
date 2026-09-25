@@ -8,6 +8,7 @@
     "scheme": "pray-in-verses",
     "userInterfaceStyle": "light",
     "ios": {
+      "bundleIdentifier": "com.prayinverses.app",
       "icon": "./assets/images/PIV-logo.png"
     },
     "android": {
