@@ -4,7 +4,7 @@ This directory is the build target for the public offline Scripture/prayer libra
 
 The real content is generated from the production PostgreSQL `CuratedPrayer` table. Do not hand-edit generated JSON packs.
 
-From `api/`, in an environment where `DATABASE_URL` points to the intended Pray in Verses database, run:
+From `api/`, run the command below. The exporter loads `api/.env` automatically when it exists; an already-set process `DATABASE_URL` still takes precedence:
 
 ```bash
 npm run offline:export
