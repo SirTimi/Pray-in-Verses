@@ -1,4 +1,5 @@
 import { apiRequest } from './api';
+import { networkFirstWithPublicCache } from './offline-cache';
 
 export type VerseOfTheDay = {
   id: string;
@@ -45,43 +46,82 @@ export type PrayerWallPreview = {
 };
 
 export async function getBooks() {
-  const response = await apiRequest<{ books: string[] }>('/browse/books');
-  return response.books;
+  return networkFirstWithPublicCache(
+    'browse:books',
+    async () => {
+      const response = await apiRequest<{ books: string[] }>('/browse/books');
+      return response.books;
+    },
+  );
 }
 
 export async function getChapters(book: string) {
-  const response = await apiRequest<{ data: number[] }>(
-    `/browse/books/${encodeURIComponent(book)}/chapters`,
+  const key = `browse:chapters:${book.trim().toLowerCase()}`;
+
+  return networkFirstWithPublicCache(
+    key,
+    async () => {
+      const response = await apiRequest<{ data: number[] }>(
+        `/browse/books/${encodeURIComponent(book)}/chapters`,
+      );
+      return response.data;
+    },
   );
-  return response.data;
 }
 
 export async function getVerses(book: string, chapter: number) {
-  const response = await apiRequest<{ data: number[] }>(
-    `/browse/books/${encodeURIComponent(book)}/chapters/${chapter}/verses`,
+  const key = `browse:verses:${book.trim().toLowerCase()}:${chapter}`;
+
+  return networkFirstWithPublicCache(
+    key,
+    async () => {
+      const response = await apiRequest<{ data: number[] }>(
+        `/browse/books/${encodeURIComponent(book)}/chapters/${chapter}/verses`,
+      );
+      return response.data;
+    },
   );
-  return response.data;
 }
 
 export async function getChapterCounts(book: string, chapter: number) {
-  const response = await apiRequest<{ data: ChapterPrayerCount[] }>(
-    `/browse/books/${encodeURIComponent(book)}/chapters/${chapter}/counts`,
+  const key = `browse:counts:${book.trim().toLowerCase()}:${chapter}`;
+
+  return networkFirstWithPublicCache(
+    key,
+    async () => {
+      const response = await apiRequest<{ data: ChapterPrayerCount[] }>(
+        `/browse/books/${encodeURIComponent(book)}/chapters/${chapter}/counts`,
+      );
+      return response.data;
+    },
   );
-  return response.data;
 }
 
 export async function getVerseOfTheDay() {
-  const response = await apiRequest<{ data: VerseOfTheDay | null }>(
-    '/browse/verse-of-the-day',
+  return networkFirstWithPublicCache(
+    'browse:verse-of-the-day:latest',
+    async () => {
+      const response = await apiRequest<{ data: VerseOfTheDay | null }>(
+        '/browse/verse-of-the-day',
+      );
+      return response.data;
+    },
   );
-  return response.data;
 }
 
 export async function searchPrayers(query: string) {
-  const response = await apiRequest<{ data: SearchPrayerResult[] }>(
-    `/browse/search?q=${encodeURIComponent(query.trim())}`,
+  const term = query.trim();
+  const key = `browse:search:${term.toLowerCase()}`;
+
+  return networkFirstWithPublicCache(
+    key,
+    async () => {
+      const response = await apiRequest<{ data: SearchPrayerResult[] }>(
+        `/browse/search?q=${encodeURIComponent(term)}`,
+      );
+      return response.data;
+    },
   );
-  return response.data;
 }
 
 export async function getPrayerWallPreview(limit = 3) {

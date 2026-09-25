@@ -10,11 +10,21 @@ AWAITING USER TEST
 
 ## Last Accepted Task
 
-The mobile donation return and bounded verification flow is accepted by moving on: Paystack mobile callbacks bridge back into Pray in Verses and automatic confirmation stops after 60 seconds rather than waiting indefinitely.
+Guest read-only Scripture mode is accepted by moving on: users can continue without signing in, public published Scripture/prayer reads are available without auth, and personal writes remain protected.
 
 Previously accepted mobile polish also includes the shared signed-in bottom navigation, justified Prayer Detail Short Insight text, keyboard-safe Add to Journal sheet, Prayer Wall empty/populated creation actions, removal of the Prayer Wall funnel icon, explicit TSX/JSX TypeScript configuration, all three onboarding screens, onboarding transition removal, email/password-only Login, Verse of the Day direct-to-detail navigation, Journal action patterns, Prayer Reminders action simplification, My Prayers, Saved Prayers, notifications, account management, Support + Donation, and the selected `PIV-logo.png` branding asset.
 
 ## Current Implementation
+
+### Offline public-content cache
+
+- Added Expo SDK 57 `expo-sqlite` `~57.0.3`, the version recommended by the SDK 57 SQLite reference.
+- Added a persistent SQLite database `prayinverses-offline.db` with WAL mode and a parameterized `public_cache` table.
+- Public Scripture/prayer reads use a network-first strategy: successful API responses refresh SQLite; network/server failures fall back to the latest cached value.
+- Cached resources include books, chapters, verses, chapter prayer-point counts, Verse of the Day, previous search-query results, and individual Prayer Detail content.
+- Prayer Detail cache values are sanitized before persistence: `isSaved`, saved prayer-point indexes, and saved counts are reset so public offline storage never carries account-specific saved state across sessions.
+- HTTP 4xx responses do not silently fall back to cache; only network failures/non-API failures and 5xx server failures can use offline fallback.
+- Offline access currently applies to content that has been loaded at least once on the device. A first-install full offline library/download pack is intentionally a later slice because the repository does not yet contain a bundled public prayer database.
 
 ### Guest read-only Scripture mode
 
@@ -111,13 +121,14 @@ Scrollable content padding that is intentionally used to keep content clear of a
 - iOS bundle identity, Apple signing credentials, push key, production build, and initial TestFlight upload completed.
 - Screen-aware iOS/Android status-bar styling accepted.
 - Mobile donation success return-to-app deep link and bounded verification accepted by continued work.
-- Guest read-only Scripture mode implemented for device/API review.
+- Guest read-only Scripture mode accepted by continued work.
+- SQLite network-first/public-content offline cache implemented for device review.
 
 ## Next Tasks
 
-1. Pull/deploy the guest-mode API/mobile changes and test guest Home → Browse → Prayer Detail without signing in.
-2. Implement the offline cache layer with Expo SQLite: cache public books/chapters/verses/prayer detail and fall back to local data when the network is unavailable.
-3. Add explicit offline-download controls/strategy after measuring content/database size.
+1. Pull/install dependencies and test the SQLite cache on Android/iOS: load content online, disable connectivity, then reopen the same Browse/Prayer paths.
+2. Measure representative cache/library sizes and design explicit offline-download controls for books/testaments/full library.
+3. Decide whether the release should include a small bundled starter database for useful first-launch offline access.
 4. Complete the remaining iOS functional pass and prepare the next iOS build containing accepted fixes.
 5. Complete App Store metadata, privacy answers, screenshots, review credentials, and submission.
 
@@ -129,34 +140,35 @@ Scrollable content padding that is intentionally used to keep content clear of a
 - Donation confirmation remains webhook/server-owned. The mobile UI now stops automatic waiting after 60 seconds and preserves the reference for later checks.
 - Server notifications are an in-app inbox only; remote push-token delivery is not yet implemented.
 - Prayer reminders remain device-local.
-- Guest mode currently requires network access for Scripture content; offline SQLite caching is not implemented yet.
+- Offline SQLite fallback only covers public content previously loaded on that device; a fresh install with no cache still needs internet until starter/download packs are implemented.
 - Verified Android App Links for password reset remain part of Android release polish.
 - Local `expo-doctor` reported Expo SDK 57 patch-version drift; dependency alignment still needs to be completed before the preview APK is treated as release-ready.
 - EAS previously had conflicting root/mobile configuration. The authoritative mobile project has now been confirmed as `@mykiel/pray-in-verses` (`283c8c7d-7fed-4822-ae3e-07d50a2a6d9c`), and the accidental root Expo/EAS configs are removed in the current cycle.
 
 ## Testing Status
 
-Guest read-only mode is pushed for API/mobile review.
+SQLite public-content caching is pushed for physical-device review.
 
-Test after the API containing this commit is deployed:
+After pulling this commit, run `npm ci` in `mobile/` so `expo-sqlite` 57.0.3 is installed. Because SQLite is a native module, an existing custom development client built before this dependency was added may need a new native/dev build; Expo Go already includes Expo SQLite.
 
-1. From Login, tap `Continue without signing in`; confirm Home opens without an account.
-2. Kill and reopen the app; confirm the remembered guest choice returns to the app instead of forcing Login.
-3. As guest, open Browse → book → chapter → verse and confirm Scripture Prayer loads.
-4. On Prayer Detail as guest, tap Save Prayer, a prayer-point bookmark, and Add to Journal; each must ask the user to sign in and must not write data.
-5. On guest Home, Notifications, Prayer Wall, Saved Prayers, and Journal shortcuts must lead to Sign In; Support/Donation remains reachable.
-6. Guest bottom navigation must show only Home, Browse, and Sign In.
-7. Sign in with a real account; confirm the full five-item navigation returns and saved-prayer state still appears correctly on Prayer Detail.
-8. Confirm all existing protected write APIs remain unauthorized without a valid session.
+Test on Android/iOS:
+
+1. With internet on, enter guest mode and open Browse, one book, one chapter, several verses, one Prayer Detail, Verse of the Day, and one search query.
+2. Fully disable Wi-Fi/mobile data.
+3. Reopen those same cached Browse/book/chapter/Prayer Detail paths; they should load from SQLite rather than showing the network error.
+4. Re-run the same search query offline; its previously cached results should load.
+5. Try a book/chapter/prayer that was never opened before; it should still show the normal unavailable/network error because it has not been cached yet.
+6. Sign in online, open a prayer that is saved to the account, then go offline and reopen it; content should load, but cached public state must not claim the prayer or points are saved.
+7. Restore internet and confirm fresh server content replaces/refreshes cached content.
 
 Validation performed in this environment:
 
-- Re-read the exact Expo SDK 57 reference before modifying mobile code.
-- Re-inspected current remote `main`, auth bootstrap/login, shared navigation, Home, Browse, Prayer Detail, curated-prayer API guard/service/module, and optional-auth middleware.
-- Public API exposure is limited to published `/browse` GET content. Personal write controllers remain protected.
-- Optional authentication validates JWT signature, active user status, and auth-version before attaching personalized saved-state context.
-- No database schema, migration, dependency, payment-secret, or environment changes were introduced.
-- Repository CI status checks are not configured for direct commits; API deployment plus Android/iPhone testing remains the acceptance gate.
+- Re-read the exact Expo SDK 57 SQLite reference before implementation.
+- SDK 57 recommends `expo-sqlite` `~57.0.3`; the implementation uses `openDatabaseAsync`, WAL mode, `runAsync`, and `getFirstAsync` with bound parameters.
+- `mobile/package.json` and `mobile/package-lock.json` are updated together, including `await-lock` required by Expo SQLite.
+- Offline caching is isolated in the mobile service layer; no screen duplicates caching logic.
+- No API, schema, migration, auth-write, payment, or environment changes were introduced in this cycle.
+- Repository CI status checks are not configured for direct commits; dependency install plus physical-device offline testing remains the acceptance gate.
 
 ## Architecture Decisions
 
@@ -171,8 +183,9 @@ Validation performed in this environment:
 - Donation success is trusted only after server/webhook status confirmation; client redirects never mark a donation paid.
 - Published Scripture/prayer reading is public; personalized state is layered on through optional validated auth, while writes remain protected.
 - Guest-mode persistence is local device state and does not create a server-side account.
+- Public offline content is network-first with SQLite fallback; personal account state is deliberately excluded from the public cache.
 - Manual user/device testing remains the acceptance gate after each pushed development increment.
 
 ## Last Commit
 
-Current cycle: add persistent guest read-only mode, public published Scripture/prayer reads with optional personalization, guest-safe Home/navigation, and sign-in gates for personal Prayer Detail actions. Status: AWAITING USER TEST.
+Current cycle: add Expo SQLite network-first caching for published Scripture/prayer reads, with offline fallback and sanitized Prayer Detail persistence that excludes personal saved state. Status: AWAITING USER TEST.

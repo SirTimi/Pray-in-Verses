@@ -1,4 +1,5 @@
 import { apiRequest } from './api';
+import { networkFirstWithPublicCache } from './offline-cache';
 
 export type CuratedPrayerDetail = {
   id: string;
@@ -21,11 +22,27 @@ export async function getPrayerDetail(
   chapter: number,
   verse: number,
 ) {
-  const response = await apiRequest<{ data: CuratedPrayerDetail }>(
-    `/browse/verse/${encodeURIComponent(book)}/${chapter}/${verse}`,
-  );
+  const key =
+    `browse:prayer:${book.trim().toLowerCase()}:${chapter}:${verse}`;
 
-  return response.data;
+  return networkFirstWithPublicCache(
+    key,
+    async () => {
+      const response = await apiRequest<{ data: CuratedPrayerDetail }>(
+        `/browse/verse/${encodeURIComponent(book)}/${chapter}/${verse}`,
+      );
+
+      return response.data;
+    },
+    {
+      cacheValue: (value) => ({
+        ...value,
+        isSaved: false,
+        savedPointIndexes: [],
+        savedPointsCount: 0,
+      }),
+    },
+  );
 }
 
 export async function savePrayer(curatedPrayerId: string) {
