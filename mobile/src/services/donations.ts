@@ -44,7 +44,7 @@ export async function initializeDonation(
         ...payload,
         source: 'mobile',
         callbackPath:
-          '/donations/thank-you',
+          '/donations/thank-you?source=mobile',
         metadata: {
           surface: 'mobile_support',
         },

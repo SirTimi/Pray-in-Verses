@@ -17,7 +17,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -45,8 +45,10 @@ import { useAuthStore } from '@/stores/auth.store';
 const PRESET_AMOUNTS = [1000, 2000, 5000, 10000];
 const DONATION_POLICY_URL = 'https://prayinverses.com/donation-policy';
 const SERIF_FONT = Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' });
+const AUTO_CONFIRM_INTERVAL_MS = 5000;
+const AUTO_CONFIRM_TIMEOUT_MS = 60_000;
 
-type Phase = 'form' | 'opening' | 'pending' | 'success' | 'failed';
+type Phase = 'form' | 'opening' | 'pending' | 'unconfirmed' | 'success' | 'failed';
 
 function formatAmount(value: number) {
   const whole = Math.max(0, Math.round(value));
@@ -60,6 +62,7 @@ function messageFromError(error: unknown, fallback: string) {
 
 export default function DonateScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ reference?: string | string[] }>();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
 
@@ -76,6 +79,13 @@ export default function DonateScreen() {
   const [checking, setChecking] = useState(false);
 
   const checkInFlight = useRef(false);
+  const verificationStartedAt = useRef<number | null>(null);
+
+  const incomingReference = useMemo(() => {
+    const value = Array.isArray(params.reference) ? params.reference[0] : params.reference;
+    const normalized = String(value ?? '').trim();
+    return /^PIV_[A-Za-z0-9_-]{10,120}$/.test(normalized) ? normalized : '';
+  }, [params.reference]);
 
   const amount = useMemo(() => {
     const normalized = amountText.replace(/[^0-9.]/g, '');
@@ -84,7 +94,11 @@ export default function DonateScreen() {
 
   const selectedPreset = PRESET_AMOUNTS.includes(amount) ? amount : null;
 
-  const applyStatus = useCallback(async (donationReference: string, quiet = false) => {
+  const applyStatus = useCallback(async (
+    donationReference: string,
+    quiet = false,
+    keepWaiting = true,
+  ) => {
     if (checkInFlight.current) return;
 
     checkInFlight.current = true;
@@ -96,6 +110,7 @@ export default function DonateScreen() {
 
       if (result.status === 'success') {
         await clearPendingDonation();
+        verificationStartedAt.current = null;
         setPhase('success');
         setStatusNote('');
         return;
@@ -103,16 +118,30 @@ export default function DonateScreen() {
 
       if (result.status === 'failed' || result.status === 'abandoned') {
         await clearPendingDonation();
+        verificationStartedAt.current = null;
         setPhase('failed');
         setStatusNote('');
+        return;
+      }
+
+      const startedAt = verificationStartedAt.current;
+      const timedOut =
+        startedAt !== null &&
+        Date.now() - startedAt >= AUTO_CONFIRM_TIMEOUT_MS;
+
+      if (!keepWaiting || timedOut) {
+        setPhase('unconfirmed');
+        setStatusNote(
+          'We could not confirm this payment within 60 seconds. You do not need to keep this screen open. If you completed the payment, Paystack can still confirm it through the server.',
+        );
         return;
       }
 
       setPhase('pending');
       setStatusNote(
         quiet
-          ? 'Waiting for Paystack confirmation…'
-          : 'Payment has not been confirmed yet. If you just paid, give Paystack a moment and check again.',
+          ? 'Checking with Paystack…'
+          : 'Payment has not been confirmed yet. We will keep checking for up to 60 seconds.',
       );
     } catch (statusError) {
       if (!quiet) {
@@ -129,42 +158,74 @@ export default function DonateScreen() {
 
     void (async () => {
       const pending = await loadPendingDonation();
-      if (!pending || !active) return;
+      if (!active) return;
 
-      setReference(pending.reference);
-      setAmountText(String(pending.amount));
+      const donationReference = incomingReference || pending?.reference || '';
+      if (!donationReference) return;
+
+      setReference(donationReference);
+
+      if (pending?.reference === donationReference) {
+        setAmountText(String(pending.amount));
+      }
+
+      const pendingCreatedAt = pending?.reference === donationReference
+        ? new Date(pending.createdAt).getTime()
+        : Number.NaN;
+      const isOldPending =
+        !incomingReference &&
+        Number.isFinite(pendingCreatedAt) &&
+        Date.now() - pendingCreatedAt >= AUTO_CONFIRM_TIMEOUT_MS;
+
+      verificationStartedAt.current = isOldPending
+        ? Date.now() - AUTO_CONFIRM_TIMEOUT_MS
+        : Date.now();
+
       setPhase('pending');
-      setStatusNote('Checking your previous donation…');
-      await applyStatus(pending.reference, true);
+      setStatusNote(
+        incomingReference
+          ? 'Payment completed. Confirming it securely with the server…'
+          : 'Checking your previous donation…',
+      );
+      await applyStatus(donationReference, true);
     })();
 
     return () => {
       active = false;
     };
-  }, [applyStatus]);
+  }, [applyStatus, incomingReference]);
 
   useEffect(() => {
     if (phase !== 'pending' || !reference) return;
 
-    let attempts = 0;
     const timer = setInterval(() => {
-      attempts += 1;
+      const startedAt = verificationStartedAt.current ?? Date.now();
+      verificationStartedAt.current ??= startedAt;
 
-      if (attempts > 12) {
+      if (Date.now() - startedAt >= AUTO_CONFIRM_TIMEOUT_MS) {
         clearInterval(timer);
-        setStatusNote('Automatic checking paused. Tap Refresh status whenever you are ready.');
+        setPhase('unconfirmed');
+        setStatusNote(
+          'We could not confirm this payment within 60 seconds. You can leave this screen and check the status later.',
+        );
         return;
       }
 
       void applyStatus(reference, true);
-    }, 5000);
+    }, AUTO_CONFIRM_INTERVAL_MS);
 
     return () => clearInterval(timer);
   }, [applyStatus, phase, reference]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active' && phase === 'pending' && reference) {
+      if (
+        state === 'active' &&
+        (phase === 'opening' || phase === 'pending') &&
+        reference
+      ) {
+        verificationStartedAt.current ??= Date.now();
+        setPhase('pending');
         void applyStatus(reference, true);
       }
     });
@@ -199,9 +260,10 @@ export default function DonateScreen() {
 
       setReference(initialized.reference);
       setAuthorizationUrl(initialized.authorization_url);
-      setPhase('pending');
+      verificationStartedAt.current = null;
+      setPhase('opening');
       setStatusNote(
-        'Complete your donation securely with Paystack, then return to Pray in Verses. We will confirm it with the server.',
+        'Complete your donation securely with Paystack. After a successful payment, you will be returned to Pray in Verses automatically.',
       );
 
       await savePendingDonation({
@@ -211,11 +273,13 @@ export default function DonateScreen() {
       });
 
       const browserResult = await WebBrowser.openBrowserAsync(initialized.authorization_url);
-      if (browserResult.type === 'cancel' || browserResult.type === 'dismiss') {
-        setStatusNote('The payment browser was closed. Checking whether the donation was completed…');
-      }
 
-      await applyStatus(initialized.reference);
+      if (Platform.OS === 'ios' || browserResult.type === 'cancel' || browserResult.type === 'dismiss') {
+        verificationStartedAt.current ??= Date.now();
+        setPhase('pending');
+        setStatusNote('Checking whether the donation was completed…');
+        await applyStatus(initialized.reference, true);
+      }
     } catch (startError) {
       setError(messageFromError(startError, 'Unable to start the donation. Please try again.'));
       setPhase('form');
@@ -225,8 +289,15 @@ export default function DonateScreen() {
   const reopenPaystack = async () => {
     if (!authorizationUrl) return;
 
+    setPhase('opening');
+    verificationStartedAt.current = null;
     await WebBrowser.openBrowserAsync(authorizationUrl);
-    if (reference) await applyStatus(reference);
+
+    if (Platform.OS === 'ios' && reference) {
+      verificationStartedAt.current = Date.now();
+      setPhase('pending');
+      await applyStatus(reference, true);
+    }
   };
 
   const startOver = async () => {
@@ -234,6 +305,7 @@ export default function DonateScreen() {
     setReference('');
     setAuthorizationUrl('');
     setConfirmed(null);
+    verificationStartedAt.current = null;
     setStatusNote('');
     setError('');
     setPhase('form');
@@ -287,6 +359,52 @@ export default function DonateScreen() {
               primaryLabel="Try again"
               onPolicy={openPolicy}
             />
+          ) : phase === 'unconfirmed' ? (
+            <View style={styles.pendingWrap}>
+              <View style={styles.pendingIcon}>
+                <RefreshCw size={30} color={colors.primary} />
+              </View>
+              <Text style={styles.resultTitle}>Payment still processing</Text>
+              <Text style={styles.resultBody}>
+                {statusNote ||
+                  'We could not confirm this payment within 60 seconds. You can leave this screen and check again later.'}
+              </Text>
+
+              {reference ? (
+                <View style={styles.referenceBox}>
+                  <Text style={styles.referenceLabel}>REFERENCE</Text>
+                  <Text selectable style={styles.referenceValue}>{reference}</Text>
+                </View>
+              ) : null}
+
+              <Pressable
+                accessibilityRole="button"
+                disabled={checking}
+                onPress={() => void applyStatus(reference, false, false)}
+                style={styles.primaryButton}
+              >
+                {checking ? (
+                  <ActivityIndicator color={colors.white} />
+                ) : (
+                  <>
+                    <RefreshCw size={19} color={colors.white} />
+                    <Text style={styles.primaryButtonText}>Check status</Text>
+                  </>
+                )}
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.back()}
+                style={styles.secondaryButton}
+              >
+                <Text style={styles.secondaryButtonText}>Done for now</Text>
+              </Pressable>
+
+              <Text style={styles.pendingHint}>
+                Your payment reference is saved on this device. Opening this donation screen later will check it again.
+              </Text>
+            </View>
           ) : phase === 'pending' ? (
             <View style={styles.pendingWrap}>
               <View style={styles.pendingIcon}>

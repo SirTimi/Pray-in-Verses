@@ -10,11 +10,21 @@ AWAITING USER TEST
 
 ## Last Accepted Task
 
-The iOS release identity and signing setup are accepted: the mobile project is linked to `@mykiel/pray-in-verses`, `com.prayinverses.app` is registered with Apple, distribution/provisioning/push credentials are ready, and the first production iOS build `1.0.0 (1)` was successfully uploaded to TestFlight.
+The screen-aware status-bar polish is accepted by moving on: dark Home and loaded Prayer Detail use light/white status-bar content while light screens retain the root dark-content default.
 
 Previously accepted mobile polish also includes the shared signed-in bottom navigation, justified Prayer Detail Short Insight text, keyboard-safe Add to Journal sheet, Prayer Wall empty/populated creation actions, removal of the Prayer Wall funnel icon, explicit TSX/JSX TypeScript configuration, all three onboarding screens, onboarding transition removal, email/password-only Login, Verse of the Day direct-to-detail navigation, Journal action patterns, Prayer Reminders action simplification, My Prayers, Saved Prayers, notifications, account management, Support + Donation, and the selected `PIV-logo.png` branding asset.
 
 ## Current Implementation
+
+### Mobile donation return and bounded verification
+
+- Mobile donation initialization now sends Paystack to the HTTPS callback `/donations/thank-you?source=mobile`.
+- The public thank-you page recognizes mobile-origin donations and immediately redirects the browser into `pray-in-verses://support/donate`, preserving a validated Paystack reference when present.
+- The mobile donation screen accepts that deep-linked reference and immediately checks server-side donation state.
+- Automatic confirmation polling is bounded to 60 seconds at 5-second intervals.
+- If payment is still not confirmed after that window, the screen moves to a non-blocking `Payment still processing` state instead of continuing to wait.
+- The pending reference remains stored on-device so the user can leave, return later, and manually/automatically check again.
+- Successful/failed gateway states still clear the pending reference; confirmation remains server/webhook-owned rather than trusting the browser redirect.
 
 ### Screen-aware status bar
 
@@ -86,13 +96,14 @@ Scrollable content padding that is intentionally used to keep content clear of a
 - Prayer Detail action-row spacing reduction accepted as the spacing reference.
 - Authenticated Stack safe-area ownership audit/fix accepted through continued release work.
 - iOS bundle identity, Apple signing credentials, push key, production build, and initial TestFlight upload completed.
-- Screen-aware iOS/Android status-bar styling implemented for Home and Prayer Detail.
+- Screen-aware iOS/Android status-bar styling accepted.
+- Mobile donation success return-to-app deep link and bounded verification implemented for device review.
 
 ## Next Tasks
 
-1. Pull the status-bar commit and validate Home and Prayer Detail on an iPhone/TestFlight build.
-2. Complete the remaining TestFlight functional pass on iOS.
-3. Prepare the next iOS build number before uploading a replacement build containing this polish.
+1. Pull and test the mobile donation return flow on Android/iOS: successful Paystack checkout should return to the app and confirmation must stop auto-waiting after 60 seconds.
+2. Design and implement guest/offline mode as a separate architecture slice: public Scripture/prayer reading without sign-in, local cached/bundled content, and auth-gated personal/community writes.
+3. Complete the remaining iOS functional pass and prepare the next iOS build containing accepted fixes.
 4. Complete App Store metadata, privacy answers, screenshots, review credentials, and submission.
 5. Submit the accepted iOS build for App Review.
 
@@ -101,7 +112,7 @@ Scrollable content padding that is intentionally used to keep content clear of a
 - The gray floating gear visible in development screenshots belongs to Expo Dev Client, not Pray in Verses.
 - Different phone aspect ratios can slightly alter spacing; the user's Android device remains the acceptance reference.
 - The onboarding artwork files have light backgrounds rather than transparency.
-- Donation confirmation depends on Paystack webhook state and may remain Pending briefly after return.
+- Donation confirmation remains webhook/server-owned. The mobile UI now stops automatic waiting after 60 seconds and preserves the reference for later checks.
 - Server notifications are an in-app inbox only; remote push-token delivery is not yet implemented.
 - Prayer reminders remain device-local.
 - Verified Android App Links for password reset remain part of Android release polish.
@@ -110,23 +121,26 @@ Scrollable content padding that is intentionally used to keep content clear of a
 
 ## Testing Status
 
-Status-bar polish is pushed for iPhone review.
+Donation return/polling polish is pushed for device review.
 
-Validate these states on iOS:
+Test on Android and iOS:
 
-1. Home: the time, signal/Wi-Fi, and battery indicators are white over the dark navy top area.
-2. Prayer Detail after content loads: status-bar text/icons are white over the dark prayer banner.
-3. Prayer Detail loading/error state: status-bar text/icons remain dark on the light state screen.
-4. Browse, My Prayers, Prayer Wall, Profile, and other light-background screens retain dark status-bar text/icons.
-5. Navigate repeatedly between Home/Prayer Detail and light screens and confirm the status-bar style switches back correctly.
+1. Start a donation from the app and complete Paystack successfully.
+2. Confirm Paystack's HTTPS callback automatically opens `pray-in-verses://support/donate` and returns the user to the app rather than leaving them on the website.
+3. Confirm the app checks the server-side reference after return and shows Success when the webhook has landed.
+4. For a deliberately delayed/pending payment, confirm automatic checking stops after 60 seconds and changes to `Payment still processing`.
+5. Confirm `Done for now` leaves the donation screen without losing the saved reference.
+6. Reopen Support > Donate later and confirm the saved reference is checked again.
+7. Confirm manual `Check status` works from the non-blocking state.
+8. Confirm failed/abandoned payments still clear pending state and allow a safe retry.
 
 Validation performed in this environment:
 
-- Re-inspected current remote main, recent commits, `mobile/AGENTS.md`, root/app layouts, Home, Prayer Detail, and representative light-background screens.
-- Reviewed Expo status-bar guidance: declarative `StatusBar` components can be mounted per screen, with `light` and `dark` controlling text/icon contrast.
-- The exact SDK 57 status-bar URL was requested but the documentation host timed out in the browsing environment; the current Expo system-bar guidance and adjacent versioned StatusBar API confirm the same declarative behavior.
-- No API, database, schema, migration, authentication, payment, dependency, or environment changes were introduced.
-- Repository CI status checks are not configured for these direct commits; iPhone/TestFlight review remains the acceptance gate.
+- Re-inspected current remote `main`, recent build state, donation mobile/service/web callback code, auth routing, browse services/controllers, and Expo SDK 57 WebBrowser/Linking guidance.
+- Expo SDK 57 documents that custom schemes/deep links are supported and Expo Router handles incoming deep links; Paystack requires an HTTPS browser callback, so the HTTPS thank-you page is retained as a short bridge back into the native custom scheme.
+- Paystack documentation continues to treat webhooks/server verification as authoritative; the app redirect is not used as proof of payment.
+- No schema, migration, payment-secret, or dependency changes were introduced.
+- Repository CI status checks are not configured for direct commits; physical-device payment testing remains the acceptance gate.
 
 ## Architecture Decisions
 
@@ -137,8 +151,10 @@ Validation performed in this environment:
 - Screen-local visual spacing and content clearance may remain, but routed screens should not independently reserve the device bottom inset again.
 - `.tsx` remains the standard extension for TypeScript files containing React JSX.
 - Status-bar styling is screen-background-aware: dark top surfaces explicitly request light status-bar content, while the root dark-content default covers light screens.
+- Paystack callbacks remain HTTPS as required by the gateway; mobile callbacks use the website only as a short bridge to the app's `pray-in-verses://` scheme.
+- Donation success is trusted only after server/webhook status confirmation; client redirects never mark a donation paid.
 - Manual user/device testing remains the acceptance gate after each pushed development increment.
 
 ## Last Commit
 
-Current cycle: make status-bar contrast screen-aware by keeping the root dark-content default and overriding Home and loaded Prayer Detail to light/white status-bar content over their dark headers. Status: AWAITING USER TEST.
+Current cycle: return successful mobile Paystack donations back into Pray in Verses and bound automatic verification to 60 seconds before switching to a non-blocking processing state. Status: AWAITING USER TEST.

@@ -1,11 +1,36 @@
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+
+const REFERENCE_PATTERN = /^PIV_[A-Za-z0-9_-]{10,120}$/;
 
 export default function DonationThankYou() {
   const [params] = useSearchParams();
-  const reference =
+  const rawReference =
     params.get('reference') ||
-    params.get('trxref');
+    params.get('trxref') ||
+    '';
+  const reference = REFERENCE_PATTERN.test(rawReference)
+    ? rawReference
+    : '';
+  const isMobileReturn = params.get('source') === 'mobile';
+
+  const mobileReturnUrl = useMemo(() => {
+    const query = reference
+      ? `?reference=${encodeURIComponent(reference)}`
+      : '';
+
+    return `pray-in-verses://support/donate${query}`;
+  }, [reference]);
+
+  useEffect(() => {
+    if (!isMobileReturn) return;
+
+    const timer = window.setTimeout(() => {
+      window.location.replace(mobileReturnUrl);
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [isMobileReturn, mobileReturnUrl]);
 
   return (
     <div className="min-h-screen bg-[#FFFEF0] flex items-center justify-center px-4 py-12 text-slate-800">
@@ -19,12 +44,14 @@ export default function DonationThankYou() {
         </h1>
 
         <p className="mt-4 text-sm md:text-base leading-6 text-slate-600">
-          Paystack has returned you to Pray in Verses. Payment confirmation is handled securely on the server and may take a moment to appear.
+          Payment confirmation is handled securely on the server and may take a moment to appear.
         </p>
 
-        <p className="mt-3 text-sm leading-6 text-slate-600">
-          If you started this donation from the mobile app, you can close this browser and return to the app. It will check the transaction status automatically.
-        </p>
+        {isMobileReturn ? (
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            Returning you to the Pray in Verses app now.
+          </p>
+        ) : null}
 
         {reference ? (
           <div className="mt-6 rounded-xl bg-slate-50 px-4 py-3 text-left">
@@ -44,12 +71,22 @@ export default function DonationThankYou() {
           >
             Donation Policy
           </Link>
-          <Link
-            to="/"
-            className="rounded-xl bg-[#0C2E8A] px-5 py-3 text-sm font-semibold text-white hover:bg-blue-900"
-          >
-            Return to Pray in Verses
-          </Link>
+
+          {isMobileReturn ? (
+            <a
+              href={mobileReturnUrl}
+              className="rounded-xl bg-[#0C2E8A] px-5 py-3 text-sm font-semibold text-white hover:bg-blue-900"
+            >
+              Open Pray in Verses
+            </a>
+          ) : (
+            <Link
+              to="/"
+              className="rounded-xl bg-[#0C2E8A] px-5 py-3 text-sm font-semibold text-white hover:bg-blue-900"
+            >
+              Return to Pray in Verses
+            </Link>
+          )}
         </div>
 
         <p className="mt-8 text-xs leading-5 text-slate-400">
