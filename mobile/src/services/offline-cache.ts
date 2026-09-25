@@ -85,16 +85,25 @@ export async function networkFirstWithPublicCache<T>(
       ? options.cacheValue(value)
       : value;
 
-    await writePublicCache(key, cacheValue);
+    try {
+      await writePublicCache(key, cacheValue);
+    } catch {
+      // Cache failures must never break a successful online read.
+    }
+
     return value;
   } catch (error) {
     if (!mayUseOfflineFallback(error)) {
       throw error;
     }
 
-    const cached = await readPublicCache<T>(key);
-    if (cached !== null) {
-      return cached;
+    try {
+      const cached = await readPublicCache<T>(key);
+      if (cached !== null) {
+        return cached;
+      }
+    } catch {
+      // Preserve the original network/server error if local storage fails too.
     }
 
     throw error;

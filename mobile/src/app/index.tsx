@@ -8,6 +8,7 @@ import {
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
+import { ApiError } from '@/services/api';
 import { getMe } from '@/services/auth';
 import { isGuestModeEnabled, setGuestModeEnabled } from '@/services/guest';
 import { useAuthStore } from '@/stores/auth.store';
@@ -63,16 +64,29 @@ export default function LaunchScreen() {
       const startedAt = Date.now();
       let destination: '/(app)' | '/(auth)/welcome' = '/(auth)/welcome';
 
-      try {
-        const user = await getMe();
-        setUser(user);
-        await setGuestModeEnabled(false);
-        destination = '/(app)';
-      } catch {
-        setUser(null);
+      const rememberedGuest = await isGuestModeEnabled();
 
-        if (await isGuestModeEnabled()) {
+      if (rememberedGuest) {
+        setUser(null);
+        destination = '/(app)';
+      } else {
+        try {
+          const user = await getMe();
+          setUser(user);
+          await setGuestModeEnabled(false);
           destination = '/(app)';
+        } catch (error) {
+          setUser(null);
+
+          const unavailable =
+            !(error instanceof ApiError) ||
+            error.status >= 500;
+
+          if (unavailable) {
+            // When auth cannot be checked because the device/server is offline,
+            // still allow public cached Scripture content in read-only mode.
+            destination = '/(app)';
+          }
         }
       }
 

@@ -21,9 +21,11 @@ Previously accepted mobile polish also includes the shared signed-in bottom navi
 - Added Expo SDK 57 `expo-sqlite` `~57.0.3`, the version recommended by the SDK 57 SQLite reference.
 - Added a persistent SQLite database `prayinverses-offline.db` with WAL mode and a parameterized `public_cache` table.
 - Public Scripture/prayer reads use a network-first strategy: successful API responses refresh SQLite; network/server failures fall back to the latest cached value.
+- SQLite write/read failures are best-effort and never replace a successful online response or hide the original network error.
 - Cached resources include books, chapters, verses, chapter prayer-point counts, Verse of the Day, previous search-query results, and individual Prayer Detail content.
 - Prayer Detail cache values are sanitized before persistence: `isSaved`, saved prayer-point indexes, and saved counts are reset so public offline storage never carries account-specific saved state across sessions.
 - HTTP 4xx responses do not silently fall back to cache; only network failures/non-API failures and 5xx server failures can use offline fallback.
+- Remembered guests skip the `/auth/me` network check at launch, so offline startup is immediate. If a non-guest session cannot be verified because the network/server is unavailable, the app still opens in read-only public mode instead of forcing Login.
 - Offline access currently applies to content that has been loaded at least once on the device. A first-install full offline library/download pack is intentionally a later slice because the repository does not yet contain a bundled public prayer database.
 
 ### Guest read-only Scripture mode
@@ -188,4 +190,4 @@ Validation performed in this environment:
 
 ## Last Commit
 
-Current cycle: add Expo SQLite network-first caching for published Scripture/prayer reads, with offline fallback and sanitized Prayer Detail persistence that excludes personal saved state. Status: AWAITING USER TEST.
+Current cycle follow-up: harden SQLite as a best-effort cache and allow remembered guests / temporarily offline sessions to enter read-only public mode without waiting on authentication. Status: AWAITING USER TEST.
