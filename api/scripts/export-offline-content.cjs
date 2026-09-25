@@ -7,6 +7,7 @@ const prisma = new PrismaClient();
 
 const SCHEMA_VERSION = 1;
 const OUTPUT_DIR = path.resolve(__dirname, '../../mobile/assets/offline');
+const STAGING_DIR = path.resolve(__dirname, '../../mobile/assets/offline.__generated');
 const REGISTRY_PATH = path.resolve(
   __dirname,
   '../../mobile/src/generated/offline-packs.ts',
@@ -50,18 +51,59 @@ function registryIdentifier(slug) {
   return `pack_${slug.replace(/[^a-zA-Z0-9_]/g, '_')}`;
 }
 
-async function clearPreviousGeneratedFiles() {
-  await fs.mkdir(OUTPUT_DIR, { recursive: true });
+async function prepareStagingDirectory() {
+  await fs.rm(STAGING_DIR, {
+    recursive: true,
+    force: true,
+  });
+  await fs.mkdir(STAGING_DIR, { recursive: true });
+}
 
-  const entries = await fs.readdir(OUTPUT_DIR, { withFileTypes: true });
+async function publishGeneratedFiles(registry) {
+  await fs.mkdir(OUTPUT_DIR, { recursive: true });
+  await fs.mkdir(path.dirname(REGISTRY_PATH), { recursive: true });
+
+  const currentEntries = await fs.readdir(OUTPUT_DIR, {
+    withFileTypes: true,
+  });
+
   await Promise.all(
-    entries
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
-      .map((entry) => fs.unlink(path.join(OUTPUT_DIR, entry.name))),
+    currentEntries
+      .filter(
+        (entry) =>
+          entry.isFile() &&
+          entry.name.endsWith('.json'),
+      )
+      .map((entry) =>
+        fs.unlink(path.join(OUTPUT_DIR, entry.name)),
+      ),
   );
 
-  await fs.mkdir(path.dirname(REGISTRY_PATH), { recursive: true });
-  await fs.rm(REGISTRY_PATH, { force: true });
+  const stagedEntries = await fs.readdir(STAGING_DIR, {
+    withFileTypes: true,
+  });
+
+  for (const entry of stagedEntries) {
+    if (!entry.isFile() || !entry.name.endsWith('.json')) {
+      continue;
+    }
+
+    await fs.rename(
+      path.join(STAGING_DIR, entry.name),
+      path.join(OUTPUT_DIR, entry.name),
+    );
+  }
+
+  await fs.writeFile(
+    REGISTRY_PATH,
+    registry,
+    'utf8',
+  );
+
+  await fs.rm(STAGING_DIR, {
+    recursive: true,
+    force: true,
+  });
 }
 
 async function main() {
@@ -70,8 +112,6 @@ async function main() {
       'DATABASE_URL is required. Run this command in an environment that can read the Pray in Verses production database.',
     );
   }
-
-  await clearPreviousGeneratedFiles();
 
   const groupedBooks = await prisma.curatedPrayer.groupBy({
     by: ['book'],
@@ -88,6 +128,29 @@ async function main() {
       'No published CuratedPrayer rows were found. Refusing to generate an empty offline library.',
     );
   }
+
+  const slugOwners = new Map();
+
+  for (const book of books) {
+    const slug = slugifyBook(book);
+
+    if (!slug) {
+      throw new Error(
+        `Cannot generate an offline filename for book "${book}".`,
+      );
+    }
+
+    const existing = slugOwners.get(slug);
+    if (existing) {
+      throw new Error(
+        `Book-name collision: "${existing}" and "${book}" both normalize to "${slug}". Fix the production CuratedPrayer book names before exporting.`,
+      );
+    }
+
+    slugOwners.set(slug, book);
+  }
+
+  await prepareStagingDirectory();
 
   const manifestBooks = [];
   let totalPrayers = 0;
@@ -151,7 +214,7 @@ async function main() {
     const bytes = Buffer.byteLength(fileContents);
 
     await fs.writeFile(
-      path.join(OUTPUT_DIR, fileName),
+      path.join(STAGING_DIR, fileName),
       fileContents,
       'utf8',
     );
@@ -200,7 +263,7 @@ async function main() {
 
   const manifestContents = `${JSON.stringify(manifest, null, 2)}\n`;
   await fs.writeFile(
-    path.join(OUTPUT_DIR, 'manifest.json'),
+    path.join(STAGING_DIR, 'manifest.json'),
     manifestContents,
     'utf8',
   );
@@ -278,7 +341,7 @@ ${mapEntries}
 };
 `;
 
-  await fs.writeFile(REGISTRY_PATH, registry, 'utf8');
+  await publishGeneratedFiles(registry);
 
   console.log('');
   console.log('Offline export complete.');
@@ -297,7 +360,12 @@ ${mapEntries}
 }
 
 main()
-  .catch((error) => {
+  .catch(async (error) => {
+    await fs.rm(STAGING_DIR, {
+      recursive: true,
+      force: true,
+    });
+
     console.error('');
     console.error('Offline export failed.');
     console.error(error);
