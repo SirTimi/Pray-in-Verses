@@ -10,11 +10,19 @@ AWAITING USER TEST
 
 ## Last Accepted Task
 
-The Prayer Detail bottom-action spacing correction is accepted as the reference behavior: `Save Prayer` / `Add to Journal` should sit close to the shared app navigation without reserving the Android bottom safe-area inset twice.
+The iOS release identity and signing setup are accepted: the mobile project is linked to `@mykiel/pray-in-verses`, `com.prayinverses.app` is registered with Apple, distribution/provisioning/push credentials are ready, and the first production iOS build `1.0.0 (1)` was successfully uploaded to TestFlight.
 
 Previously accepted mobile polish also includes the shared signed-in bottom navigation, justified Prayer Detail Short Insight text, keyboard-safe Add to Journal sheet, Prayer Wall empty/populated creation actions, removal of the Prayer Wall funnel icon, explicit TSX/JSX TypeScript configuration, all three onboarding screens, onboarding transition removal, email/password-only Login, Verse of the Day direct-to-detail navigation, Journal action patterns, Prayer Reminders action simplification, My Prayers, Saved Prayers, notifications, account management, Support + Donation, and the selected `PIV-logo.png` branding asset.
 
 ## Current Implementation
+
+### Screen-aware status bar
+
+- The root layout keeps `StatusBar` style `dark` as the default for light-background screens.
+- Home explicitly mounts `<StatusBar style="light" animated />` because its top safe area/hero is dark navy.
+- Loaded Prayer Detail explicitly mounts `<StatusBar style="light" animated />` because its top safe area/hero is dark navy.
+- Prayer Detail loading/error states continue using the root dark status-bar fallback because those states use a light background.
+- The status-bar choice follows the actual screen background rather than blindly following the device theme.
 
 ### iOS release identity
 
@@ -76,15 +84,17 @@ Scrollable content padding that is intentionally used to keep content clear of a
 - Prayer Wall creation-action simplification accepted.
 - TSX/JSX compiler configuration accepted.
 - Prayer Detail action-row spacing reduction accepted as the spacing reference.
-- Authenticated Stack safe-area ownership audit/fix implemented for device review.
+- Authenticated Stack safe-area ownership audit/fix accepted through continued release work.
+- iOS bundle identity, Apple signing credentials, push key, production build, and initial TestFlight upload completed.
+- Screen-aware iOS/Android status-bar styling implemented for Home and Prayer Detail.
 
 ## Next Tasks
 
-1. Pull the iOS identity commit locally and verify `npx eas-cli@latest project:info` still resolves to `@mykiel/pray-in-verses`.
-2. Confirm the Apple Developer membership / App Store Connect account to use for Pray in Verses.
-3. Configure iOS signing credentials through EAS.
-4. Generate the first iOS production build and send it to TestFlight.
-5. Complete App Store metadata, privacy answers, screenshots, review credentials, and submission.
+1. Pull the status-bar commit and validate Home and Prayer Detail on an iPhone/TestFlight build.
+2. Complete the remaining TestFlight functional pass on iOS.
+3. Prepare the next iOS build number before uploading a replacement build containing this polish.
+4. Complete App Store metadata, privacy answers, screenshots, review credentials, and submission.
+5. Submit the accepted iOS build for App Review.
 
 ## Known Issues
 
@@ -100,29 +110,23 @@ Scrollable content padding that is intentionally used to keep content clear of a
 
 ## Testing Status
 
-Engineering change is pushed for local configuration verification before Apple credential setup.
+Status-bar polish is pushed for iPhone review.
 
-Test representative screens that previously had bottom actions or floating buttons:
+Validate these states on iOS:
 
-1. Prayer Detail: `Save Prayer` / `Add to Journal` remain close to the app nav with no overlap.
-2. Journal Entry: Save, or Delete + Update, sit directly above the shared nav without a large blank band.
-3. Journal list with entries: the floating `+` is near the lower part of the screen without colliding with the nav.
-4. Prayer Reminders with reminders: the floating `+` is positioned cleanly above the nav; the reminder editor does not add unnecessary bottom space.
-5. My Prayers: the floating add button and prayer editor bottom content do not sit excessively high.
-6. Prayer Wall: populated-state floating `+`, create flow, and request detail remain correctly spaced.
-7. Support / Donation: bottom content is reachable without excessive safe-area padding.
-8. Home, Browse, Pray, Community, and Profile still show exactly one shared bottom navigation and all five destinations still work.
-9. The shared nav remains above the Android system navigation area.
-10. Open text inputs and confirm keyboard behavior still hides/restores the shared nav correctly.
+1. Home: the time, signal/Wi-Fi, and battery indicators are white over the dark navy top area.
+2. Prayer Detail after content loads: status-bar text/icons are white over the dark prayer banner.
+3. Prayer Detail loading/error state: status-bar text/icons remain dark on the light state screen.
+4. Browse, My Prayers, Prayer Wall, Profile, and other light-background screens retain dark status-bar text/icons.
+5. Navigate repeatedly between Home/Prayer Detail and light screens and confirm the status-bar style switches back correctly.
 
 Validation performed in this environment:
 
-- Re-inspected the latest remote `main`, recent state, `mobile/AGENTS.md`, parent `(app)` layout, shared bottom navigation, and representative Journal, Prayer Reminders, My Prayers, Prayer Wall, Prayer Detail, Donation, and tab screens before editing.
-- Reviewed Expo/react-native-safe-area-context guidance confirming that safe-area inset values are relative to the nearest `SafeAreaProvider`.
-- Confirmed the shared bottom navigation is a sibling below the authenticated Stack and already handles the real device bottom inset.
-- Chose a Stack-level provider so signed-in routed screens no longer independently reserve the same device-bottom inset.
+- Re-inspected current remote main, recent commits, `mobile/AGENTS.md`, root/app layouts, Home, Prayer Detail, and representative light-background screens.
+- Reviewed Expo status-bar guidance: declarative `StatusBar` components can be mounted per screen, with `light` and `dark` controlling text/icon contrast.
+- The exact SDK 57 status-bar URL was requested but the documentation host timed out in the browsing environment; the current Expo system-bar guidance and adjacent versioned StatusBar API confirm the same declarative behavior.
 - No API, database, schema, migration, authentication, payment, dependency, or environment changes were introduced.
-- Repository CI status checks are not configured for these direct commits; physical-device review remains the acceptance gate.
+- Repository CI status checks are not configured for these direct commits; iPhone/TestFlight review remains the acceptance gate.
 
 ## Architecture Decisions
 
@@ -132,8 +136,9 @@ Validation performed in this environment:
 - Authenticated routed screens calculate safe areas relative to the Stack viewport above that navigation through a nested `SafeAreaProvider`.
 - Screen-local visual spacing and content clearance may remain, but routed screens should not independently reserve the device bottom inset again.
 - `.tsx` remains the standard extension for TypeScript files containing React JSX.
+- Status-bar styling is screen-background-aware: dark top surfaces explicitly request light status-bar content, while the root dark-content default covers light screens.
 - Manual user/device testing remains the acceptance gate after each pushed development increment.
 
 ## Last Commit
 
-Current cycle: establish the authoritative iOS application identity by adding `com.prayinverses.app` to `mobile/app.json` and removing conflicting root-level Expo/EAS configuration. Status: AWAITING USER TEST.
+Current cycle: make status-bar contrast screen-aware by keeping the root dark-content default and overriding Home and loaded Prayer Detail to light/white status-bar content over their dark headers. Status: AWAITING USER TEST.
