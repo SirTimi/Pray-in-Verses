@@ -6,13 +6,15 @@ import {
   BookOpen,
   CirclePlus,
   House,
+  LogIn,
   UserRound,
   UsersRound,
 } from 'lucide-react-native';
 
 import { colors } from '@/constants/colors';
+import { useAuthStore } from '@/stores/auth.store';
 
-type NavKey = 'home' | 'browse' | 'pray' | 'community' | 'profile';
+type NavKey = 'home' | 'browse' | 'pray' | 'community' | 'profile' | 'signin';
 
 const NAV_ITEMS = [
   {
@@ -44,6 +46,27 @@ const NAV_ITEMS = [
     label: 'Profile',
     href: '/(app)/(tabs)/more',
     icon: UserRound,
+  },
+] as const;
+
+const GUEST_NAV_ITEMS = [
+  {
+    key: 'home',
+    label: 'Home',
+    href: '/(app)/(tabs)/home',
+    icon: House,
+  },
+  {
+    key: 'browse',
+    label: 'Browse',
+    href: '/(app)/(tabs)/browse',
+    icon: BookOpen,
+  },
+  {
+    key: 'signin',
+    label: 'Sign In',
+    href: '/(auth)/login',
+    icon: LogIn,
   },
 ] as const;
 
@@ -81,6 +104,7 @@ export default function AppBottomNavigation() {
   const router = useRouter();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
+  const user = useAuthStore((state) => state.user);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   useEffect(() => {
@@ -99,7 +123,12 @@ export default function AppBottomNavigation() {
 
   if (keyboardVisible) return null;
 
-  const activeKey = activeKeyForPath(pathname);
+  const activeKey = user
+    ? activeKeyForPath(pathname)
+    : pathname.startsWith('/browse') || pathname.startsWith('/prayer/')
+      ? 'browse'
+      : 'home';
+  const items = user ? NAV_ITEMS : GUEST_NAV_ITEMS;
   const bottomInset = Math.max(insets.bottom, 10);
 
   return (
@@ -112,7 +141,7 @@ export default function AppBottomNavigation() {
         },
       ]}
     >
-      {NAV_ITEMS.map((item) => {
+      {items.map((item) => {
         const active = activeKey === item.key;
         const color = active ? colors.primary : '#7C879D';
         const Icon = item.icon;

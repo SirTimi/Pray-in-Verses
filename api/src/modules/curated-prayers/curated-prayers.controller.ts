@@ -3,17 +3,14 @@ import {
   Get,
   Param,
   ParseIntPipe,
-  UseGuards,
   Req,
   Query,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { CuratedPrayersService } from './curated-prayers.service';
-import { JwtCookieAuthGuard } from '../auth/jwt.guard';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PublishState } from '@prisma/client';
 
-@UseGuards(JwtCookieAuthGuard)
 @Controller('browse')
 export class CuratedPrayersController {
   constructor(
@@ -51,8 +48,7 @@ export class CuratedPrayersController {
     @Param('chapter', ParseIntPipe) chapter: number,
     @Param('verse', ParseIntPipe) verse: number,
   ) {
-    // @ts-ignore set by JwtCookieAuthGuard
-    const userId = req.user.id as string;
+    const userId = (req as any).user?.id as string | undefined;
     const data = await this.service.getByRef(book, chapter, verse, userId);
     return { data };
   }

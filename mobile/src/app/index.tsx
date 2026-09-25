@@ -9,6 +9,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
 import { getMe } from '@/services/auth';
+import { isGuestModeEnabled, setGuestModeEnabled } from '@/services/guest';
 import { useAuthStore } from '@/stores/auth.store';
 
 const MIN_SPLASH_MS = 1650;
@@ -65,9 +66,14 @@ export default function LaunchScreen() {
       try {
         const user = await getMe();
         setUser(user);
+        await setGuestModeEnabled(false);
         destination = '/(app)';
       } catch {
         setUser(null);
+
+        if (await isGuestModeEnabled()) {
+          destination = '/(app)';
+        }
       }
 
       const elapsed = Date.now() - startedAt;

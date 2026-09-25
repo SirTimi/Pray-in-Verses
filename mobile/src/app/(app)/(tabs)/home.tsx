@@ -59,25 +59,34 @@ export default function HomeScreen() {
   const load = useCallback(async () => {
     setError('');
     try {
-      const [dailyVerse, recentRequests] = await Promise.all([
-        getVerseOfTheDay(),
-        getPrayerWallPreview(3),
-      ]);
-      setVerse(dailyVerse);
-      setWall(recentRequests);
+      if (user) {
+        const [dailyVerse, recentRequests] = await Promise.all([
+          getVerseOfTheDay(),
+          getPrayerWallPreview(3),
+        ]);
+        setVerse(dailyVerse);
+        setWall(recentRequests);
+      } else {
+        setVerse(await getVerseOfTheDay());
+        setWall([]);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load your home feed.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   const firstName = user?.displayName?.trim().split(/\s+/)[0] || 'Friend';
+
+  const requireSignIn = () => {
+    router.push('/(auth)/login');
+  };
 
   const openVerse = () => {
     if (!verse) return;
@@ -129,7 +138,7 @@ export default function HomeScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Notifications"
                 style={({ pressed }) => [styles.bellButton, pressed && styles.pressed]}
-                onPress={() => router.push('/(app)/notifications')}
+                onPress={() => user ? router.push('/(app)/notifications') : requireSignIn()}
               >
                 <Bell size={21} color={colors.white} strokeWidth={1.9} />
               </Pressable>
@@ -211,14 +220,14 @@ export default function HomeScreen() {
               label="Prayer Wall"
               tint="#FFF0F1"
               icon={<UsersRound size={24} color="#C94150" strokeWidth={1.9} />}
-              onPress={() => router.push('/(app)/(tabs)/community')}
+              onPress={() => user ? router.push('/(app)/(tabs)/community') : requireSignIn()}
             />
           </View>
 
           <View style={styles.twoCards}>
             <Pressable
               style={({ pressed }) => [styles.featureCard, styles.savedCard, pressed && styles.pressed]}
-              onPress={() => router.push('/(app)/saved')}
+              onPress={() => user ? router.push('/(app)/saved') : requireSignIn()}
             >
               <View style={styles.featureTopRow}>
                 <View style={[styles.featureIcon, styles.savedIcon]}>
@@ -232,7 +241,7 @@ export default function HomeScreen() {
 
             <Pressable
               style={({ pressed }) => [styles.featureCard, styles.journalCard, pressed && styles.pressed]}
-              onPress={() => router.push('/(app)/journal')}
+              onPress={() => user ? router.push('/(app)/journal') : requireSignIn()}
             >
               <View style={styles.featureTopRow}>
                 <View style={[styles.featureIcon, styles.journalIcon]}>
@@ -269,43 +278,58 @@ export default function HomeScreen() {
             </View>
           </Pressable>
 
-          <View style={styles.sectionHeaderRow}>
-            <SectionHeading title="Recent Prayer Wall Requests" compact />
-            <Pressable onPress={() => router.push('/(app)/(tabs)/community')}>
-              <Text style={styles.viewAll}>View all</Text>
-            </Pressable>
-          </View>
-
-          {wall.length === 0 && !loading ? (
-            <View style={styles.emptyWall}>
-              <Text style={styles.mutedText}>No prayer requests to show yet.</Text>
-            </View>
-          ) : (
-            wall.map((request) => (
-              <Pressable
-                key={request.id}
-                style={({ pressed }) => [styles.wallCard, pressed && styles.pressed]}
-                onPress={() => router.push('/(app)/(tabs)/community')}
-              >
-                <View style={styles.avatarCircle}>
-                  <Text style={styles.avatarText}>
-                    {request.anonymous ? 'A' : request.title.slice(0, 1).toUpperCase()}
-                  </Text>
-                </View>
-                <View style={styles.wallBody}>
-                  <Text numberOfLines={1} style={styles.wallTitle}>{request.title}</Text>
-                  <Text numberOfLines={2} style={styles.wallDescription}>{request.description}</Text>
-                  <View style={styles.wallMetaRow}>
-                    <Heart size={13} color="#D44755" fill="#D44755" />
-                    <Text style={styles.wallMeta}>{request._count?.likes ?? 0} prayers</Text>
-                  </View>
-                </View>
-                <View style={styles.wallChevron}>
-                  <ChevronRight size={17} color={colors.textMuted} />
-                </View>
+          {user ? (
+            <>
+            <View style={styles.sectionHeaderRow}>
+              <SectionHeading title="Recent Prayer Wall Requests" compact />
+              <Pressable onPress={() => router.push('/(app)/(tabs)/community')}>
+                <Text style={styles.viewAll}>View all</Text>
               </Pressable>
-            ))
+            </View>
+  
+            {wall.length === 0 && !loading ? (
+              <View style={styles.emptyWall}>
+                <Text style={styles.mutedText}>No prayer requests to show yet.</Text>
+              </View>
+            ) : (
+              wall.map((request) => (
+                <Pressable
+                  key={request.id}
+                  style={({ pressed }) => [styles.wallCard, pressed && styles.pressed]}
+                  onPress={() => router.push('/(app)/(tabs)/community')}
+                >
+                  <View style={styles.avatarCircle}>
+                    <Text style={styles.avatarText}>
+                      {request.anonymous ? 'A' : request.title.slice(0, 1).toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={styles.wallBody}>
+                    <Text numberOfLines={1} style={styles.wallTitle}>{request.title}</Text>
+                    <Text numberOfLines={2} style={styles.wallDescription}>{request.description}</Text>
+                    <View style={styles.wallMetaRow}>
+                      <Heart size={13} color="#D44755" fill="#D44755" />
+                      <Text style={styles.wallMeta}>{request._count?.likes ?? 0} prayers</Text>
+                    </View>
+                  </View>
+                  <View style={styles.wallChevron}>
+                    <ChevronRight size={17} color={colors.textMuted} />
+                  </View>
+                </Pressable>
+              ))
+            )}
+            </>
+          ) : (
+            <View style={styles.guestCard}>
+              <Text style={styles.guestTitle}>Browsing as a guest</Text>
+              <Text style={styles.guestBody}>
+                Scripture and guided prayers are available without an account. Sign in to save prayers, journal, track prayer requests, and join the Prayer Wall.
+              </Text>
+              <Pressable onPress={requireSignIn} style={styles.guestSignIn}>
+                <Text style={styles.guestSignInText}>Sign In</Text>
+              </Pressable>
+            </View>
           )}
+
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -585,6 +609,39 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   viewAll: { color: colors.primary, fontSize: 12, fontWeight: '800' },
+  guestCard: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#DCE5F7',
+    borderRadius: 20,
+    backgroundColor: '#F6F9FF',
+    padding: spacing.lg,
+  },
+  guestTitle: {
+    color: colors.primaryDark,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  guestBody: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 20,
+    marginTop: 6,
+  },
+  guestSignIn: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.md,
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+  },
+  guestSignInText: {
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: '800',
+  },
   emptyWall: {
     borderWidth: 1,
     borderColor: '#ECE7DD',

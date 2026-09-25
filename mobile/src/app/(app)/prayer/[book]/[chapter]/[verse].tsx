@@ -32,6 +32,7 @@ import {
 
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/spacing';
+import { useAuthStore } from '@/stores/auth.store';
 import {
   createJournalEntry,
   getPrayerDetail,
@@ -51,6 +52,7 @@ const SERIF_FONT = Platform.select({
 export default function PrayerDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const user = useAuthStore((state) => state.user);
   const params = useLocalSearchParams<{ book?: string; chapter?: string; verse?: string }>();
   const book = Array.isArray(params.book) ? params.book[0] : params.book ?? '';
   const chapterValue = Array.isArray(params.chapter) ? params.chapter[0] : params.chapter;
@@ -98,7 +100,23 @@ export default function PrayerDetailScreen() {
     });
   }
 
+  function requireSignIn(action: string) {
+    Alert.alert(
+      'Sign in required',
+      `Sign in to ${action} and keep it with your Pray in Verses account.`,
+      [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'Sign In', onPress: () => router.push('/(auth)/login') },
+      ],
+    );
+  }
+
   async function handleSavePrayer() {
+    if (!user) {
+      requireSignIn('save prayers');
+      return;
+    }
+
     if (!prayer || saving) return;
     setSaving(true);
 
@@ -118,6 +136,11 @@ export default function PrayerDetailScreen() {
   }
 
   async function handlePointSave(index: number) {
+    if (!user) {
+      requireSignIn('save prayer points');
+      return;
+    }
+
     if (!prayer || pointBusy !== null) return;
     const isSaved = prayer.savedPointIndexes.includes(index);
     setPointBusy(index);
@@ -144,6 +167,11 @@ export default function PrayerDetailScreen() {
   }
 
   async function handleJournalSave() {
+    if (!user) {
+      requireSignIn('use the prayer journal');
+      return;
+    }
+
     if (!prayer || journalBody.trim().length === 0 || journalSaving) return;
     setJournalSaving(true);
 
@@ -248,7 +276,9 @@ export default function PrayerDetailScreen() {
                   </View>
                   <Text style={styles.sectionTitle}>Prayer Points</Text>
                 </View>
-                <Text style={styles.savedCount}>{prayer.savedPointsCount}/{prayer.prayerPoints.length} saved</Text>
+                <Text style={styles.savedCount}>
+                  {user ? `${prayer.savedPointsCount}/${prayer.prayerPoints.length} saved` : 'Sign in to save'}
+                </Text>
               </View>
 
               <View style={styles.pointsList}>
@@ -305,12 +335,19 @@ export default function PrayerDetailScreen() {
             ) : (
               <Bookmark size={19} color={colors.primary} />
             )}
-            <Text style={styles.secondaryButtonText}>{prayer.isSaved ? 'Saved' : 'Save Prayer'}</Text>
+            <Text style={styles.secondaryButtonText}>
+              {!user ? 'Sign in to Save' : prayer.isSaved ? 'Saved' : 'Save Prayer'}
+            </Text>
           </Pressable>
 
-          <Pressable onPress={() => setJournalOpen(true)} style={styles.primaryButton}>
+          <Pressable
+            onPress={() => user ? setJournalOpen(true) : requireSignIn('use the prayer journal')}
+            style={styles.primaryButton}
+          >
             <FileText size={19} color={colors.white} />
-            <Text style={styles.primaryButtonText}>Add to Journal</Text>
+            <Text style={styles.primaryButtonText}>
+              {user ? 'Add to Journal' : 'Sign in to Journal'}
+            </Text>
           </Pressable>
         </View>
       </View>

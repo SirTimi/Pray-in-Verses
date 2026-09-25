@@ -18,6 +18,7 @@ import { Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react-native';
 
 import { ApiError } from '@/services/api';
 import { login } from '@/services/auth';
+import { setGuestModeEnabled } from '@/services/guest';
 import { useAuthStore } from '@/stores/auth.store';
 
 const NAVY = '#071C50';
@@ -46,6 +47,7 @@ export default function LoginScreen() {
 
     try {
       const user = await login(email.trim().toLowerCase(), password);
+      await setGuestModeEnabled(false);
       setUser(user);
       router.replace('/(app)');
     } catch (err) {
@@ -63,6 +65,15 @@ export default function LoginScreen() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function continueAsGuest() {
+    if (loading) return;
+
+    setError('');
+    setUser(null);
+    await setGuestModeEnabled(true);
+    router.replace('/(app)');
   }
 
   return (
@@ -170,6 +181,18 @@ export default function LoginScreen() {
               ) : (
                 <Text style={styles.signInText}>Sign In</Text>
               )}
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              disabled={loading}
+              onPress={() => void continueAsGuest()}
+              style={({ pressed }) => [
+                styles.guestButton,
+                pressed && styles.guestButtonPressed,
+              ]}
+            >
+              <Text style={styles.guestButtonText}>Continue without signing in</Text>
             </Pressable>
           </View>
 
@@ -316,6 +339,24 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  guestButton: {
+    minHeight: 48,
+    marginTop: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: '#FFFFFF',
+  },
+  guestButtonPressed: {
+    backgroundColor: '#F3F6FB',
+  },
+  guestButtonText: {
+    color: BLUE,
+    fontSize: 14,
+    fontWeight: '800',
   },
   createBlock: {
     marginTop: 22,

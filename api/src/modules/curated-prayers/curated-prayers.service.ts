@@ -46,7 +46,7 @@ export class CuratedPrayersService {
   // —————————————————————————
   // One verse (with saved status)
   // —————————————————————————
-  async getByRef(book: string, chapter: number, verse: number, userId: string) {
+  async getByRef(book: string, chapter: number, verse: number, userId?: string) {
     const item = await this.prisma.curatedPrayer.findFirst({
       where: {
         state: PublishState.PUBLISHED,
@@ -58,20 +58,24 @@ export class CuratedPrayersService {
 
     if (!item) throw new NotFoundException('Verse content not found');
 
-    // whole-verse (legacy) saved?
-    const whole = await this.prisma.savedPrayer.findFirst({
-      where: { userId, curatedPrayerId: item.id, pointIndex: null },
-      select: { id: true },
-    });
+    let whole: { id: string } | null = null;
+    let savedPointIndexes: number[] = [];
 
-    // per-point saves
-    const pointRows = await this.prisma.savedPrayer.findMany({
-      where: { userId, curatedPrayerId: item.id, NOT: { pointIndex: null } },
-      select: { pointIndex: true },
-    });
-    const savedPointIndexes = pointRows
-      .map((r) => r.pointIndex)
-      .filter((n): n is number => typeof n === 'number' && n >= 0);
+    if (userId) {
+      whole = await this.prisma.savedPrayer.findFirst({
+        where: { userId, curatedPrayerId: item.id, pointIndex: null },
+        select: { id: true },
+      });
+
+      const pointRows = await this.prisma.savedPrayer.findMany({
+        where: { userId, curatedPrayerId: item.id, NOT: { pointIndex: null } },
+        select: { pointIndex: true },
+      });
+
+      savedPointIndexes = pointRows
+        .map((r) => r.pointIndex)
+        .filter((n): n is number => typeof n === 'number' && n >= 0);
+    }
 
     return {
       id: item.id,

@@ -10,11 +10,24 @@ AWAITING USER TEST
 
 ## Last Accepted Task
 
-The screen-aware status-bar polish is accepted by moving on: dark Home and loaded Prayer Detail use light/white status-bar content while light screens retain the root dark-content default.
+The mobile donation return and bounded verification flow is accepted by moving on: Paystack mobile callbacks bridge back into Pray in Verses and automatic confirmation stops after 60 seconds rather than waiting indefinitely.
 
 Previously accepted mobile polish also includes the shared signed-in bottom navigation, justified Prayer Detail Short Insight text, keyboard-safe Add to Journal sheet, Prayer Wall empty/populated creation actions, removal of the Prayer Wall funnel icon, explicit TSX/JSX TypeScript configuration, all three onboarding screens, onboarding transition removal, email/password-only Login, Verse of the Day direct-to-detail navigation, Journal action patterns, Prayer Reminders action simplification, My Prayers, Saved Prayers, notifications, account management, Support + Donation, and the selected `PIV-logo.png` branding asset.
 
 ## Current Implementation
+
+### Guest read-only Scripture mode
+
+- The Login screen now offers `Continue without signing in`.
+- Guest choice is persisted in `expo-secure-store`, so a guest can relaunch directly into the app instead of being forced back through authentication.
+- A successful authenticated login clears guest mode.
+- Guest bottom navigation is intentionally limited to Home, Browse, and Sign In; account-only Pray, Community, and Profile tabs are not exposed as usable guest destinations.
+- Guest Home loads Verse of the Day without calling authenticated Prayer Wall preview APIs and routes protected shortcuts such as Notifications, Saved Prayers, Journal, and Prayer Wall to Sign In.
+- Guest Home clearly explains that Scripture/guided prayers are available without an account while personal/community features require sign-in.
+- Published `/browse` API reads are now public. Optional auth middleware attaches a fully validated active user when a valid session cookie is present, so signed-in readers still receive their saved-prayer state.
+- Prayer Detail is readable by guests. Save Prayer, save prayer point, and Journal actions prompt for sign-in instead of issuing protected requests.
+- No personal write endpoint was made public.
+- This cycle is guest/read-only access only; true offline caching/database support is the next separate slice.
 
 ### Mobile donation return and bounded verification
 
@@ -97,15 +110,16 @@ Scrollable content padding that is intentionally used to keep content clear of a
 - Authenticated Stack safe-area ownership audit/fix accepted through continued release work.
 - iOS bundle identity, Apple signing credentials, push key, production build, and initial TestFlight upload completed.
 - Screen-aware iOS/Android status-bar styling accepted.
-- Mobile donation success return-to-app deep link and bounded verification implemented for device review.
+- Mobile donation success return-to-app deep link and bounded verification accepted by continued work.
+- Guest read-only Scripture mode implemented for device/API review.
 
 ## Next Tasks
 
-1. Pull and test the mobile donation return flow on Android/iOS: successful Paystack checkout should return to the app and confirmation must stop auto-waiting after 60 seconds.
-2. Design and implement guest/offline mode as a separate architecture slice: public Scripture/prayer reading without sign-in, local cached/bundled content, and auth-gated personal/community writes.
-3. Complete the remaining iOS functional pass and prepare the next iOS build containing accepted fixes.
-4. Complete App Store metadata, privacy answers, screenshots, review credentials, and submission.
-5. Submit the accepted iOS build for App Review.
+1. Pull/deploy the guest-mode API/mobile changes and test guest Home → Browse → Prayer Detail without signing in.
+2. Implement the offline cache layer with Expo SQLite: cache public books/chapters/verses/prayer detail and fall back to local data when the network is unavailable.
+3. Add explicit offline-download controls/strategy after measuring content/database size.
+4. Complete the remaining iOS functional pass and prepare the next iOS build containing accepted fixes.
+5. Complete App Store metadata, privacy answers, screenshots, review credentials, and submission.
 
 ## Known Issues
 
@@ -115,32 +129,34 @@ Scrollable content padding that is intentionally used to keep content clear of a
 - Donation confirmation remains webhook/server-owned. The mobile UI now stops automatic waiting after 60 seconds and preserves the reference for later checks.
 - Server notifications are an in-app inbox only; remote push-token delivery is not yet implemented.
 - Prayer reminders remain device-local.
+- Guest mode currently requires network access for Scripture content; offline SQLite caching is not implemented yet.
 - Verified Android App Links for password reset remain part of Android release polish.
 - Local `expo-doctor` reported Expo SDK 57 patch-version drift; dependency alignment still needs to be completed before the preview APK is treated as release-ready.
 - EAS previously had conflicting root/mobile configuration. The authoritative mobile project has now been confirmed as `@mykiel/pray-in-verses` (`283c8c7d-7fed-4822-ae3e-07d50a2a6d9c`), and the accidental root Expo/EAS configs are removed in the current cycle.
 
 ## Testing Status
 
-Donation return/polling polish is pushed for device review.
+Guest read-only mode is pushed for API/mobile review.
 
-Test on Android and iOS:
+Test after the API containing this commit is deployed:
 
-1. Start a donation from the app and complete Paystack successfully.
-2. Confirm Paystack's HTTPS callback automatically opens `pray-in-verses://support/donate` and returns the user to the app rather than leaving them on the website.
-3. Confirm the app checks the server-side reference after return and shows Success when the webhook has landed.
-4. For a deliberately delayed/pending payment, confirm automatic checking stops after 60 seconds and changes to `Payment still processing`.
-5. Confirm `Done for now` leaves the donation screen without losing the saved reference.
-6. Reopen Support > Donate later and confirm the saved reference is checked again.
-7. Confirm manual `Check status` works from the non-blocking state.
-8. Confirm failed/abandoned payments still clear pending state and allow a safe retry.
+1. From Login, tap `Continue without signing in`; confirm Home opens without an account.
+2. Kill and reopen the app; confirm the remembered guest choice returns to the app instead of forcing Login.
+3. As guest, open Browse → book → chapter → verse and confirm Scripture Prayer loads.
+4. On Prayer Detail as guest, tap Save Prayer, a prayer-point bookmark, and Add to Journal; each must ask the user to sign in and must not write data.
+5. On guest Home, Notifications, Prayer Wall, Saved Prayers, and Journal shortcuts must lead to Sign In; Support/Donation remains reachable.
+6. Guest bottom navigation must show only Home, Browse, and Sign In.
+7. Sign in with a real account; confirm the full five-item navigation returns and saved-prayer state still appears correctly on Prayer Detail.
+8. Confirm all existing protected write APIs remain unauthorized without a valid session.
 
 Validation performed in this environment:
 
-- Re-inspected current remote `main`, recent build state, donation mobile/service/web callback code, auth routing, browse services/controllers, and Expo SDK 57 WebBrowser/Linking guidance.
-- Expo SDK 57 documents that custom schemes/deep links are supported and Expo Router handles incoming deep links; Paystack requires an HTTPS browser callback, so the HTTPS thank-you page is retained as a short bridge back into the native custom scheme.
-- Paystack documentation continues to treat webhooks/server verification as authoritative; the app redirect is not used as proof of payment.
-- No schema, migration, payment-secret, or dependency changes were introduced.
-- Repository CI status checks are not configured for direct commits; physical-device payment testing remains the acceptance gate.
+- Re-read the exact Expo SDK 57 reference before modifying mobile code.
+- Re-inspected current remote `main`, auth bootstrap/login, shared navigation, Home, Browse, Prayer Detail, curated-prayer API guard/service/module, and optional-auth middleware.
+- Public API exposure is limited to published `/browse` GET content. Personal write controllers remain protected.
+- Optional authentication validates JWT signature, active user status, and auth-version before attaching personalized saved-state context.
+- No database schema, migration, dependency, payment-secret, or environment changes were introduced.
+- Repository CI status checks are not configured for direct commits; API deployment plus Android/iPhone testing remains the acceptance gate.
 
 ## Architecture Decisions
 
@@ -153,8 +169,10 @@ Validation performed in this environment:
 - Status-bar styling is screen-background-aware: dark top surfaces explicitly request light status-bar content, while the root dark-content default covers light screens.
 - Paystack callbacks remain HTTPS as required by the gateway; mobile callbacks use the website only as a short bridge to the app's `pray-in-verses://` scheme.
 - Donation success is trusted only after server/webhook status confirmation; client redirects never mark a donation paid.
+- Published Scripture/prayer reading is public; personalized state is layered on through optional validated auth, while writes remain protected.
+- Guest-mode persistence is local device state and does not create a server-side account.
 - Manual user/device testing remains the acceptance gate after each pushed development increment.
 
 ## Last Commit
 
-Current cycle: return successful mobile Paystack donations back into Pray in Verses and bound automatic verification to 60 seconds before switching to a non-blocking processing state. Status: AWAITING USER TEST.
+Current cycle: add persistent guest read-only mode, public published Scripture/prayer reads with optional personalization, guest-safe Home/navigation, and sign-in gates for personal Prayer Detail actions. Status: AWAITING USER TEST.
