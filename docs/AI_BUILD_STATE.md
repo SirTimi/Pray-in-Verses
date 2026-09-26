@@ -63,7 +63,7 @@ Previously accepted mobile polish also includes the shared signed-in bottom navi
 - Published `/browse` API reads are now public. Optional auth middleware attaches a fully validated active user when a valid session cookie is present, so signed-in readers still receive their saved-prayer state.
 - Prayer Detail is readable by guests. Save Prayer, save prayer point, and Journal actions prompt for sign-in instead of issuing protected requests.
 - No personal write endpoint was made public.
-- This cycle is guest/read-only access only; true offline caching/database support is the next separate slice.
+- Guest/read-only access now works together with the committed bundled public library and SQLite response cache; personal writes still require authentication.
 
 ### Mobile donation return and bounded verification
 
@@ -194,7 +194,7 @@ Required acceptance test:
 
 Validation performed in this environment:
 
-- Re-read the exact Expo SDK 57 SQLite documentation before this mobile cycle. Expo documents persisted databases, parameterized async APIs, transactions, and importing an existing bundled database with `SQLiteProvider assetSource`. citeturn318149view0turn534262view0
+- Re-read the exact Expo SDK 57 SQLite documentation before this mobile cycle. Expo documents persisted databases, parameterized async APIs, transactions, and importing an existing bundled database with `SQLiteProvider assetSource`.
 - Re-inspected remote `main`, `mobile/AGENTS.md`, the committed manifest/registry, public service layer, current SQLite cache, auth launch behavior, and exporter.
 - Manifest currently reports 66 books, 31,081 verse-level records, 217,363 prayer points, and 69,404,220 raw JSON bytes (~66.19 MiB).
 - Registry generation now emits lazy static pack loaders rather than eager top-level JSON imports.
@@ -220,4 +220,4 @@ Validation performed in this environment:
 
 ## Last Commit
 
-Current cycle: wire the committed 66-book public library into first-install offline fallbacks for Browse, Verse of the Day, search, and Prayer Detail, while switching the generated registry to lazy per-book loaders. Status: AWAITING USER TEST.
+Current cycle follow-up: clean stale build-state wording after the first-install bundled fallback implementation. Status: AWAITING USER TEST.
