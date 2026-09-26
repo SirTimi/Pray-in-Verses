@@ -13,9 +13,11 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronRight, Search } from 'lucide-react-native';
 
+import AppStateView from '@/components/common/AppStateView';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/spacing';
 import { getBooks } from '@/services/browse';
+import { getUserFacingError } from '@/services/user-facing-error';
 
 const SERIF_FONT = Platform.select({
   ios: 'Georgia',
@@ -59,7 +61,11 @@ export default function BrowseBooksScreen() {
         }),
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load Bible books.');
+      setError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t load Bible books right now. Please try again.',
+        }),
+      );
     } finally {
       setLoading(false);
     }
@@ -118,10 +124,14 @@ export default function BrowseBooksScreen() {
             <Text style={styles.stateText}>Loading published books…</Text>
           </View>
         ) : error ? (
-          <Pressable onPress={() => void load()} style={[styles.stateBox, styles.errorBox]}>
-            <Text style={styles.errorText}>{error}</Text>
-            <Text style={styles.retryText}>Tap to try again</Text>
-          </Pressable>
+          <AppStateView
+            variant="error"
+            title="Couldn’t load Bible books"
+            body={error}
+            actionLabel="Try Again"
+            onAction={() => void load()}
+            style={styles.stateBox}
+          />
         ) : filteredBooks.length === 0 ? (
           <View style={styles.stateBox}>
             <Text style={styles.stateText}>No published books match this filter yet.</Text>
@@ -171,7 +181,4 @@ const styles = StyleSheet.create({
   bookMeta: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
   stateBox: { minHeight: 150, alignItems: 'center', justifyContent: 'center', gap: spacing.md, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, marginTop: spacing.sm },
   stateText: { color: colors.textSecondary, fontSize: 14, lineHeight: 21, textAlign: 'center' },
-  errorBox: { backgroundColor: '#FFF8F7', borderColor: '#F6D5D1' },
-  errorText: { color: colors.error, fontSize: 13, lineHeight: 19, textAlign: 'center' },
-  retryText: { color: colors.primary, fontSize: 12, fontWeight: '800' },
 });

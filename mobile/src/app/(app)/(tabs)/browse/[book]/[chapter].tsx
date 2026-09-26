@@ -12,9 +12,11 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, ChevronRight } from 'lucide-react-native';
 
+import AppStateView from '@/components/common/AppStateView';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/spacing';
 import { getChapterCounts, getVerses } from '@/services/browse';
+import { getUserFacingError } from '@/services/user-facing-error';
 
 const SERIF_FONT = Platform.select({
   ios: 'Georgia',
@@ -48,7 +50,11 @@ export default function VerseSelectionScreen() {
       setVerses(verseData);
       setCounts(Object.fromEntries(countData.map((item) => [item.verse, item.prayerPointsCount])));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load verses.');
+      setError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t load verses right now. Please try again.',
+        }),
+      );
     } finally {
       setLoading(false);
     }
@@ -93,10 +99,13 @@ export default function VerseSelectionScreen() {
             <Text style={styles.stateText}>Loading published verses…</Text>
           </View>
         ) : error ? (
-          <Pressable onPress={() => void load()} style={[styles.stateBox, styles.errorBox]}>
-            <Text style={styles.errorText}>{error}</Text>
-            <Text style={styles.retryText}>Tap to try again</Text>
-          </Pressable>
+          <AppStateView
+            variant="error"
+            title="Couldn’t load verses"
+            body={error}
+            actionLabel="Try Again"
+            onAction={() => void load()}
+          />
         ) : verses.length === 0 ? (
           <View style={styles.stateBox}>
             <Text style={styles.stateText}>No published verses are available in this chapter yet.</Text>
@@ -157,8 +166,5 @@ const styles = StyleSheet.create({
   verseMeta: { color: colors.textSecondary, fontSize: 12, marginTop: 3 },
   stateBox: { minHeight: 190, alignItems: 'center', justifyContent: 'center', gap: spacing.md, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface },
   stateText: { color: colors.textSecondary, fontSize: 14, lineHeight: 21, textAlign: 'center' },
-  errorBox: { backgroundColor: '#FFF8F7', borderColor: '#F6D5D1' },
-  errorText: { color: colors.error, fontSize: 13, textAlign: 'center' },
-  retryText: { color: colors.primary, fontSize: 12, fontWeight: '800' },
   selectionNote: { color: colors.primary, fontSize: 12, fontWeight: '800', textAlign: 'center', marginTop: spacing.xl },
 });

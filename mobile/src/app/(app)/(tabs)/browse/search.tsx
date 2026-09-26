@@ -13,9 +13,11 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, ChevronRight, Search, X } from 'lucide-react-native';
 
+import AppStateView from '@/components/common/AppStateView';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/spacing';
 import { searchPrayers, type SearchPrayerResult } from '@/services/browse';
+import { getUserFacingError } from '@/services/user-facing-error';
 
 const SERIF_FONT = Platform.select({
   ios: 'Georgia',
@@ -39,6 +41,7 @@ export default function SearchScreen() {
   const [filter, setFilter] = useState<Filter>('all');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     const term = query.trim();
@@ -60,7 +63,11 @@ export default function SearchScreen() {
       } catch (err) {
         if (!cancelled) {
           setResults([]);
-          setError(err instanceof Error ? err.message : 'Search failed.');
+          setError(
+            getUserFacingError(err, {
+              fallback: 'We couldn’t search the prayer library right now. Please try again.',
+            }),
+          );
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -71,7 +78,7 @@ export default function SearchScreen() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [query]);
+  }, [query, retryKey]);
 
   const visibleResults = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -138,9 +145,14 @@ export default function SearchScreen() {
             <Text style={styles.stateText}>Searching…</Text>
           </View>
         ) : error ? (
-          <View style={[styles.stateBox, styles.errorBox]}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
+          <AppStateView
+            variant="error"
+            title="Couldn’t search right now"
+            body={error}
+            actionLabel="Try Again"
+            onAction={() => setRetryKey((value) => value + 1)}
+            style={styles.stateBox}
+          />
         ) : visibleResults.length === 0 ? (
           <View style={styles.stateBox}>
             <Text style={styles.stateTitle}>No matches found</Text>
@@ -207,8 +219,6 @@ const styles = StyleSheet.create({
   stateBox: { minHeight: 210, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, marginTop: spacing.sm },
   stateTitle: { color: colors.primaryDark, fontFamily: SERIF_FONT, fontSize: 19, fontWeight: '700' },
   stateText: { color: colors.textSecondary, fontSize: 13, lineHeight: 20, textAlign: 'center', maxWidth: 290 },
-  errorBox: { backgroundColor: '#FFF8F7', borderColor: '#F6D5D1' },
-  errorText: { color: colors.error, fontSize: 13, lineHeight: 20, textAlign: 'center' },
   resultsCount: { color: colors.textSecondary, fontSize: 13, fontWeight: '700', marginBottom: spacing.sm },
   resultsList: { gap: spacing.sm },
   resultCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface, padding: spacing.md },

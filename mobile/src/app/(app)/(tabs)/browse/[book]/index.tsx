@@ -12,9 +12,11 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, ChevronRight } from 'lucide-react-native';
 
+import AppStateView from '@/components/common/AppStateView';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/spacing';
 import { getChapters } from '@/services/browse';
+import { getUserFacingError } from '@/services/user-facing-error';
 
 const SERIF_FONT = Platform.select({
   ios: 'Georgia',
@@ -38,7 +40,11 @@ export default function ChapterSelectionScreen() {
     try {
       setChapters(await getChapters(book));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load chapters.');
+      setError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t load chapters right now. Please try again.',
+        }),
+      );
     } finally {
       setLoading(false);
     }
@@ -66,10 +72,13 @@ export default function ChapterSelectionScreen() {
             <Text style={styles.stateText}>Loading chapters…</Text>
           </View>
         ) : error ? (
-          <Pressable onPress={() => void load()} style={[styles.stateBox, styles.errorBox]}>
-            <Text style={styles.errorText}>{error}</Text>
-            <Text style={styles.retryText}>Tap to try again</Text>
-          </Pressable>
+          <AppStateView
+            variant="error"
+            title="Couldn’t load chapters"
+            body={error}
+            actionLabel="Try Again"
+            onAction={() => void load()}
+          />
         ) : chapters.length === 0 ? (
           <View style={styles.stateBox}>
             <Text style={styles.stateText}>No published chapters are available for this book yet.</Text>
@@ -116,9 +125,6 @@ const styles = StyleSheet.create({
   chapterNumber: { color: colors.primaryDark, fontFamily: SERIF_FONT, fontSize: 17, fontWeight: '700' },
   stateBox: { minHeight: 190, alignItems: 'center', justifyContent: 'center', gap: spacing.md, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface },
   stateText: { color: colors.textSecondary, fontSize: 14, lineHeight: 21, textAlign: 'center' },
-  errorBox: { backgroundColor: '#FFF8F7', borderColor: '#F6D5D1' },
-  errorText: { color: colors.error, fontSize: 13, textAlign: 'center' },
-  retryText: { color: colors.primary, fontSize: 12, fontWeight: '800' },
   noteCard: { marginTop: spacing.xxl, padding: spacing.lg, borderRadius: radius.lg, backgroundColor: '#F7F9FD', borderWidth: 1, borderColor: '#E2E9F7' },
   noteMark: { color: '#C8D6EE', fontFamily: SERIF_FONT, fontSize: 48, lineHeight: 40 },
   noteText: { color: colors.primaryDark, fontFamily: SERIF_FONT, fontSize: 16, lineHeight: 24, textAlign: 'center', marginTop: -8 },
