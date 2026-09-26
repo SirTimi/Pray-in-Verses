@@ -30,6 +30,8 @@ import {
   X,
 } from 'lucide-react-native';
 
+import AppStateView from '@/components/common/AppStateView';
+import InlineErrorMessage from '@/components/common/InlineErrorMessage';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/spacing';
 import { useAuthStore } from '@/stores/auth.store';
@@ -42,6 +44,7 @@ import {
   unsavePrayer,
   unsavePrayerPoint,
 } from '@/services/prayers';
+import { getUserFacingError } from '@/services/user-facing-error';
 
 const SERIF_FONT = Platform.select({
   ios: 'Georgia',
@@ -65,9 +68,11 @@ export default function PrayerDetailScreen() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [pointBusy, setPointBusy] = useState<number | null>(null);
+  const [actionError, setActionError] = useState('');
   const [journalOpen, setJournalOpen] = useState(false);
   const [journalBody, setJournalBody] = useState('');
   const [journalSaving, setJournalSaving] = useState(false);
+  const [journalError, setJournalError] = useState('');
 
   const load = useCallback(async () => {
     if (!book || !chapter || !verse) {
@@ -82,7 +87,11 @@ export default function PrayerDetailScreen() {
     try {
       setPrayer(await getPrayerDetail(book, chapter, verse));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load this prayer.');
+      setError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t load this prayer right now. Please try again.',
+        }),
+      );
     } finally {
       setLoading(false);
     }
@@ -119,6 +128,7 @@ export default function PrayerDetailScreen() {
 
     if (!prayer || saving) return;
     setSaving(true);
+    setActionError('');
 
     try {
       if (prayer.isSaved) {
@@ -129,7 +139,12 @@ export default function PrayerDetailScreen() {
 
       setPrayer((current) => current ? { ...current, isSaved: !current.isSaved } : current);
     } catch (err) {
-      Alert.alert('Save failed', err instanceof Error ? err.message : 'Please try again.');
+      setActionError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t update your saved prayer. Please try again.',
+          networkMessage: 'You appear to be offline. Reconnect and try again.',
+        }),
+      );
     } finally {
       setSaving(false);
     }
@@ -144,6 +159,7 @@ export default function PrayerDetailScreen() {
     if (!prayer || pointBusy !== null) return;
     const isSaved = prayer.savedPointIndexes.includes(index);
     setPointBusy(index);
+    setActionError('');
 
     try {
       if (isSaved) {
@@ -160,7 +176,12 @@ export default function PrayerDetailScreen() {
         return { ...current, savedPointIndexes: next, savedPointsCount: next.length };
       });
     } catch (err) {
-      Alert.alert('Could not update prayer point', err instanceof Error ? err.message : 'Please try again.');
+      setActionError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t update this prayer point. Please try again.',
+          networkMessage: 'You appear to be offline. Reconnect and try again.',
+        }),
+      );
     } finally {
       setPointBusy(null);
     }
@@ -174,6 +195,7 @@ export default function PrayerDetailScreen() {
 
     if (!prayer || journalBody.trim().length === 0 || journalSaving) return;
     setJournalSaving(true);
+    setJournalError('');
 
     try {
       await createJournalEntry({
@@ -185,7 +207,13 @@ export default function PrayerDetailScreen() {
       setJournalOpen(false);
       Alert.alert('Saved to journal', 'Your reflection has been added to your prayer journal.');
     } catch (err) {
-      Alert.alert('Journal save failed', err instanceof Error ? err.message : 'Please try again.');
+      setJournalError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t save this reflection. Please try again.',
+          networkMessage: 'You appear to be offline. Reconnect and try again.',
+          allowServerMessageForStatuses: [400, 422],
+        }),
+      );
     } finally {
       setJournalSaving(false);
     }
@@ -194,8 +222,11 @@ export default function PrayerDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.stateScreen}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.stateText}>Preparing this prayer…</Text>
+        <AppStateView
+          variant="loading"
+          title="Preparing this prayer…"
+          body="We’re opening the Scripture and guided prayer."
+        />
       </SafeAreaView>
     );
   }
@@ -203,11 +234,13 @@ export default function PrayerDetailScreen() {
   if (error || !prayer) {
     return (
       <SafeAreaView style={styles.stateScreen}>
-        <Text style={styles.errorTitle}>Unable to open prayer</Text>
-        <Text style={styles.stateText}>{error || 'Prayer not found.'}</Text>
-        <Pressable onPress={() => void load()} style={styles.retryButton}>
-          <Text style={styles.retryText}>Try again</Text>
-        </Pressable>
+        <AppStateView
+          variant="error"
+          title="Couldn’t open this prayer"
+          body={error || 'This prayer could not be found.'}
+          actionLabel="Try Again"
+          onAction={() => void load()}
+        />
         <Pressable onPress={() => router.back()} style={styles.backLink}>
           <Text style={styles.backLinkText}>Go back</Text>
         </Pressable>
@@ -322,6 +355,12 @@ export default function PrayerDetailScreen() {
           </View>
         </ScrollView>
 
+        <InlineErrorMessage
+          message={actionError}
+          title="Action didn’t complete"
+          style={styles.actionError}
+        />
+
         <View style={styles.footerActions}>
           <Pressable
             disabled={saving}
@@ -379,6 +418,12 @@ export default function PrayerDetailScreen() {
                 placeholderTextColor={colors.textMuted}
                 style={styles.journalInput}
                 textAlignVertical="top"
+              />
+
+              <InlineErrorMessage
+                message={journalError}
+                title="Reflection wasn’t saved"
+                style={styles.journalError}
               />
 
               <Pressable
@@ -585,6 +630,8 @@ const styles = StyleSheet.create({
     marginTop: 13,
     fontStyle: 'italic',
   },
+  actionError: { marginHorizontal: spacing.base, marginBottom: spacing.sm },
+  journalError: { marginTop: spacing.md },
   footerActions: {
     flexDirection: 'row',
     gap: spacing.sm,

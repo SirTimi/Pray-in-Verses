@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -16,12 +15,14 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, LockKeyhole, Send, ShieldCheck } from 'lucide-react-native';
 
+import InlineErrorMessage from '@/components/common/InlineErrorMessage';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/spacing';
 import {
   createPrayerRequest,
   PRAYER_WALL_CATEGORIES,
 } from '@/services/prayer-wall';
+import { getUserFacingError } from '@/services/user-facing-error';
 
 export default function CreatePrayerRequestScreen() {
   const router = useRouter();
@@ -57,9 +58,13 @@ export default function CreatePrayerRequestScreen() {
         params: { id: created.id },
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unable to post your prayer request.';
-      setError(message);
-      Alert.alert('Could not share request', message);
+      setError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t share your prayer request. Please try again.',
+          networkMessage: 'You appear to be offline. Reconnect and try again.',
+          allowServerMessageForStatuses: [400, 422],
+        }),
+      );
     } finally {
       setLoading(false);
     }
@@ -156,11 +161,11 @@ export default function CreatePrayerRequestScreen() {
               />
             </View>
 
-            {!!error && (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            )}
+            <InlineErrorMessage
+              message={error}
+              title="Request wasn’t posted"
+              style={styles.formError}
+            />
           </View>
         </ScrollView>
 
@@ -207,8 +212,7 @@ const styles = StyleSheet.create({
   optionCopy: { flex: 1 },
   optionTitle: { color: colors.primaryDark, fontSize: 13, fontWeight: '800' },
   optionText: { color: colors.textSecondary, fontSize: 11, lineHeight: 17, marginTop: 3 },
-  errorBox: { marginTop: spacing.md, padding: spacing.md, borderRadius: radius.md, backgroundColor: '#FFF1F0' },
-  errorText: { color: colors.error, fontSize: 12, lineHeight: 18 },
+  formError: { marginTop: spacing.md },
   footer: { paddingHorizontal: spacing.base, paddingTop: spacing.sm, paddingBottom: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface },
   submitButton: { minHeight: 54, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, backgroundColor: colors.primary },
   submitDisabled: { opacity: 0.45 },

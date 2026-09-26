@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -21,6 +20,8 @@ import {
   Send,
 } from 'lucide-react-native';
 
+import AppStateView from '@/components/common/AppStateView';
+import InlineErrorMessage from '@/components/common/InlineErrorMessage';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/spacing';
 import {
@@ -32,6 +33,7 @@ import {
   type PrayerWallComment,
   type PrayerWallRequestDetail,
 } from '@/services/prayer-wall';
+import { getUserFacingError } from '@/services/user-facing-error';
 
 function relativeTime(value: string) {
   const time = new Date(value).getTime();
@@ -55,6 +57,7 @@ export default function PrayerRequestDetailScreen() {
   const [creatorName, setCreatorName] = useState('User');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [actionError, setActionError] = useState('');
   const [liked, setLiked] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
@@ -84,7 +87,11 @@ export default function PrayerRequestDetailScreen() {
         setCreatorName('User');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load this request.');
+      setError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t load this prayer request. Please try again.',
+        }),
+      );
     } finally {
       setLoading(false);
     }
@@ -97,6 +104,7 @@ export default function PrayerRequestDetailScreen() {
   async function handleLike() {
     if (!request || actionBusy) return;
     setActionBusy(true);
+    setActionError('');
 
     try {
       const result = await togglePrayerRequestLike(request.id);
@@ -114,7 +122,12 @@ export default function PrayerRequestDetailScreen() {
         };
       });
     } catch (err) {
-      Alert.alert('Could not update prayer', err instanceof Error ? err.message : 'Please try again.');
+      setActionError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t update your prayer response. Please try again.',
+          networkMessage: 'You appear to be offline. Reconnect and try again.',
+        }),
+      );
     } finally {
       setActionBusy(false);
     }
@@ -123,12 +136,18 @@ export default function PrayerRequestDetailScreen() {
   async function handleBookmark() {
     if (!request || actionBusy) return;
     setActionBusy(true);
+    setActionError('');
 
     try {
       const result = await togglePrayerRequestBookmark(request.id);
       setBookmarked(result.bookmarked);
     } catch (err) {
-      Alert.alert('Could not update bookmark', err instanceof Error ? err.message : 'Please try again.');
+      setActionError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t update this bookmark. Please try again.',
+          networkMessage: 'You appear to be offline. Reconnect and try again.',
+        }),
+      );
     } finally {
       setActionBusy(false);
     }
@@ -138,6 +157,7 @@ export default function PrayerRequestDetailScreen() {
     const body = comment.trim();
     if (!request || body.length === 0 || commentBusy) return;
     setCommentBusy(true);
+    setActionError('');
 
     try {
       const created = await addPrayerRequestComment(request.id, body);
@@ -156,7 +176,13 @@ export default function PrayerRequestDetailScreen() {
       });
       setComment('');
     } catch (err) {
-      Alert.alert('Comment failed', err instanceof Error ? err.message : 'Please try again.');
+      setActionError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t post your comment. Please try again.',
+          networkMessage: 'You appear to be offline. Reconnect and try again.',
+          allowServerMessageForStatuses: [400, 422],
+        }),
+      );
     } finally {
       setCommentBusy(false);
     }
@@ -165,8 +191,11 @@ export default function PrayerRequestDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.stateScreen}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.stateText}>Loading prayer request…</Text>
+        <AppStateView
+          variant="loading"
+          title="Opening prayer request…"
+          body="We’re loading this community prayer."
+        />
       </SafeAreaView>
     );
   }
@@ -174,11 +203,13 @@ export default function PrayerRequestDetailScreen() {
   if (error || !request) {
     return (
       <SafeAreaView style={styles.stateScreen}>
-        <Text style={styles.stateTitle}>Unable to open request</Text>
-        <Text style={styles.stateText}>{error || 'Prayer request not found.'}</Text>
-        <Pressable onPress={() => void load()} style={styles.primaryAction}>
-          <Text style={styles.primaryActionText}>Try again</Text>
-        </Pressable>
+        <AppStateView
+          variant="error"
+          title="Couldn’t open this request"
+          body={error || 'This prayer request could not be found.'}
+          actionLabel="Try Again"
+          onAction={() => void load()}
+        />
         <Pressable onPress={() => router.back()} style={styles.backLink}>
           <Text style={styles.backLinkText}>Go back</Text>
         </Pressable>
@@ -203,6 +234,12 @@ export default function PrayerRequestDetailScreen() {
             <Bookmark size={20} color={colors.primary} fill={bookmarked ? colors.primary : 'transparent'} />
           </Pressable>
         </View>
+
+        <InlineErrorMessage
+          message={actionError}
+          title="Action didn’t complete"
+          style={styles.actionError}
+        />
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.authorRow}>
@@ -303,6 +340,7 @@ const styles = StyleSheet.create({
   keyboard: { flex: 1 },
   topBar: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.base },
   iconButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
+  actionError: { marginHorizontal: spacing.base, marginBottom: spacing.sm },
   scroll: { flex: 1 },
   content: { paddingHorizontal: spacing.base, paddingBottom: spacing.xl },
   authorRow: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.sm },
