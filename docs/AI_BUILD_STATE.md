@@ -10,11 +10,23 @@ AWAITING USER TEST
 
 ## Last Accepted Task
 
-The production offline-content export is accepted by moving on. GitHub now contains the complete generated public library: 66 Bible books, 31,081 verse-level CuratedPrayer records, 217,363 prayer points, and 69,404,220 raw JSON bytes (~66.19 MiB).
+The Android preview/offline-first build step is accepted by moving on with no problem reported. The bundled public library remains on `main`: 66 Bible books, 31,081 verse-level CuratedPrayer records, 217,363 prayer points, and 69,404,220 raw JSON bytes (~66.19 MiB).
 
 Previously accepted mobile polish also includes the shared signed-in bottom navigation, justified Prayer Detail Short Insight text, keyboard-safe Add to Journal sheet, Prayer Wall empty/populated creation actions, removal of the Prayer Wall funnel icon, explicit TSX/JSX TypeScript configuration, all three onboarding screens, onboarding transition removal, email/password-only Login, Verse of the Day direct-to-detail navigation, Journal action patterns, Prayer Reminders action simplification, My Prayers, Saved Prayers, notifications, account management, Support + Donation, and the selected `PIV-logo.png` branding asset.
 
 ## Current Implementation
+
+### Unified mobile error presentation
+
+- Added `mobile/src/services/user-facing-error.ts` as the single translator from API/runtime failures to user-facing copy.
+- HTTP status handling is centralized: authentication/permission/rate-limit/server failures receive stable friendly wording, while raw technical/server messages are hidden by default.
+- Server validation copy is exposed only on explicitly allowed client-error statuses and only after filtering technical-looking messages.
+- Added reusable `InlineErrorMessage` for form/action failures with consistent icon, border, spacing, color, and accessibility semantics.
+- `AppStateView` now marks error states as accessibility alerts and is the standard presentation for content/load failures with retry actions.
+- Authentication, Browse, Home, Community, My Prayers, Journal, Saved Prayers, Prayer Wall, Prayer Detail, Reminders, Notifications, Account, and Donation flows now use the shared error system.
+- Screens that previously mixed load and action failures now keep them separate where needed, so a failed like/bookmark/delete/toggle no longer replaces an otherwise valid content screen with a misleading reload error.
+- Failure popups were removed from Prayer Wall and Prayer Detail actions. Inline errors now stay in context. Native alerts remain only for confirmations, sign-in prompts, and successful journal-save feedback where they are intentional.
+- Offline/public Scripture fallbacks still suppress network errors when bundled content can satisfy the read, so users do not see an error simply because they are offline.
 
 ### First-install bundled Scripture/prayer fallback
 
@@ -151,14 +163,16 @@ Scrollable content padding that is intentionally used to keep content clear of a
 - SQLite network-first/public-content offline cache accepted by continued work.
 - Production-to-mobile bundled offline-content export pipeline completed with the full public library committed.
 - First-install bundled fallback wired for Browse, Verse of the Day, search, and Prayer Detail.
+- Unified user-facing error translation and consistent load/form/action error presentation implemented across the primary mobile flows.
 
 ## Next Tasks
 
-1. Pull and run the mobile app on a native build containing `expo-sqlite`, then test a true fresh-install/cleared-data airplane-mode flow.
-2. Confirm all 66 books, representative chapters/verses, Prayer Detail, Verse of the Day, and an offline search query work without any prior network request.
-3. Measure startup/memory/search performance on the Android acceptance device; if offline search is too heavy, move the shipped baseline to a prebuilt SQLite asset/index instead of scanning JSON packs.
-4. Add content-version update/sync behavior so online devices can refresh the bundled baseline without waiting for a new app binary.
-5. Complete the remaining iOS functional pass and produce the next native release build.
+1. Pull `main` and test the new error presentation on Android: auth errors, offline/account action errors, load/retry states, Prayer Wall actions, Prayer Detail save/journal actions, reminders, notifications, account updates, and donation initialization.
+2. Confirm no raw backend/technical text appears and no failed action produces both an inline error and a duplicate native popup.
+3. Add content-version update/sync behavior so online devices can refresh the bundled offline baseline without waiting for a new app binary.
+4. Complete verified Android App Links for password reset.
+5. Implement remote push-token delivery for server notifications.
+6. Complete the remaining iOS functional pass and produce the next native release build.
 
 ## Known Issues
 
@@ -175,31 +189,27 @@ Scrollable content padding that is intentionally used to keep content clear of a
 
 ## Testing Status
 
-First-install bundled public reading is pushed for physical-device review.
+Unified error presentation is pushed and awaiting physical-device acceptance.
 
-Before testing, pull `main` and run `npm ci` in `mobile/`. Because `expo-sqlite` is a native dependency, a custom Dev Client built before SQLite was added may need to be rebuilt; the existing TestFlight binary predates this dependency and cannot validate this cycle.
+Required acceptance checks:
 
-Required acceptance test:
+1. Enter an incorrect email/password on Login: the error must stay inline and use friendly copy rather than backend text.
+2. Trigger a form/action failure while offline on an authenticated feature such as Saved Prayers, Prayer Wall, Journal, or Account: the existing content/form should remain visible and show one inline error card.
+3. Trigger a genuine screen-load failure on an authenticated remote screen: show the standard `AppStateView` error state with a clear Retry action.
+4. Prayer Wall like/bookmark/comment and Prayer Detail save/prayer-point/journal failures must not show duplicate failure popups.
+5. Confirmation dialogs such as delete actions and the guest Sign In prompt must still work as native alerts.
+6. Validation errors such as invalid email, reminder time, empty required fields, and minimum donation amount must remain specific and actionable.
+7. Donation initialization/status failures must not expose raw gateway/server/technical messages.
+8. Public Scripture reading while offline must continue using the bundled library rather than showing a network error.
 
-1. Clear app data/uninstall the test build so there is no prior SQLite/public cache.
-2. Disable Wi-Fi and mobile data before launching the freshly installed app.
-3. Continue without signing in.
-4. Open Browse and confirm both testaments populate from the bundled library.
-5. Open representative books such as Genesis, Psalms, John, Romans, and Revelation; open chapters and multiple Prayer Detail screens.
-6. Confirm Scripture text, theme, Short Insight, prayer points, and closing prayer render with no network.
-7. Open Verse of the Day from Home and confirm it resolves offline.
-8. Run at least one new search term that has never been cached; results should come from the bundled packs.
-9. While still offline, Save/Journal actions must continue to require sign-in and must not create local fake account state.
-10. Restore internet, sign in, and confirm Prayer Detail again reflects server-owned saved state.
+Validation performed in the repository:
 
-Validation performed in this environment:
-
-- Re-read the exact Expo SDK 57 SQLite documentation before this mobile cycle. Expo documents persisted databases, parameterized async APIs, transactions, and importing an existing bundled database with `SQLiteProvider assetSource`.
-- Re-inspected remote `main`, `mobile/AGENTS.md`, the committed manifest/registry, public service layer, current SQLite cache, auth launch behavior, and exporter.
-- Manifest currently reports 66 books, 31,081 verse-level records, 217,363 prayer points, and 69,404,220 raw JSON bytes (~66.19 MiB).
-- Registry generation now emits lazy static pack loaders rather than eager top-level JSON imports.
-- No API endpoint, Prisma schema, migration, auth write, payment flow, or environment variable was changed in this cycle.
-- Repository CI status checks are not configured for these direct commits; native physical-device testing remains the acceptance gate.
+- Re-read the Expo SDK 57 reference before this mobile cycle.
+- Re-inspected `main`, `mobile/AGENTS.md`, the build-state document, API error class, reusable state component, and all identified mobile error surfaces.
+- Added a central technical-message filter and explicit status mapping rather than passing `err.message` directly to users.
+- Reviewed the six error-presentation commits as one diff: 26 mobile files changed/added, with no API endpoint, Prisma schema, migration, authentication contract, payment contract, or environment-variable change.
+- Re-checked the primary modified screens for direct `err.message` presentation and failure-style `Alert.alert` calls; none remain in the reviewed primary flows.
+- GitHub has no configured commit-status checks for these commits, so native device testing remains the acceptance gate.
 
 ## Architecture Decisions
 
@@ -217,7 +227,9 @@ Validation performed in this environment:
 - Public reads remain network-first for freshness and personalized server state, then use the existing SQLite response cache, then the committed bundled public library as the final offline fallback. Personal account state is never embedded in bundled content.
 - The release target is offline-first from installation: the complete published CuratedPrayer baseline is generated into per-book assets and statically bundled with the native app; network access is an online freshness/personalization layer rather than a prerequisite for public reading.
 - Manual user/device testing remains the acceptance gate after each pushed development increment.
+- User-visible errors follow one hierarchy: load failures use `AppStateView`, form/action failures use `InlineErrorMessage`, and native alerts are reserved for confirmations or intentional modal prompts rather than routine failures.
+- Raw backend messages are not trusted for display by default; only explicitly allowed, filtered client-validation messages may reach the UI.
 
 ## Last Commit
 
-Current cycle follow-up: clean stale build-state wording after the first-install bundled fallback implementation. Status: AWAITING USER TEST.
+Current cycle: standardize mobile error translation and presentation across authentication, public content, personal content, community actions, reminders, notifications, account, and donation flows. Status: AWAITING USER TEST.
