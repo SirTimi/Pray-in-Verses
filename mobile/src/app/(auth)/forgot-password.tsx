@@ -14,10 +14,12 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ArrowLeft, CheckCircle2, Mail } from 'lucide-react-native';
 
+import InlineErrorMessage from '@/components/common/InlineErrorMessage';
 import AppButton from '@/components/ui/AppButton';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/spacing';
 import { forgotPassword } from '@/services/auth';
+import { getUserFacingError } from '@/services/user-facing-error';
 
 const SERIF_FONT = Platform.select({
   ios: 'Georgia',
@@ -45,8 +47,16 @@ export default function ForgotPasswordScreen() {
     try {
       await forgotPassword(email.trim().toLowerCase());
       setSent(true);
-    } catch {
-      setError('We could not send a reset email right now. Check your connection and try again.');
+    } catch (err) {
+      setError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t send a reset email right now. Please try again.',
+          networkMessage: 'We couldn’t connect. Check your internet connection and try again.',
+          statusMessages: {
+            429: 'Too many reset requests. Wait a few minutes and try again.',
+          },
+        }),
+      );
     } finally {
       setLoading(false);
     }
@@ -130,11 +140,7 @@ export default function ForgotPasswordScreen() {
               </View>
               {email.length > 0 && !emailValid && <Text style={styles.fieldError}>Enter a valid email address.</Text>}
 
-              {!!error && (
-                <View style={styles.errorBox}>
-                  <Text style={styles.errorText}>{error}</Text>
-                </View>
-              )}
+              <InlineErrorMessage message={error} style={styles.formError} />
 
               <AppButton
                 label="Send Reset Link"
@@ -174,8 +180,7 @@ const styles = StyleSheet.create({
   inputShellError: { borderColor: colors.error },
   input: { flex: 1, minHeight: 56, color: colors.text, fontSize: 16, paddingVertical: 0 },
   fieldError: { marginTop: 6, marginLeft: 4, color: colors.error, fontSize: 11, lineHeight: 16 },
-  errorBox: { marginTop: spacing.lg, padding: spacing.md, borderRadius: radius.md, backgroundColor: '#FFF1F0' },
-  errorText: { color: colors.error, fontSize: 13, lineHeight: 19 },
+  formError: { marginTop: spacing.lg },
   primaryButton: { minHeight: 58, marginTop: spacing.xl, borderRadius: radius.lg },
   bottomLink: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   bottomLinkText: { color: colors.primary, fontSize: 14, fontWeight: '800' },

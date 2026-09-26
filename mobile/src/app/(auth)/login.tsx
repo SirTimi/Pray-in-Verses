@@ -16,8 +16,9 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react-native';
 
-import { ApiError } from '@/services/api';
+import InlineErrorMessage from '@/components/common/InlineErrorMessage';
 import { login } from '@/services/auth';
+import { getUserFacingError } from '@/services/user-facing-error';
 import { setGuestModeEnabled } from '@/services/guest';
 import { useAuthStore } from '@/stores/auth.store';
 
@@ -51,17 +52,18 @@ export default function LoginScreen() {
       setUser(user);
       router.replace('/(app)');
     } catch (err) {
-      if (err instanceof ApiError) {
-        if (err.status === 429) {
-          setError('Too many sign-in attempts. Please wait a moment and try again.');
-        } else if (err.status === 403) {
-          setError('This account cannot access the mobile app.');
-        } else {
-          setError(err.message || 'Unable to sign in with those details.');
-        }
-      } else {
-        setError('Unable to connect. Check your internet connection and try again.');
-      }
+      setError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t sign you in. Check your email and password and try again.',
+          networkMessage: 'We couldn’t connect. Check your internet connection and try again.',
+          statusMessages: {
+            400: 'Email or password is incorrect.',
+            401: 'Email or password is incorrect.',
+            403: 'This account cannot access the mobile app.',
+            429: 'Too many sign-in attempts. Wait a moment and try again.',
+          },
+        }),
+      );
     } finally {
       setLoading(false);
     }
@@ -160,11 +162,7 @@ export default function LoginScreen() {
               <Text style={styles.forgotText}>Forgot password?</Text>
             </Pressable>
 
-            {!!error && (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            )}
+            <InlineErrorMessage message={error} style={styles.formError} />
 
             <Pressable
               accessibilityRole="button"
@@ -303,16 +301,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  errorBox: {
+  formError: {
     marginTop: 8,
-    borderRadius: 10,
-    backgroundColor: '#FFF1F0',
-    padding: 12,
-  },
-  errorText: {
-    color: '#B42318',
-    fontSize: 13,
-    lineHeight: 18,
   },
   signInButton: {
     minHeight: 56,

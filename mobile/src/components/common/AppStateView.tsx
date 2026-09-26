@@ -37,7 +37,10 @@ export default function AppStateView({
   const resolvedBody = body ?? (variant === 'empty' ? 'There is no content to show yet.' : variant === 'loading' ? 'Please wait while we fetch your content.' : 'We could not load your content. Please try again.');
 
   return (
-    <View style={[styles.container, style]}>
+    <View
+      accessibilityRole={variant === 'error' ? 'alert' : undefined}
+      style={[styles.container, style]}
+    >
       <View style={[styles.iconBox, variant === 'error' && styles.errorIconBox]}>
         {variant === 'loading' ? (
           <ActivityIndicator color={colors.primary} size="large" />

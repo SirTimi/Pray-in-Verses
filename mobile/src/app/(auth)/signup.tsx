@@ -23,11 +23,12 @@ import {
   UserRound,
 } from 'lucide-react-native';
 
+import InlineErrorMessage from '@/components/common/InlineErrorMessage';
 import AppButton from '@/components/ui/AppButton';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/spacing';
-import { ApiError } from '@/services/api';
 import { signup } from '@/services/auth';
+import { getUserFacingError } from '@/services/user-facing-error';
 
 const SERIF_FONT = Platform.select({
   ios: 'Georgia',
@@ -77,15 +78,17 @@ export default function SignupScreen() {
       await signup(displayName.trim(), email.trim().toLowerCase(), password);
       setCreated(true);
     } catch (err) {
-      if (err instanceof ApiError) {
-        setError(
-          err.status === 429
-            ? 'Too many account creation attempts. Please wait a few minutes and try again.'
-            : err.message || 'We could not create your account.',
-        );
-      } else {
-        setError('Unable to connect. Check your internet connection and try again.');
-      }
+      setError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t create your account. Check your details and try again.',
+          networkMessage: 'We couldn’t connect. Check your internet connection and try again.',
+          statusMessages: {
+            409: 'An account already exists with this email.',
+            429: 'Too many account creation attempts. Wait a few minutes and try again.',
+          },
+          allowServerMessageForStatuses: [400, 422],
+        }),
+      );
     } finally {
       setLoading(false);
     }
@@ -260,11 +263,7 @@ export default function SignupScreen() {
               </Pressable>
             </View>
 
-            {!!error && (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            )}
+            <InlineErrorMessage message={error} style={styles.formError} />
 
             <AppButton
               label="Create Account"
@@ -339,8 +338,7 @@ const styles = StyleSheet.create({
   checkboxActive: { borderColor: colors.primary, backgroundColor: colors.primary },
   privacyCopy: { color: colors.textSecondary, fontSize: 13 },
   privacyLink: { color: colors.primary, fontSize: 13, fontWeight: '800' },
-  errorBox: { marginTop: spacing.lg, padding: spacing.md, borderRadius: radius.md, backgroundColor: '#FFF1F0' },
-  errorText: { color: colors.error, fontSize: 13, lineHeight: 19 },
+  formError: { marginTop: spacing.lg },
   primaryButton: { minHeight: 58, marginTop: spacing.xl, borderRadius: radius.lg },
   dividerRow: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.xxl },
   dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },

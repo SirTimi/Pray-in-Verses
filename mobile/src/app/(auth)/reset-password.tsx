@@ -14,11 +14,12 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ArrowLeft, CheckCircle2, KeyRound, LockKeyhole } from 'lucide-react-native';
 
+import InlineErrorMessage from '@/components/common/InlineErrorMessage';
 import AppButton from '@/components/ui/AppButton';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/spacing';
-import { ApiError } from '@/services/api';
 import { resetPassword } from '@/services/auth';
+import { getUserFacingError } from '@/services/user-facing-error';
 
 const SERIF_FONT = Platform.select({
   ios: 'Georgia',
@@ -54,15 +55,16 @@ export default function ResetPasswordScreen() {
       await resetPassword(token, newPassword);
       setSuccess(true);
     } catch (err) {
-      if (err instanceof ApiError) {
-        setError(
-          err.status === 429
-            ? 'Too many reset attempts. Please wait a few minutes and try again.'
-            : err.message || 'This reset link may be invalid or expired.',
-        );
-      } else {
-        setError('Unable to reset your password. Check your connection and try again.');
-      }
+      setError(
+        getUserFacingError(err, {
+          fallback: 'This reset link may be invalid or expired. Request a new link and try again.',
+          networkMessage: 'We couldn’t connect. Check your internet connection and try again.',
+          statusMessages: {
+            429: 'Too many reset attempts. Wait a few minutes and try again.',
+          },
+          allowServerMessageForStatuses: [400, 404, 422],
+        }),
+      );
     } finally {
       setLoading(false);
     }
@@ -194,11 +196,7 @@ export default function ResetPasswordScreen() {
               </View>
               {confirmPassword.length > 0 && !passwordsMatch && <Text style={styles.fieldError}>Passwords do not match.</Text>}
 
-              {!!error && (
-                <View style={styles.errorBox}>
-                  <Text style={styles.errorText}>{error}</Text>
-                </View>
-              )}
+              <InlineErrorMessage message={error} style={styles.formError} />
 
               <AppButton
                 label="Reset Password"
@@ -236,8 +234,7 @@ const styles = StyleSheet.create({
   showButton: { minWidth: 52, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center' },
   showText: { color: colors.primary, fontSize: 12, fontWeight: '700' },
   fieldError: { marginTop: 6, marginLeft: 4, color: colors.error, fontSize: 11, lineHeight: 16 },
-  errorBox: { marginTop: spacing.lg, padding: spacing.md, borderRadius: radius.md, backgroundColor: '#FFF1F0' },
-  errorText: { color: colors.error, fontSize: 13, lineHeight: 19 },
+  formError: { marginTop: spacing.lg },
   primaryButton: { minHeight: 58, marginTop: spacing.xl, borderRadius: radius.lg },
   successContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xl },
   missingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xl },
