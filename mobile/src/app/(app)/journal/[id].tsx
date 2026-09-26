@@ -15,11 +15,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, CalendarDays, Trash2 } from 'lucide-react-native';
 
+import InlineErrorMessage from '@/components/common/InlineErrorMessage';
 import AppButton from '@/components/ui/AppButton';
 import AppStateView from '@/components/common/AppStateView';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/spacing';
 import { createJournal, deleteJournal, getJournal, JOURNAL_MOODS, updateJournal } from '@/services/journals';
+import { getUserFacingError } from '@/services/user-facing-error';
 
 const SERIF_FONT = Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' });
 
@@ -50,7 +52,11 @@ export default function JournalEntryScreen() {
       setMood(entry.mood || 'Reflective');
       setCreatedAt(entry.createdAt);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load this journal entry.');
+      setError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t load this journal entry. Please try again.',
+        }),
+      );
     } finally {
       setLoading(false);
     }
@@ -72,7 +78,13 @@ export default function JournalEntryScreen() {
       else await updateJournal(rawId, payload);
       router.replace('/(app)/journal');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to save your journal entry.');
+      setError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t save your journal entry. Please try again.',
+          networkMessage: 'You appear to be offline. Reconnect and try again.',
+          allowServerMessageForStatuses: [400, 422],
+        }),
+      );
     } finally {
       setSaving(false);
     }
@@ -94,7 +106,12 @@ export default function JournalEntryScreen() {
       await deleteJournal(rawId);
       router.replace('/(app)/journal');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to delete this journal entry.');
+      setError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t delete this journal entry. Please try again.',
+          networkMessage: 'You appear to be offline. Reconnect and try again.',
+        }),
+      );
     } finally {
       setDeleting(false);
     }
@@ -199,7 +216,11 @@ export default function JournalEntryScreen() {
           <Text style={styles.tip}>
             Tip: include a Scripture reference in your title or reflection whenever it helps you remember the moment.
           </Text>
-          {!!error && <Text style={styles.errorText}>{error}</Text>}
+          <InlineErrorMessage
+            message={error}
+            title={isNew ? 'Entry wasn’t saved' : 'Journal action didn’t complete'}
+            style={styles.formError}
+          />
         </ScrollView>
 
         <View
@@ -331,7 +352,7 @@ const styles = StyleSheet.create({
   },
   counter: { color: colors.textMuted, fontSize: 11, textAlign: 'right', marginTop: 5 },
   tip: { color: colors.textMuted, fontSize: 11, lineHeight: 17, marginTop: spacing.md },
-  errorText: { color: colors.error, fontSize: 13, lineHeight: 20, marginTop: spacing.md },
+  formError: { marginTop: spacing.md },
   footerActions: {
     borderTopWidth: 1,
     borderTopColor: colors.border,

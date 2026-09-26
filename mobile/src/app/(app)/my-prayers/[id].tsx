@@ -21,6 +21,7 @@ import {
 } from 'lucide-react-native';
 
 import AppStateView from '@/components/common/AppStateView';
+import InlineErrorMessage from '@/components/common/InlineErrorMessage';
 import AppButton from '@/components/ui/AppButton';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/spacing';
@@ -32,6 +33,7 @@ import {
   updateMyPrayer,
   type PrayerStatus,
 } from '@/services/my-prayers';
+import { getUserFacingError } from '@/services/user-facing-error';
 
 const SERIF_FONT = Platform.select({
   ios: 'Georgia',
@@ -81,7 +83,11 @@ export default function MyPrayerEditorScreen() {
       setStatus(prayer.status);
       setAnsweredAt(prayer.answeredAt);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load this prayer.');
+      setError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t load this prayer. Please try again.',
+        }),
+      );
     } finally {
       setLoading(false);
     }
@@ -118,7 +124,13 @@ export default function MyPrayerEditorScreen() {
 
       goToPrayerList();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to save this prayer.');
+      setError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t save this prayer. Please try again.',
+          networkMessage: 'You appear to be offline. Reconnect and try again.',
+          allowServerMessageForStatuses: [400, 422],
+        }),
+      );
     } finally {
       setSaving(false);
     }
@@ -135,7 +147,12 @@ export default function MyPrayerEditorScreen() {
       setStatus(updated.status);
       setAnsweredAt(updated.answeredAt);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to update this prayer status.');
+      setError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t update this prayer status. Please try again.',
+          networkMessage: 'You appear to be offline. Reconnect and try again.',
+        }),
+      );
     } finally {
       setStatusBusy(false);
     }
@@ -168,7 +185,12 @@ export default function MyPrayerEditorScreen() {
       await deleteMyPrayer(rawId);
       goToPrayerList();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to delete this prayer.');
+      setError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t delete this prayer. Please try again.',
+          networkMessage: 'You appear to be offline. Reconnect and try again.',
+        }),
+      );
       setSaving(false);
     }
   }
@@ -334,11 +356,11 @@ export default function MyPrayerEditorScreen() {
           </View>
           <Text style={styles.helper}>Separate tags with commas. Tags make your prayer list easier to search.</Text>
 
-          {!!error && (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          )}
+          <InlineErrorMessage
+            message={error}
+            title="Prayer action didn’t complete"
+            style={styles.formError}
+          />
 
           <AppButton
             label={isNew ? 'Add Prayer' : 'Save Changes'}
@@ -383,8 +405,7 @@ const styles = StyleSheet.create({
   tagsInputShell: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface, paddingHorizontal: spacing.md },
   tagsInput: { flex: 1, minHeight: 52, color: colors.text, fontSize: 14, paddingVertical: 0 },
   helper: { color: colors.textMuted, fontSize: 11, lineHeight: 17, marginTop: spacing.sm },
-  errorBox: { marginTop: spacing.lg, padding: spacing.md, borderRadius: radius.md, backgroundColor: '#FFF1F0' },
-  errorText: { color: colors.error, fontSize: 13, lineHeight: 19 },
+  formError: { marginTop: spacing.lg },
   saveButton: { marginTop: spacing.xl },
   pressed: { opacity: 0.84 },
   disabled: { opacity: 0.55 },

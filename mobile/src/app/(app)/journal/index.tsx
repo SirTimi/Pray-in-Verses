@@ -17,6 +17,7 @@ import AppStateView from '@/components/common/AppStateView';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/spacing';
 import { listJournals, type JournalEntry } from '@/services/journals';
+import { getUserFacingError } from '@/services/user-facing-error';
 
 const SERIF_FONT = Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' });
 type JournalFilter = 'all' | 'month' | 'reflective';
@@ -45,7 +46,11 @@ export default function JournalScreen() {
     try {
       setEntries(await listJournals());
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load your journal.');
+      setError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t load your journal right now. Please try again.',
+        }),
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);

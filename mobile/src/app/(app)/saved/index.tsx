@@ -15,9 +15,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Bookmark, ChevronRight, Search, Trash2, X } from 'lucide-react-native';
 
 import AppStateView from '@/components/common/AppStateView';
+import InlineErrorMessage from '@/components/common/InlineErrorMessage';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/spacing';
 import { listSavedPrayers, removeSavedPrayerGroup, type SavedPrayerGroup } from '@/services/saved-prayers';
+import { getUserFacingError } from '@/services/user-facing-error';
 
 const SERIF_FONT = Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' });
 
@@ -28,15 +30,20 @@ export default function SavedPrayersScreen() {
   const [theme, setTheme] = useState('All');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
+  const [actionError, setActionError] = useState('');
   const [deletingId, setDeletingId] = useState('');
 
   const load = useCallback(async () => {
-    setError('');
+    setLoadError('');
     try {
       setItems(await listSavedPrayers());
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load saved prayers.');
+      setLoadError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t load your saved prayers right now. Please try again.',
+        }),
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -86,12 +93,17 @@ export default function SavedPrayersScreen() {
   async function removeItem(item: SavedPrayerGroup) {
     if (deletingId) return;
     setDeletingId(item.curatedPrayerId);
-    setError('');
+    setActionError('');
     try {
       await removeSavedPrayerGroup(item);
       setItems((current) => current.filter((entry) => entry.curatedPrayerId !== item.curatedPrayerId));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to remove this saved prayer.');
+      setActionError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t remove this saved prayer. Please try again.',
+          networkMessage: 'You appear to be offline. Reconnect and try again.',
+        }),
+      );
     } finally {
       setDeletingId('');
     }
@@ -127,10 +139,23 @@ export default function SavedPrayersScreen() {
           </ScrollView>
         )}
 
-        {!!error && !loading && <AppStateView variant="error" title="Could not load saved prayers" body={error} actionLabel="Try Again" onAction={() => void load()} style={styles.stateSpacing} />}
+        <InlineErrorMessage
+          message={actionError}
+          title="Saved prayer wasn’t removed"
+          style={styles.actionError}
+        />
         {loading ? (
           <AppStateView variant="loading" title="Loading saved prayers…" body="We’re opening your prayer library." style={styles.stateSpacing} />
-        ) : !error && visibleItems.length === 0 ? (
+        ) : loadError ? (
+          <AppStateView
+            variant="error"
+            title="Couldn’t load saved prayers"
+            body={loadError}
+            actionLabel="Try Again"
+            onAction={() => void load()}
+            style={styles.stateSpacing}
+          />
+        ) : visibleItems.length === 0 ? (
           <AppStateView
             variant="empty"
             icon={<Bookmark size={30} color={colors.primary} />}
@@ -141,7 +166,7 @@ export default function SavedPrayersScreen() {
             style={styles.stateSpacing}
           />
         ) : (
-          !error && <View style={styles.list}>
+          <View style={styles.list}>
             {visibleItems.map((item) => {
               const prayer = item.curatedPrayer;
               return (
@@ -185,6 +210,7 @@ const styles = StyleSheet.create({
   filterChipActive: { backgroundColor: colors.primary },
   filterText: { color: colors.textSecondary, fontSize: 12, fontWeight: '700' },
   filterTextActive: { color: colors.white },
+  actionError: { marginTop: spacing.lg },
   stateSpacing: { marginTop: spacing.lg },
   list: { gap: spacing.sm, marginTop: spacing.sm },
   card: { position: 'relative', borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, overflow: 'hidden' },

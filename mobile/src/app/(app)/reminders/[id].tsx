@@ -23,6 +23,7 @@ import {
 } from 'lucide-react-native';
 
 import AppStateView from '@/components/common/AppStateView';
+import InlineErrorMessage from '@/components/common/InlineErrorMessage';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/spacing';
 import {
@@ -30,6 +31,7 @@ import {
   getPrayerReminder,
   savePrayerReminder,
 } from '@/services/reminders';
+import { getUserFacingError } from '@/services/user-facing-error';
 
 const DAYS = [
   { value: 1, label: 'Sun' },
@@ -83,7 +85,11 @@ export default function ReminderEditorScreen() {
       setPrayer(reminder.prayer);
       setIsActive(reminder.isActive);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load this reminder.');
+      setError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t load this reminder from your device.',
+        }),
+      );
     } finally {
       setLoading(false);
     }
@@ -138,7 +144,11 @@ export default function ReminderEditorScreen() {
       });
       router.back();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to save this reminder.');
+      setError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t save this reminder. Please try again.',
+        }),
+      );
     } finally {
       setSaving(false);
     }
@@ -165,7 +175,11 @@ export default function ReminderEditorScreen() {
       await deletePrayerReminder(id);
       router.back();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to delete this reminder.');
+      setError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t delete this reminder. Please try again.',
+        }),
+      );
     } finally {
       setDeleting(false);
     }
@@ -192,6 +206,16 @@ export default function ReminderEditorScreen() {
             body="We’re loading the reminder saved on this device."
           />
         </View>
+      ) : error && !isNew && !title ? (
+        <View style={styles.stateWrap}>
+          <AppStateView
+            variant="error"
+            title="Couldn’t open this reminder"
+            body={error}
+            actionLabel="Try Again"
+            onAction={() => void load()}
+          />
+        </View>
       ) : (
         <KeyboardAvoidingView
           style={styles.flex}
@@ -215,11 +239,11 @@ export default function ReminderEditorScreen() {
               </View>
             </View>
 
-            {!!error && (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            )}
+            <InlineErrorMessage
+              message={error}
+              title="Reminder needs attention"
+              style={styles.formError}
+            />
 
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Reminder title</Text>
@@ -350,8 +374,7 @@ const styles = StyleSheet.create({
   introCopy: { flex: 1 },
   introTitle: { color: colors.primaryDark, fontSize: 14, fontWeight: '800' },
   introBody: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 3 },
-  errorBox: { marginTop: spacing.md, padding: spacing.md, borderRadius: radius.md, backgroundColor: '#FFF1F0' },
-  errorText: { color: colors.error, fontSize: 13, lineHeight: 19 },
+  formError: { marginTop: spacing.md },
   fieldGroup: { marginTop: spacing.xl },
   labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   label: { color: colors.primaryDark, fontSize: 13, fontWeight: '800', marginBottom: spacing.sm },
