@@ -24,6 +24,8 @@ import {
   UserRound,
 } from 'lucide-react-native';
 
+import AppStateView from '@/components/common/AppStateView';
+import InlineErrorMessage from '@/components/common/InlineErrorMessage';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/spacing';
 import {
@@ -32,6 +34,7 @@ import {
   updateProfile,
   type AuthUser,
 } from '@/services/auth';
+import { getUserFacingError } from '@/services/user-facing-error';
 import { useAuthStore } from '@/stores/auth.store';
 
 const SERIF_FONT = Platform.select({
@@ -39,12 +42,6 @@ const SERIF_FONT = Platform.select({
   android: 'serif',
   default: 'serif',
 });
-
-function errorMessage(error: unknown, fallback: string) {
-  return error instanceof Error && error.message
-    ? error.message
-    : fallback;
-}
 
 function formatMemberSince(value?: string) {
   if (!value) return 'Account details are synced from the server';
@@ -93,7 +90,9 @@ export default function AccountScreen() {
       setUser(next);
     } catch (error) {
       setLoadError(
-        errorMessage(error, 'Unable to load your account right now.'),
+        getUserFacingError(error, {
+          fallback: 'We couldn’t load your account right now. Please try again.',
+        }),
       );
     } finally {
       setLoading(false);
@@ -153,7 +152,11 @@ export default function AccountScreen() {
       setProfileSuccess('Your display name has been updated.');
     } catch (error) {
       setProfileError(
-        errorMessage(error, 'Unable to update your profile.'),
+        getUserFacingError(error, {
+          fallback: 'We couldn’t update your profile. Please try again.',
+          networkMessage: 'You appear to be offline. Reconnect and try again.',
+          allowServerMessageForStatuses: [400, 422],
+        }),
       );
     } finally {
       setSavingProfile(false);
@@ -203,7 +206,11 @@ export default function AccountScreen() {
       );
     } catch (error) {
       setSecurityError(
-        errorMessage(error, 'Unable to change your password.'),
+        getUserFacingError(error, {
+          fallback: 'We couldn’t change your password. Please check your current password and try again.',
+          networkMessage: 'You appear to be offline. Reconnect and try again.',
+          allowServerMessageForStatuses: [400, 422],
+        }),
       );
     } finally {
       setChangingPassword(false);
@@ -245,17 +252,21 @@ export default function AccountScreen() {
           </Text>
 
           {loading ? (
-            <View style={styles.loadingCard}>
-              <ActivityIndicator color={colors.primary} />
-              <Text style={styles.muted}>Loading your account…</Text>
-            </View>
+            <AppStateView
+              variant="loading"
+              title="Loading your account…"
+              body="We’re syncing your profile and security details."
+              style={styles.accountState}
+            />
           ) : loadError ? (
-            <View style={styles.errorCard}>
-              <Text style={styles.errorText}>{loadError}</Text>
-              <Pressable onPress={() => { setLoading(true); void loadAccount(); }}>
-                <Text style={styles.retryText}>Try again</Text>
-              </Pressable>
-            </View>
+            <AppStateView
+              variant="error"
+              title="Couldn’t load your account"
+              body={loadError}
+              actionLabel="Try Again"
+              onAction={() => { setLoading(true); void loadAccount(); }}
+              style={styles.accountState}
+            />
           ) : (
             <>
               <View style={styles.identityCard}>
@@ -324,9 +335,11 @@ export default function AccountScreen() {
                   Email changes will be enabled only with a verified email-change flow.
                 </Text>
 
-                {!!profileError && (
-                  <Text style={styles.inlineError}>{profileError}</Text>
-                )}
+                <InlineErrorMessage
+                  message={profileError}
+                  title="Profile wasn’t updated"
+                  style={styles.inlineMessage}
+                />
                 {!!profileSuccess && (
                   <Text style={styles.inlineSuccess}>{profileSuccess}</Text>
                 )}
@@ -404,9 +417,11 @@ export default function AccountScreen() {
                   autoComplete="new-password"
                 />
 
-                {!!securityError && (
-                  <Text style={styles.inlineError}>{securityError}</Text>
-                )}
+                <InlineErrorMessage
+                  message={securityError}
+                  title="Password wasn’t updated"
+                  style={styles.inlineMessage}
+                />
                 {!!securitySuccess && (
                   <Text style={styles.inlineSuccess}>{securitySuccess}</Text>
                 )}
@@ -541,33 +556,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
-  loadingCard: {
-    minHeight: 180,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.md,
-    marginTop: spacing.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-  },
-  muted: { color: colors.textSecondary, fontSize: 13 },
-  errorCard: {
-    marginTop: spacing.xl,
-    padding: spacing.lg,
-    borderRadius: radius.lg,
-    backgroundColor: '#FFF1F0',
-    borderWidth: 1,
-    borderColor: '#F3C7C2',
-  },
-  errorText: { color: colors.error, fontSize: 13, lineHeight: 19 },
-  retryText: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: '800',
-    marginTop: spacing.md,
-  },
+  accountState: { marginTop: spacing.xl },
+  inlineMessage: { marginTop: spacing.md },
   identityCard: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react-native';
 
 import AppStateView from '@/components/common/AppStateView';
+import InlineErrorMessage from '@/components/common/InlineErrorMessage';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/spacing';
 import {
@@ -29,6 +30,7 @@ import {
   markNotificationRead,
   type InboxNotification,
 } from '@/services/notifications';
+import { getUserFacingError } from '@/services/user-facing-error';
 
 function formatNotificationDate(value: string) {
   const date = new Date(value);
@@ -58,7 +60,8 @@ export default function NotificationsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
-  const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
+  const [actionError, setActionError] = useState('');
 
   const unreadCount = useMemo(
     () => items.filter((item) => !item.readAt).length,
@@ -66,12 +69,16 @@ export default function NotificationsScreen() {
   );
 
   const load = useCallback(async () => {
-    setError('');
+    setLoadError('');
 
     try {
       setItems(await listNotifications(50));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load notifications.');
+      setLoadError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t load notifications right now. Please try again.',
+        }),
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -107,6 +114,7 @@ export default function NotificationsScreen() {
     if (markingAll || unreadCount === 0) return;
 
     setMarkingAll(true);
+    setActionError('');
     const now = new Date().toISOString();
     const previous = items;
     setItems((current) => current.map((item) => ({ ...item, readAt: item.readAt || now })));
@@ -115,7 +123,12 @@ export default function NotificationsScreen() {
       await markAllNotificationsRead();
     } catch (err) {
       setItems(previous);
-      setError(err instanceof Error ? err.message : 'Unable to mark notifications as read.');
+      setActionError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t mark notifications as read. Please try again.',
+          networkMessage: 'You appear to be offline. Reconnect and try again.',
+        }),
+      );
     } finally {
       setMarkingAll(false);
     }
@@ -129,7 +142,7 @@ export default function NotificationsScreen() {
     try {
       await Linking.openURL(url);
     } catch {
-      setError('Unable to open the attached link.');
+      setActionError('We couldn’t open the attached link on this device.');
     }
   }
 
@@ -170,18 +183,25 @@ export default function NotificationsScreen() {
           />
         }
       >
-        {!!error && !loading && (
-          <Pressable style={styles.errorBox} onPress={() => void load()}>
-            <Text style={styles.errorText}>{error}</Text>
-            <Text style={styles.retryText}>Tap to try again</Text>
-          </Pressable>
-        )}
+        <InlineErrorMessage
+          message={actionError}
+          title="Notification action didn’t complete"
+          style={styles.actionError}
+        />
 
         {loading ? (
           <AppStateView
             variant="loading"
             title="Checking your inbox…"
             body="We’re loading your latest Pray in Verses updates."
+          />
+        ) : loadError ? (
+          <AppStateView
+            variant="error"
+            title="Couldn’t load notifications"
+            body={loadError}
+            actionLabel="Try Again"
+            onAction={() => void load()}
           />
         ) : items.length === 0 ? (
           <AppStateView
@@ -273,9 +293,7 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.4 },
   scroll: { flex: 1 },
   content: { padding: spacing.base, paddingBottom: spacing.xxxl },
-  errorBox: { padding: spacing.md, borderRadius: radius.md, backgroundColor: '#FFF1F0', marginBottom: spacing.md },
-  errorText: { color: colors.error, fontSize: 13, lineHeight: 19 },
-  retryText: { color: colors.primary, fontSize: 12, fontWeight: '800', marginTop: 4 },
+  actionError: { marginBottom: spacing.md },
   list: { gap: spacing.sm },
   card: { minHeight: 92, flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, padding: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface },
   unreadCard: { borderColor: '#C9D9FF', backgroundColor: '#F5F8FF' },

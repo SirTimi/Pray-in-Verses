@@ -30,6 +30,7 @@ import {
   XCircle,
 } from 'lucide-react-native';
 
+import InlineErrorMessage from '@/components/common/InlineErrorMessage';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/spacing';
 import {
@@ -40,6 +41,7 @@ import {
   savePendingDonation,
   type DonationStatus,
 } from '@/services/donations';
+import { getUserFacingError } from '@/services/user-facing-error';
 import { useAuthStore } from '@/stores/auth.store';
 
 const PRESET_AMOUNTS = [1000, 2000, 5000, 10000];
@@ -54,10 +56,6 @@ function formatAmount(value: number) {
   const whole = Math.max(0, Math.round(value));
   const grouped = String(whole).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   return `₦${grouped}`;
-}
-
-function messageFromError(error: unknown, fallback: string) {
-  return error instanceof Error && error.message ? error.message : fallback;
 }
 
 export default function DonateScreen() {
@@ -145,7 +143,12 @@ export default function DonateScreen() {
       );
     } catch (statusError) {
       if (!quiet) {
-        setStatusNote(messageFromError(statusError, 'Unable to check this donation right now.'));
+        setStatusNote(
+          getUserFacingError(statusError, {
+            fallback: 'We couldn’t check this donation right now. Please try again.',
+            networkMessage: 'We couldn’t reach the server to check this donation. Try again when you’re connected.',
+          }),
+        );
       }
     } finally {
       checkInFlight.current = false;
@@ -281,7 +284,13 @@ export default function DonateScreen() {
         await applyStatus(initialized.reference, true);
       }
     } catch (startError) {
-      setError(messageFromError(startError, 'Unable to start the donation. Please try again.'));
+      setError(
+        getUserFacingError(startError, {
+          fallback: 'We couldn’t start the donation. Please try again.',
+          networkMessage: 'You appear to be offline. Reconnect and try again.',
+          allowServerMessageForStatuses: [400, 422],
+        }),
+      );
       setPhase('form');
     }
   };
@@ -544,12 +553,11 @@ export default function DonateScreen() {
                 textAlignVertical="top"
               />
 
-              {error ? (
-                <View style={styles.errorBox}>
-                  <XCircle size={18} color={colors.error} />
-                  <Text style={styles.errorText}>{error}</Text>
-                </View>
-              ) : null}
+              <InlineErrorMessage
+                message={error}
+                title="Donation couldn’t start"
+                style={styles.formError}
+              />
 
               <View style={styles.secureNote}>
                 <ShieldCheck size={21} color={colors.success} />
@@ -738,16 +746,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   messageInput: { minHeight: 112, paddingTop: spacing.base },
-  errorBox: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    alignItems: 'flex-start',
-    padding: spacing.md,
-    marginTop: spacing.base,
-    borderRadius: radius.md,
-    backgroundColor: '#FFF1F0',
-  },
-  errorText: { flex: 1, fontSize: 13, lineHeight: 19, color: colors.error },
+  formError: { marginTop: spacing.base },
   secureNote: {
     flexDirection: 'row',
     alignItems: 'flex-start',

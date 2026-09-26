@@ -23,6 +23,7 @@ import {
 } from 'lucide-react-native';
 
 import AppStateView from '@/components/common/AppStateView';
+import InlineErrorMessage from '@/components/common/InlineErrorMessage';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/spacing';
 import {
@@ -33,6 +34,7 @@ import {
   setPrayerReminderActive,
   type PrayerReminder,
 } from '@/services/reminders';
+import { getUserFacingError } from '@/services/user-facing-error';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -97,7 +99,8 @@ export default function RemindersScreen() {
   const [reminders, setReminders] = useState<PrayerReminder[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState('');
-  const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
+  const [actionError, setActionError] = useState('');
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [canAskAgain, setCanAskAgain] = useState(true);
 
@@ -110,7 +113,7 @@ export default function RemindersScreen() {
   const showFloatingAdd = !loading && hasReminders;
 
   const load = useCallback(async () => {
-    setError('');
+    setLoadError('');
 
     try {
       const [items, permission] = await Promise.all([
@@ -121,7 +124,11 @@ export default function RemindersScreen() {
       setPermissionGranted(permission.granted);
       setCanAskAgain(permission.canAskAgain);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load reminders.');
+      setLoadError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t load your reminders right now. Please try again.',
+        }),
+      );
     } finally {
       setLoading(false);
     }
@@ -142,7 +149,7 @@ export default function RemindersScreen() {
   }
 
   async function enableNotifications() {
-    setError('');
+    setActionError('');
 
     try {
       const granted = await requestReminderPermission();
@@ -151,14 +158,18 @@ export default function RemindersScreen() {
       if (!granted) {
         const status = await getReminderPermissionStatus();
         setCanAskAgain(status.canAskAgain);
-        setError(
+        setActionError(
           status.canAskAgain
             ? 'Notifications were not enabled. You can try again when you are ready.'
             : 'Notifications are disabled in your phone settings.',
         );
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to request notification permission.');
+      setActionError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t request notification permission. Please try again.',
+        }),
+      );
     }
   }
 
@@ -166,7 +177,7 @@ export default function RemindersScreen() {
     if (busyId) return;
 
     setBusyId(reminder.id);
-    setError('');
+    setActionError('');
 
     try {
       const updated = await setPrayerReminderActive(reminder.id, nextValue);
@@ -175,7 +186,11 @@ export default function RemindersScreen() {
       );
       setPermissionGranted((await getReminderPermissionStatus()).granted);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to update this reminder.');
+      setActionError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t update this reminder. Please try again.',
+        }),
+      );
     } finally {
       setBusyId('');
     }
@@ -200,13 +215,17 @@ export default function RemindersScreen() {
     if (busyId) return;
 
     setBusyId(id);
-    setError('');
+    setActionError('');
 
     try {
       await deletePrayerReminder(id);
       setReminders((current) => current.filter((item) => item.id !== id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to delete this reminder.');
+      setActionError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t delete this reminder. Please try again.',
+        }),
+      );
     } finally {
       setBusyId('');
     }
@@ -268,12 +287,11 @@ export default function RemindersScreen() {
           </View>
         )}
 
-        {!!error && (
-          <Pressable style={styles.errorBox} onPress={() => void load()}>
-            <Text style={styles.errorText}>{error}</Text>
-            <Text style={styles.retryText}>Tap to refresh</Text>
-          </Pressable>
-        )}
+        <InlineErrorMessage
+          message={actionError}
+          title="Reminder action needs attention"
+          style={styles.actionError}
+        />
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>YOUR REMINDERS</Text>
@@ -285,6 +303,14 @@ export default function RemindersScreen() {
             variant="loading"
             title="Loading reminders…"
             body="We’re checking the prayer reminders saved on this device."
+          />
+        ) : loadError ? (
+          <AppStateView
+            variant="error"
+            title="Couldn’t load reminders"
+            body={loadError}
+            actionLabel="Try Again"
+            onAction={() => void load()}
           />
         ) : reminders.length === 0 ? (
           <AppStateView
@@ -393,9 +419,7 @@ const styles = StyleSheet.create({
   permissionBody: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 3 },
   permissionButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: spacing.md, borderRadius: radius.md, backgroundColor: colors.primary },
   permissionButtonText: { color: colors.white, fontSize: 13, fontWeight: '800' },
-  errorBox: { marginTop: spacing.md, padding: spacing.md, borderRadius: radius.md, backgroundColor: '#FFF1F0' },
-  errorText: { color: colors.error, fontSize: 13, lineHeight: 19 },
-  retryText: { color: colors.primary, fontSize: 12, fontWeight: '800', marginTop: 4 },
+  actionError: { marginTop: spacing.md },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.xl, marginBottom: spacing.md },
   sectionTitle: { color: colors.textSecondary, fontSize: 10, fontWeight: '900', letterSpacing: 1.25 },
   sectionCount: { color: colors.primary, fontSize: 11, fontWeight: '800' },
