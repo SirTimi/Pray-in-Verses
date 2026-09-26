@@ -2,72 +2,6 @@
 // Do not edit by hand. Regenerate with: npm run offline:export (from api/)
 
 import manifest from '../../assets/offline/manifest.json';
-import pack_1_chronicles from '../../assets/offline/1-chronicles.json';
-import pack_1_corinthians from '../../assets/offline/1-corinthians.json';
-import pack_1_john from '../../assets/offline/1-john.json';
-import pack_1_kings from '../../assets/offline/1-kings.json';
-import pack_1_peter from '../../assets/offline/1-peter.json';
-import pack_1_samuel from '../../assets/offline/1-samuel.json';
-import pack_1_thessalonians from '../../assets/offline/1-thessalonians.json';
-import pack_1_timothy from '../../assets/offline/1-timothy.json';
-import pack_2_chronicles from '../../assets/offline/2-chronicles.json';
-import pack_2_corinthians from '../../assets/offline/2-corinthians.json';
-import pack_2_john from '../../assets/offline/2-john.json';
-import pack_2_kings from '../../assets/offline/2-kings.json';
-import pack_2_peter from '../../assets/offline/2-peter.json';
-import pack_2_samuel from '../../assets/offline/2-samuel.json';
-import pack_2_thessalonians from '../../assets/offline/2-thessalonians.json';
-import pack_2_timothy from '../../assets/offline/2-timothy.json';
-import pack_3_john from '../../assets/offline/3-john.json';
-import pack_acts from '../../assets/offline/acts.json';
-import pack_amos from '../../assets/offline/amos.json';
-import pack_colossians from '../../assets/offline/colossians.json';
-import pack_daniel from '../../assets/offline/daniel.json';
-import pack_deuteronomy from '../../assets/offline/deuteronomy.json';
-import pack_ecclesiastes from '../../assets/offline/ecclesiastes.json';
-import pack_ephesians from '../../assets/offline/ephesians.json';
-import pack_esther from '../../assets/offline/esther.json';
-import pack_exodus from '../../assets/offline/exodus.json';
-import pack_ezekiel from '../../assets/offline/ezekiel.json';
-import pack_ezra from '../../assets/offline/ezra.json';
-import pack_galatians from '../../assets/offline/galatians.json';
-import pack_genesis from '../../assets/offline/genesis.json';
-import pack_habakkuk from '../../assets/offline/habakkuk.json';
-import pack_haggai from '../../assets/offline/haggai.json';
-import pack_hebrews from '../../assets/offline/hebrews.json';
-import pack_hosea from '../../assets/offline/hosea.json';
-import pack_isaiah from '../../assets/offline/isaiah.json';
-import pack_james from '../../assets/offline/james.json';
-import pack_jeremiah from '../../assets/offline/jeremiah.json';
-import pack_job from '../../assets/offline/job.json';
-import pack_joel from '../../assets/offline/joel.json';
-import pack_john from '../../assets/offline/john.json';
-import pack_jonah from '../../assets/offline/jonah.json';
-import pack_joshua from '../../assets/offline/joshua.json';
-import pack_jude from '../../assets/offline/jude.json';
-import pack_judges from '../../assets/offline/judges.json';
-import pack_lamentations from '../../assets/offline/lamentations.json';
-import pack_leviticus from '../../assets/offline/leviticus.json';
-import pack_luke from '../../assets/offline/luke.json';
-import pack_malachi from '../../assets/offline/malachi.json';
-import pack_mark from '../../assets/offline/mark.json';
-import pack_matthew from '../../assets/offline/matthew.json';
-import pack_micah from '../../assets/offline/micah.json';
-import pack_nahum from '../../assets/offline/nahum.json';
-import pack_nehemiah from '../../assets/offline/nehemiah.json';
-import pack_numbers from '../../assets/offline/numbers.json';
-import pack_obadiah from '../../assets/offline/obadiah.json';
-import pack_philemon from '../../assets/offline/philemon.json';
-import pack_philippians from '../../assets/offline/philippians.json';
-import pack_proverbs from '../../assets/offline/proverbs.json';
-import pack_psalms from '../../assets/offline/psalms.json';
-import pack_revelation from '../../assets/offline/revelation.json';
-import pack_romans from '../../assets/offline/romans.json';
-import pack_ruth from '../../assets/offline/ruth.json';
-import pack_song_of_solomon from '../../assets/offline/song-of-solomon.json';
-import pack_titus from '../../assets/offline/titus.json';
-import pack_zechariah from '../../assets/offline/zechariah.json';
-import pack_zephaniah from '../../assets/offline/zephaniah.json';
 
 export type OfflinePrayerRecord = {
   id: string;
@@ -115,73 +49,80 @@ export type OfflineManifest = {
   books: OfflineManifestBook[];
 };
 
+export type OfflinePrayerPackLoader = () => OfflinePrayerPack;
+
 export const offlineManifest = manifest as OfflineManifest;
 
-export const offlinePrayerPacks: Record<string, OfflinePrayerPack> = {
-  "1-chronicles": pack_1_chronicles as OfflinePrayerPack,
-  "1-corinthians": pack_1_corinthians as OfflinePrayerPack,
-  "1-john": pack_1_john as OfflinePrayerPack,
-  "1-kings": pack_1_kings as OfflinePrayerPack,
-  "1-peter": pack_1_peter as OfflinePrayerPack,
-  "1-samuel": pack_1_samuel as OfflinePrayerPack,
-  "1-thessalonians": pack_1_thessalonians as OfflinePrayerPack,
-  "1-timothy": pack_1_timothy as OfflinePrayerPack,
-  "2-chronicles": pack_2_chronicles as OfflinePrayerPack,
-  "2-corinthians": pack_2_corinthians as OfflinePrayerPack,
-  "2-john": pack_2_john as OfflinePrayerPack,
-  "2-kings": pack_2_kings as OfflinePrayerPack,
-  "2-peter": pack_2_peter as OfflinePrayerPack,
-  "2-samuel": pack_2_samuel as OfflinePrayerPack,
-  "2-thessalonians": pack_2_thessalonians as OfflinePrayerPack,
-  "2-timothy": pack_2_timothy as OfflinePrayerPack,
-  "3-john": pack_3_john as OfflinePrayerPack,
-  "acts": pack_acts as OfflinePrayerPack,
-  "amos": pack_amos as OfflinePrayerPack,
-  "colossians": pack_colossians as OfflinePrayerPack,
-  "daniel": pack_daniel as OfflinePrayerPack,
-  "deuteronomy": pack_deuteronomy as OfflinePrayerPack,
-  "ecclesiastes": pack_ecclesiastes as OfflinePrayerPack,
-  "ephesians": pack_ephesians as OfflinePrayerPack,
-  "esther": pack_esther as OfflinePrayerPack,
-  "exodus": pack_exodus as OfflinePrayerPack,
-  "ezekiel": pack_ezekiel as OfflinePrayerPack,
-  "ezra": pack_ezra as OfflinePrayerPack,
-  "galatians": pack_galatians as OfflinePrayerPack,
-  "genesis": pack_genesis as OfflinePrayerPack,
-  "habakkuk": pack_habakkuk as OfflinePrayerPack,
-  "haggai": pack_haggai as OfflinePrayerPack,
-  "hebrews": pack_hebrews as OfflinePrayerPack,
-  "hosea": pack_hosea as OfflinePrayerPack,
-  "isaiah": pack_isaiah as OfflinePrayerPack,
-  "james": pack_james as OfflinePrayerPack,
-  "jeremiah": pack_jeremiah as OfflinePrayerPack,
-  "job": pack_job as OfflinePrayerPack,
-  "joel": pack_joel as OfflinePrayerPack,
-  "john": pack_john as OfflinePrayerPack,
-  "jonah": pack_jonah as OfflinePrayerPack,
-  "joshua": pack_joshua as OfflinePrayerPack,
-  "jude": pack_jude as OfflinePrayerPack,
-  "judges": pack_judges as OfflinePrayerPack,
-  "lamentations": pack_lamentations as OfflinePrayerPack,
-  "leviticus": pack_leviticus as OfflinePrayerPack,
-  "luke": pack_luke as OfflinePrayerPack,
-  "malachi": pack_malachi as OfflinePrayerPack,
-  "mark": pack_mark as OfflinePrayerPack,
-  "matthew": pack_matthew as OfflinePrayerPack,
-  "micah": pack_micah as OfflinePrayerPack,
-  "nahum": pack_nahum as OfflinePrayerPack,
-  "nehemiah": pack_nehemiah as OfflinePrayerPack,
-  "numbers": pack_numbers as OfflinePrayerPack,
-  "obadiah": pack_obadiah as OfflinePrayerPack,
-  "philemon": pack_philemon as OfflinePrayerPack,
-  "philippians": pack_philippians as OfflinePrayerPack,
-  "proverbs": pack_proverbs as OfflinePrayerPack,
-  "psalms": pack_psalms as OfflinePrayerPack,
-  "revelation": pack_revelation as OfflinePrayerPack,
-  "romans": pack_romans as OfflinePrayerPack,
-  "ruth": pack_ruth as OfflinePrayerPack,
-  "song-of-solomon": pack_song_of_solomon as OfflinePrayerPack,
-  "titus": pack_titus as OfflinePrayerPack,
-  "zechariah": pack_zechariah as OfflinePrayerPack,
-  "zephaniah": pack_zephaniah as OfflinePrayerPack,
+export const offlinePrayerPackLoaders: Record<string, OfflinePrayerPackLoader> = {
+  "1-chronicles": () => require('../../assets/offline/1-chronicles.json') as OfflinePrayerPack,
+  "1-corinthians": () => require('../../assets/offline/1-corinthians.json') as OfflinePrayerPack,
+  "1-john": () => require('../../assets/offline/1-john.json') as OfflinePrayerPack,
+  "1-kings": () => require('../../assets/offline/1-kings.json') as OfflinePrayerPack,
+  "1-peter": () => require('../../assets/offline/1-peter.json') as OfflinePrayerPack,
+  "1-samuel": () => require('../../assets/offline/1-samuel.json') as OfflinePrayerPack,
+  "1-thessalonians": () => require('../../assets/offline/1-thessalonians.json') as OfflinePrayerPack,
+  "1-timothy": () => require('../../assets/offline/1-timothy.json') as OfflinePrayerPack,
+  "2-chronicles": () => require('../../assets/offline/2-chronicles.json') as OfflinePrayerPack,
+  "2-corinthians": () => require('../../assets/offline/2-corinthians.json') as OfflinePrayerPack,
+  "2-john": () => require('../../assets/offline/2-john.json') as OfflinePrayerPack,
+  "2-kings": () => require('../../assets/offline/2-kings.json') as OfflinePrayerPack,
+  "2-peter": () => require('../../assets/offline/2-peter.json') as OfflinePrayerPack,
+  "2-samuel": () => require('../../assets/offline/2-samuel.json') as OfflinePrayerPack,
+  "2-thessalonians": () => require('../../assets/offline/2-thessalonians.json') as OfflinePrayerPack,
+  "2-timothy": () => require('../../assets/offline/2-timothy.json') as OfflinePrayerPack,
+  "3-john": () => require('../../assets/offline/3-john.json') as OfflinePrayerPack,
+  "acts": () => require('../../assets/offline/acts.json') as OfflinePrayerPack,
+  "amos": () => require('../../assets/offline/amos.json') as OfflinePrayerPack,
+  "colossians": () => require('../../assets/offline/colossians.json') as OfflinePrayerPack,
+  "daniel": () => require('../../assets/offline/daniel.json') as OfflinePrayerPack,
+  "deuteronomy": () => require('../../assets/offline/deuteronomy.json') as OfflinePrayerPack,
+  "ecclesiastes": () => require('../../assets/offline/ecclesiastes.json') as OfflinePrayerPack,
+  "ephesians": () => require('../../assets/offline/ephesians.json') as OfflinePrayerPack,
+  "esther": () => require('../../assets/offline/esther.json') as OfflinePrayerPack,
+  "exodus": () => require('../../assets/offline/exodus.json') as OfflinePrayerPack,
+  "ezekiel": () => require('../../assets/offline/ezekiel.json') as OfflinePrayerPack,
+  "ezra": () => require('../../assets/offline/ezra.json') as OfflinePrayerPack,
+  "galatians": () => require('../../assets/offline/galatians.json') as OfflinePrayerPack,
+  "genesis": () => require('../../assets/offline/genesis.json') as OfflinePrayerPack,
+  "habakkuk": () => require('../../assets/offline/habakkuk.json') as OfflinePrayerPack,
+  "haggai": () => require('../../assets/offline/haggai.json') as OfflinePrayerPack,
+  "hebrews": () => require('../../assets/offline/hebrews.json') as OfflinePrayerPack,
+  "hosea": () => require('../../assets/offline/hosea.json') as OfflinePrayerPack,
+  "isaiah": () => require('../../assets/offline/isaiah.json') as OfflinePrayerPack,
+  "james": () => require('../../assets/offline/james.json') as OfflinePrayerPack,
+  "jeremiah": () => require('../../assets/offline/jeremiah.json') as OfflinePrayerPack,
+  "job": () => require('../../assets/offline/job.json') as OfflinePrayerPack,
+  "joel": () => require('../../assets/offline/joel.json') as OfflinePrayerPack,
+  "john": () => require('../../assets/offline/john.json') as OfflinePrayerPack,
+  "jonah": () => require('../../assets/offline/jonah.json') as OfflinePrayerPack,
+  "joshua": () => require('../../assets/offline/joshua.json') as OfflinePrayerPack,
+  "jude": () => require('../../assets/offline/jude.json') as OfflinePrayerPack,
+  "judges": () => require('../../assets/offline/judges.json') as OfflinePrayerPack,
+  "lamentations": () => require('../../assets/offline/lamentations.json') as OfflinePrayerPack,
+  "leviticus": () => require('../../assets/offline/leviticus.json') as OfflinePrayerPack,
+  "luke": () => require('../../assets/offline/luke.json') as OfflinePrayerPack,
+  "malachi": () => require('../../assets/offline/malachi.json') as OfflinePrayerPack,
+  "mark": () => require('../../assets/offline/mark.json') as OfflinePrayerPack,
+  "matthew": () => require('../../assets/offline/matthew.json') as OfflinePrayerPack,
+  "micah": () => require('../../assets/offline/micah.json') as OfflinePrayerPack,
+  "nahum": () => require('../../assets/offline/nahum.json') as OfflinePrayerPack,
+  "nehemiah": () => require('../../assets/offline/nehemiah.json') as OfflinePrayerPack,
+  "numbers": () => require('../../assets/offline/numbers.json') as OfflinePrayerPack,
+  "obadiah": () => require('../../assets/offline/obadiah.json') as OfflinePrayerPack,
+  "philemon": () => require('../../assets/offline/philemon.json') as OfflinePrayerPack,
+  "philippians": () => require('../../assets/offline/philippians.json') as OfflinePrayerPack,
+  "proverbs": () => require('../../assets/offline/proverbs.json') as OfflinePrayerPack,
+  "psalms": () => require('../../assets/offline/psalms.json') as OfflinePrayerPack,
+  "revelation": () => require('../../assets/offline/revelation.json') as OfflinePrayerPack,
+  "romans": () => require('../../assets/offline/romans.json') as OfflinePrayerPack,
+  "ruth": () => require('../../assets/offline/ruth.json') as OfflinePrayerPack,
+  "song-of-solomon": () => require('../../assets/offline/song-of-solomon.json') as OfflinePrayerPack,
+  "titus": () => require('../../assets/offline/titus.json') as OfflinePrayerPack,
+  "zechariah": () => require('../../assets/offline/zechariah.json') as OfflinePrayerPack,
+  "zephaniah": () => require('../../assets/offline/zephaniah.json') as OfflinePrayerPack,
 };
+
+export function loadOfflinePrayerPack(slug: string): OfflinePrayerPack | null {
+  const loader = offlinePrayerPackLoaders[slug];
+  return loader ? loader() : null;
+}

@@ -1,4 +1,5 @@
 import { apiRequest } from './api';
+import { getBundledPrayerDetail } from './bundled-library';
 import { networkFirstWithPublicCache } from './offline-cache';
 
 export type CuratedPrayerDetail = {
@@ -41,6 +42,33 @@ export async function getPrayerDetail(
         savedPointIndexes: [],
         savedPointsCount: 0,
       }),
+      fallback: () => {
+        const bundled = getBundledPrayerDetail(
+          book,
+          chapter,
+          verse,
+        );
+
+        if (!bundled) {
+          throw new Error('Bundled prayer content not found.');
+        }
+
+        return {
+          id: bundled.id,
+          book: bundled.book,
+          reference: bundled.reference,
+          theme: bundled.theme,
+          scriptureText: bundled.scriptureText,
+          insight: bundled.insight,
+          prayerPoints: bundled.prayerPoints,
+          closing: bundled.closing,
+          chapter: bundled.chapter,
+          verse: bundled.verse,
+          isSaved: false,
+          savedPointIndexes: [],
+          savedPointsCount: 0,
+        };
+      },
     },
   );
 }

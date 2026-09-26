@@ -10,11 +10,20 @@ AWAITING USER TEST
 
 ## Last Accepted Task
 
-The SQLite network-first public-content cache is accepted by moving on. The target has been clarified further: the installed app must contain the published Scripture/prayer library itself so first-launch Browse and Prayer Detail can work without internet or sign-in.
+The production offline-content export is accepted by moving on. GitHub now contains the complete generated public library: 66 Bible books, 31,081 verse-level CuratedPrayer records, 217,363 prayer points, and 69,404,220 raw JSON bytes (~66.19 MiB).
 
 Previously accepted mobile polish also includes the shared signed-in bottom navigation, justified Prayer Detail Short Insight text, keyboard-safe Add to Journal sheet, Prayer Wall empty/populated creation actions, removal of the Prayer Wall funnel icon, explicit TSX/JSX TypeScript configuration, all three onboarding screens, onboarding transition removal, email/password-only Login, Verse of the Day direct-to-detail navigation, Journal action patterns, Prayer Reminders action simplification, My Prayers, Saved Prayers, notifications, account management, Support + Donation, and the selected `PIV-logo.png` branding asset.
 
 ## Current Implementation
+
+### First-install bundled Scripture/prayer fallback
+
+- Public Browse and Prayer Detail reads now have the committed bundled library as a final fallback after network/server failure and any existing SQLite cache miss.
+- A fresh install can therefore browse books, chapters, verses, chapter prayer-point counts, Verse of the Day, Prayer Detail, and search without having previously opened that content online.
+- Signed-in online Prayer Detail still uses the API first so account-specific saved-prayer state remains authoritative; bundled fallback deliberately reports unsaved public state when the network is unavailable.
+- The generated registry now uses static lazy per-book `require(...)` loaders rather than importing all 66 JSON packs at module evaluation time, reducing startup parsing/memory pressure while still allowing Metro to bundle every pack.
+- Offline search scans bundled books only when both the network and the existing query cache are unavailable; normal online search behavior is unchanged.
+- The existing SQLite response cache remains useful for server-fresh content. This cycle does not yet replace the JSON bundle with a prebuilt SQLite asset or implement background content-version synchronization.
 
 ### Bundled offline-content export pipeline
 
@@ -24,16 +33,16 @@ Previously accepted mobile polish also includes the shared signed-in bottom navi
 - Content is emitted as one minified JSON pack per Bible book under `mobile/assets/offline/`, avoiding one giant repository/build asset.
 - Each pack contains only public verse/prayer fields needed by the mobile experience: curated prayer id, reference, theme, Scripture text, insight, prayer points, closing prayer, and update timestamp.
 - The exporter writes `manifest.json` with schema version, counts, total bytes, per-book byte sizes, content versions, and SHA-256 hashes so real bundle size can be measured before release.
-- The exporter also generates `mobile/src/generated/offline-packs.ts` with static imports for every pack, allowing Expo/Metro to include the generated book files in Android/iOS builds in the next reader cycle.
+- The exporter generates `mobile/src/generated/offline-packs.ts` with static lazy `require(...)` loaders for every pack, allowing Expo/Metro to include every book while parsing a book only when that pack is needed.
 - New output is built in a staging directory first. Existing generated packs are left untouched when database validation/query/export fails; stale JSON packs are replaced only after a complete staged export exists.
 - Book names are validated for slug/filename collisions before any generated output is replaced, preventing inconsistent production names such as case variants from silently overwriting one another.
 - The export refuses to proceed without `DATABASE_URL` or when no published rows exist, preventing an accidental empty offline library from being treated as valid.
 - No credentials or production database dumps are written; only already-public published prayer content is exported.
-- The repository currently does not contain the production `CuratedPrayer` rows, so the actual generated packs cannot be produced from GitHub alone. The export must be run once in an environment with access to the intended production database, then the generated public packs/registry can be reviewed and committed.
+- The production export has now been generated and committed: 66 books, 31,081 verse-level records, 217,363 prayer points, and 69,404,220 raw JSON bytes (~66.19 MiB).
 
 ### Offline public-content cache
 
-- Added Expo SDK 57 `expo-sqlite` `~57.0.3`, the version recommended by the SDK 57 SQLite reference.
+- Added Expo SDK 57-compatible `expo-sqlite` `~57.0.3`.
 - Added a persistent SQLite database `prayinverses-offline.db` with WAL mode and a parameterized `public_cache` table.
 - Public Scripture/prayer reads use a network-first strategy: successful API responses refresh SQLite; network/server failures fall back to the latest cached value.
 - SQLite write/read failures are best-effort and never replace a successful online response or hide the original network error.
@@ -41,7 +50,7 @@ Previously accepted mobile polish also includes the shared signed-in bottom navi
 - Prayer Detail cache values are sanitized before persistence: `isSaved`, saved prayer-point indexes, and saved counts are reset so public offline storage never carries account-specific saved state across sessions.
 - HTTP 4xx responses do not silently fall back to cache; only network failures/non-API failures and 5xx server failures can use offline fallback.
 - Remembered guests skip the `/auth/me` network check at launch, so offline startup is immediate. If a non-guest session cannot be verified because the network/server is unavailable, the app still opens in read-only public mode instead of forcing Login.
-- Offline access currently applies to content that has been loaded at least once on the device. A first-install full offline library/download pack is intentionally a later slice because the repository does not yet contain a bundled public prayer database.
+- The SQLite cache still stores server-fresh responses, but first-install public reading no longer depends on that cache because the committed bundled library is now the final fallback.
 
 ### Guest read-only Scripture mode
 
@@ -140,14 +149,15 @@ Scrollable content padding that is intentionally used to keep content clear of a
 - Mobile donation success return-to-app deep link and bounded verification accepted by continued work.
 - Guest read-only Scripture mode accepted by continued work.
 - SQLite network-first/public-content offline cache accepted by continued work.
-- Production-to-mobile bundled offline-content export pipeline implemented; real pack generation is awaiting a database-connected run.
+- Production-to-mobile bundled offline-content export pipeline completed with the full public library committed.
+- First-install bundled fallback wired for Browse, Verse of the Day, search, and Prayer Detail.
 
 ## Next Tasks
 
-1. Pull this commit and run `npm run offline:export` from `api/` in an environment whose `DATABASE_URL` can read the production Pray in Verses database.
-2. Review the generated `mobile/assets/offline/manifest.json` totals and real bundle size, then commit the generated public book packs and `mobile/src/generated/offline-packs.ts`.
-3. Wire the mobile SQLite bootstrap to import the bundled packs on first launch and make local SQLite the primary Browse/Prayer source even before any network request.
-4. Add content-version update/sync behavior so the API can refresh the bundled baseline after installation without removing first-launch offline capability.
+1. Pull and run the mobile app on a native build containing `expo-sqlite`, then test a true fresh-install/cleared-data airplane-mode flow.
+2. Confirm all 66 books, representative chapters/verses, Prayer Detail, Verse of the Day, and an offline search query work without any prior network request.
+3. Measure startup/memory/search performance on the Android acceptance device; if offline search is too heavy, move the shipped baseline to a prebuilt SQLite asset/index instead of scanning JSON packs.
+4. Add content-version update/sync behavior so online devices can refresh the bundled baseline without waiting for a new app binary.
 5. Complete the remaining iOS functional pass and produce the next native release build.
 
 ## Known Issues
@@ -158,12 +168,40 @@ Scrollable content padding that is intentionally used to keep content clear of a
 - Donation confirmation remains webhook/server-owned. The mobile UI now stops automatic waiting after 60 seconds and preserves the reference for later checks.
 - Server notifications are an in-app inbox only; remote push-token delivery is not yet implemented.
 - Prayer reminders remain device-local.
-- The bundled-library exporter is implemented, but first-launch full offline reading is not complete until a real production export is generated/committed and the mobile bootstrap/import reader is wired.
+- The bundled public library is now committed and wired as a first-install fallback. Offline search may be heavier than online search because it can lazily scan multiple book packs when no network/cache result exists.
 - Verified Android App Links for password reset remain part of Android release polish.
 - Local `expo-doctor` reported Expo SDK 57 patch-version drift; dependency alignment still needs to be completed before the preview APK is treated as release-ready.
 - EAS previously had conflicting root/mobile configuration. The authoritative mobile project has now been confirmed as `@mykiel/pray-in-verses` (`283c8c7d-7fed-4822-ae3e-07d50a2a6d9c`), and the accidental root Expo/EAS configs are removed in the current cycle.
 
-## Testing Status\n\nBundled offline-content exporter is pushed for a database-connected export run.\n\nRun from `api/` in an environment that already has the correct `DATABASE_URL`:\n\n`npm run offline:export`\n\nExpected checks:\n\n1. The command must refuse to run when `DATABASE_URL` is absent.\n2. It must refuse to generate an empty library when zero published `CuratedPrayer` rows are found.\n3. It should create `mobile/assets/offline/manifest.json` plus one JSON file per published Bible book; a failed export must leave the previous good generated JSON set untouched.\n4. `manifest.json` should report realistic `totalBooks`, `totalPrayers`, `totalPrayerPoints`, and `totalBytes` values.\n5. Spot-check at least Genesis, Psalms, John, Romans, and Revelation for correct chapter/verse ordering and complete theme/Scripture/insight/prayer-points/closing fields.\n6. Re-run the export without database changes: individual book-pack hashes should remain stable because book pack payloads do not contain an export timestamp.\n7. Confirm `mobile/src/generated/offline-packs.ts` contains one static import/map entry per generated book, and that inconsistent book names producing the same slug cause a hard failure rather than an overwrite.\n8. Do not commit or share the database URL, `.env`, credentials, or raw database dumps.\n\nValidation performed in this environment:\n\n- Re-inspected remote `main`, `mobile/AGENTS.md`, current build state, Prisma schema, API package tooling, curated-prayer service, seed data, Bible constants, and repository data files.\n- Confirmed the repository contains Bible structure/verse counts but not the real production published CuratedPrayer dataset; the seed contains only two samples.\n- The exporter adds only `dotenv` as a direct API dependency so standalone execution can safely load the existing `api/.env`; no database schema/migration changes are required.\n- Output is split per book to reduce single-file size risk and make bundle-size/content review practical.\n- No production database connection is available through the GitHub connector, so actual pack generation cannot be truthfully validated here.\n\n## Architecture Decisions
+## Testing Status
+
+First-install bundled public reading is pushed for physical-device review.
+
+Before testing, pull `main` and run `npm ci` in `mobile/`. Because `expo-sqlite` is a native dependency, a custom Dev Client built before SQLite was added may need to be rebuilt; the existing TestFlight binary predates this dependency and cannot validate this cycle.
+
+Required acceptance test:
+
+1. Clear app data/uninstall the test build so there is no prior SQLite/public cache.
+2. Disable Wi-Fi and mobile data before launching the freshly installed app.
+3. Continue without signing in.
+4. Open Browse and confirm both testaments populate from the bundled library.
+5. Open representative books such as Genesis, Psalms, John, Romans, and Revelation; open chapters and multiple Prayer Detail screens.
+6. Confirm Scripture text, theme, Short Insight, prayer points, and closing prayer render with no network.
+7. Open Verse of the Day from Home and confirm it resolves offline.
+8. Run at least one new search term that has never been cached; results should come from the bundled packs.
+9. While still offline, Save/Journal actions must continue to require sign-in and must not create local fake account state.
+10. Restore internet, sign in, and confirm Prayer Detail again reflects server-owned saved state.
+
+Validation performed in this environment:
+
+- Re-read the exact Expo SDK 57 SQLite documentation before this mobile cycle. Expo documents persisted databases, parameterized async APIs, transactions, and importing an existing bundled database with `SQLiteProvider assetSource`. citeturn318149view0turn534262view0
+- Re-inspected remote `main`, `mobile/AGENTS.md`, the committed manifest/registry, public service layer, current SQLite cache, auth launch behavior, and exporter.
+- Manifest currently reports 66 books, 31,081 verse-level records, 217,363 prayer points, and 69,404,220 raw JSON bytes (~66.19 MiB).
+- Registry generation now emits lazy static pack loaders rather than eager top-level JSON imports.
+- No API endpoint, Prisma schema, migration, auth write, payment flow, or environment variable was changed in this cycle.
+- Repository CI status checks are not configured for these direct commits; native physical-device testing remains the acceptance gate.
+
+## Architecture Decisions
 
 - GitHub `main` remains the source of truth.
 - Expo SDK 57 versioned documentation remains authoritative for mobile implementation.
@@ -176,10 +214,10 @@ Scrollable content padding that is intentionally used to keep content clear of a
 - Donation success is trusted only after server/webhook status confirmation; client redirects never mark a donation paid.
 - Published Scripture/prayer reading is public; personalized state is layered on through optional validated auth, while writes remain protected.
 - Guest-mode persistence is local device state and does not create a server-side account.
-- Public offline content is network-first with SQLite fallback; personal account state is deliberately excluded from the public cache.
-- The release target is offline-first from installation: published CuratedPrayer content will be generated into per-book assets and statically bundled with the native app; network access becomes an update/sync layer rather than a prerequisite for reading.
+- Public reads remain network-first for freshness and personalized server state, then use the existing SQLite response cache, then the committed bundled public library as the final offline fallback. Personal account state is never embedded in bundled content.
+- The release target is offline-first from installation: the complete published CuratedPrayer baseline is generated into per-book assets and statically bundled with the native app; network access is an online freshness/personalization layer rather than a prerequisite for public reading.
 - Manual user/device testing remains the acceptance gate after each pushed development increment.
 
 ## Last Commit
 
-Current cycle follow-up: make the offline exporter load the existing `api/.env` explicitly via a direct `dotenv` dependency, while keeping process-level `DATABASE_URL` precedence. Status: AWAITING USER TEST.
+Current cycle: wire the committed 66-book public library into first-install offline fallbacks for Browse, Verse of the Day, search, and Prayer Detail, while switching the generated registry to lazy per-book loaders. Status: AWAITING USER TEST.

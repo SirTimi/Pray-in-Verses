@@ -1,4 +1,12 @@
 import { apiRequest } from './api';
+import {
+  getBundledBooks,
+  getBundledChapterCounts,
+  getBundledChapters,
+  getBundledVerseOfTheDay,
+  getBundledVerses,
+  searchBundledPrayers,
+} from './bundled-library';
 import { networkFirstWithPublicCache } from './offline-cache';
 
 export type VerseOfTheDay = {
@@ -52,6 +60,9 @@ export async function getBooks() {
       const response = await apiRequest<{ books: string[] }>('/browse/books');
       return response.books;
     },
+    {
+      fallback: getBundledBooks,
+    },
   );
 }
 
@@ -65,6 +76,9 @@ export async function getChapters(book: string) {
         `/browse/books/${encodeURIComponent(book)}/chapters`,
       );
       return response.data;
+    },
+    {
+      fallback: () => getBundledChapters(book),
     },
   );
 }
@@ -80,6 +94,9 @@ export async function getVerses(book: string, chapter: number) {
       );
       return response.data;
     },
+    {
+      fallback: () => getBundledVerses(book, chapter),
+    },
   );
 }
 
@@ -94,6 +111,9 @@ export async function getChapterCounts(book: string, chapter: number) {
       );
       return response.data;
     },
+    {
+      fallback: () => getBundledChapterCounts(book, chapter),
+    },
   );
 }
 
@@ -105,6 +125,9 @@ export async function getVerseOfTheDay() {
         '/browse/verse-of-the-day',
       );
       return response.data;
+    },
+    {
+      fallback: getBundledVerseOfTheDay,
     },
   );
 }
@@ -120,6 +143,9 @@ export async function searchPrayers(query: string) {
         `/browse/search?q=${encodeURIComponent(term)}`,
       );
       return response.data;
+    },
+    {
+      fallback: () => searchBundledPrayers(term),
     },
   );
 }

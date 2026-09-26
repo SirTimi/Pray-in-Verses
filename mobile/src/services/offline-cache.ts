@@ -77,6 +77,7 @@ export async function networkFirstWithPublicCache<T>(
   request: () => Promise<T>,
   options?: {
     cacheValue?: (value: T) => T;
+    fallback?: () => T | Promise<T>;
   },
 ): Promise<T> {
   try {
@@ -104,6 +105,14 @@ export async function networkFirstWithPublicCache<T>(
       }
     } catch {
       // Preserve the original network/server error if local storage fails too.
+    }
+
+    if (options?.fallback) {
+      try {
+        return await options.fallback();
+      } catch {
+        // Preserve the original network/server error if bundled content fails too.
+      }
     }
 
     throw error;
