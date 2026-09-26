@@ -19,6 +19,8 @@ import {
   UsersRound,
 } from 'lucide-react-native';
 
+import AppStateView from '@/components/common/AppStateView';
+import InlineErrorMessage from '@/components/common/InlineErrorMessage';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/spacing';
 import {
@@ -29,6 +31,7 @@ import {
   togglePrayerRequestLike,
   type PrayerWallRequest,
 } from '@/services/prayer-wall';
+import { getUserFacingError } from '@/services/user-facing-error';
 import { useAuthStore } from '@/stores/auth.store';
 
 type WallMode = 'all' | 'urgent' | 'mine';
@@ -55,13 +58,14 @@ export default function CommunityTab() {
   const [mode, setMode] = useState<WallMode>('all');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
+  const [actionError, setActionError] = useState('');
   const [likeState, setLikeState] = useState<Record<string, boolean>>({});
   const [bookmarkState, setBookmarkState] = useState<Record<string, boolean>>({});
   const [busyId, setBusyId] = useState('');
 
   const load = useCallback(async () => {
-    setError('');
+    setLoadError('');
     try {
       const response = await listPrayerRequests({
         category: category === 'All' ? undefined : category,
@@ -79,7 +83,11 @@ export default function CommunityTab() {
         setNames({});
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load the Prayer Wall.');
+      setLoadError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t load the Prayer Wall right now. Please try again.',
+        }),
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -102,6 +110,7 @@ export default function CommunityTab() {
   async function handleLike(request: PrayerWallRequest) {
     if (busyId) return;
     setBusyId(request.id);
+    setActionError('');
     try {
       const result = await togglePrayerRequestLike(request.id);
       setLikeState((current) => ({ ...current, [request.id]: result.liked }));
@@ -118,7 +127,12 @@ export default function CommunityTab() {
         };
       }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to update prayer count.');
+      setActionError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t update your prayer response. Please try again.',
+          networkMessage: 'You appear to be offline. Reconnect and try again.',
+        }),
+      );
     } finally {
       setBusyId('');
     }
@@ -127,11 +141,17 @@ export default function CommunityTab() {
   async function handleBookmark(request: PrayerWallRequest) {
     if (busyId) return;
     setBusyId(request.id);
+    setActionError('');
     try {
       const result = await togglePrayerRequestBookmark(request.id);
       setBookmarkState((current) => ({ ...current, [request.id]: result.bookmarked }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to update bookmark.');
+      setActionError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t update this bookmark. Please try again.',
+          networkMessage: 'You appear to be offline. Reconnect and try again.',
+        }),
+      );
     } finally {
       setBusyId('');
     }
@@ -190,18 +210,26 @@ export default function CommunityTab() {
           ))}
         </ScrollView>
 
-        {!!error && (
-          <Pressable onPress={() => void load()} style={styles.errorBox}>
-            <Text style={styles.errorText}>{error}</Text>
-            <Text style={styles.retryText}>Tap to try again</Text>
-          </Pressable>
-        )}
+        <InlineErrorMessage
+          message={actionError}
+          title="Action didn’t complete"
+          style={styles.actionError}
+        />
 
         {loading ? (
           <View style={styles.stateBox}>
             <ActivityIndicator color={colors.primary} />
             <Text style={styles.stateText}>Loading prayer requests…</Text>
           </View>
+        ) : loadError ? (
+          <AppStateView
+            variant="error"
+            title="Couldn’t load the Prayer Wall"
+            body={loadError}
+            actionLabel="Try Again"
+            onAction={() => void load()}
+            style={styles.stateBox}
+          />
         ) : visibleRequests.length === 0 ? (
           <View style={styles.stateBox}>
             <UsersRound size={30} color={colors.textMuted} />
@@ -211,7 +239,7 @@ export default function CommunityTab() {
                 ? 'No requests match this view yet. Try another filter.'
                 : 'Be the first to share a prayer request with the community.'}
             </Text>
-            {!hasRequests && !error && (
+            {!hasRequests && !loadError && (
               <Pressable
                 onPress={() => router.push('/(app)/prayer-wall/create')}
                 style={styles.createButton}

@@ -22,6 +22,7 @@ import {
 } from 'lucide-react-native';
 
 import AppStateView from '@/components/common/AppStateView';
+import InlineErrorMessage from '@/components/common/InlineErrorMessage';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/spacing';
 import {
@@ -32,6 +33,7 @@ import {
   type PrayerPoint,
   type PrayerStats,
 } from '@/services/my-prayers';
+import { getUserFacingError } from '@/services/user-facing-error';
 
 type FilterKey = 'ALL' | 'OPEN' | 'ANSWERED';
 
@@ -72,10 +74,11 @@ export default function PrayTab() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState('');
-  const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
+  const [actionError, setActionError] = useState('');
 
   const load = useCallback(async (status: PrayerListStatus = filter) => {
-    setError('');
+    setLoadError('');
 
     try {
       const [nextStats, nextPrayers] = await Promise.all([
@@ -86,7 +89,11 @@ export default function PrayTab() {
       setStats(nextStats);
       setPrayers(nextPrayers);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load your prayers.');
+      setLoadError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t load your prayers right now. Please try again.',
+        }),
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -131,7 +138,7 @@ export default function PrayTab() {
     if (busyId) return;
 
     setBusyId(prayer.id);
-    setError('');
+    setActionError('');
 
     try {
       const updated = await toggleMyPrayer(prayer.id);
@@ -146,7 +153,12 @@ export default function PrayTab() {
 
       setStats(await getPrayerStats());
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to update this prayer.');
+      setActionError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t update this prayer. Please try again.',
+          networkMessage: 'You appear to be offline. Reconnect and try again.',
+        }),
+      );
     } finally {
       setBusyId('');
     }
@@ -241,18 +253,26 @@ export default function PrayTab() {
           />
         </View>
 
-        {!!error && !loading && (
-          <Pressable onPress={() => void load(filter)} style={styles.errorBox}>
-            <Text style={styles.errorText}>{error}</Text>
-            <Text style={styles.retryText}>Tap to try again</Text>
-          </Pressable>
-        )}
+        <InlineErrorMessage
+          message={actionError}
+          title="Prayer wasn’t updated"
+          style={styles.actionError}
+        />
 
         {loading ? (
           <AppStateView
             variant="loading"
             title="Opening your prayer list…"
             body="We’re gathering your personal prayers and testimonies."
+            style={styles.stateSpacing}
+          />
+        ) : loadError ? (
+          <AppStateView
+            variant="error"
+            title="Couldn’t load your prayers"
+            body={loadError}
+            actionLabel="Try Again"
+            onAction={() => void load(filter)}
             style={styles.stateSpacing}
           />
         ) : visiblePrayers.length === 0 ? (

@@ -24,6 +24,7 @@ import {
   UsersRound,
 } from 'lucide-react-native';
 
+import AppStateView from '@/components/common/AppStateView';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/spacing';
 import {
@@ -32,6 +33,7 @@ import {
   type PrayerWallPreview,
   type VerseOfTheDay,
 } from '@/services/browse';
+import { getUserFacingError } from '@/services/user-facing-error';
 import { useAuthStore } from '@/stores/auth.store';
 
 const SERIF_FONT = Platform.select({
@@ -71,7 +73,11 @@ export default function HomeScreen() {
         setWall([]);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load your home feed.');
+      setError(
+        getUserFacingError(err, {
+          fallback: 'We couldn’t load your home feed right now. Please try again.',
+        }),
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -189,11 +195,15 @@ export default function HomeScreen() {
             )}
           </View>
 
-          {!!error && (
-            <Pressable style={styles.errorBox} onPress={() => void load()}>
-              <Text style={styles.errorText}>{error}</Text>
-              <Text style={styles.retryText}>Tap to try again</Text>
-            </Pressable>
+          {!!error && !loading && (
+            <AppStateView
+              variant="error"
+              title="Couldn’t load Home"
+              body={error}
+              actionLabel="Try Again"
+              onAction={() => void load()}
+              style={styles.errorState}
+            />
           )}
 
           <SectionHeading title="Browse Scripture" />
@@ -489,9 +499,7 @@ const styles = StyleSheet.create({
   loadingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.xl },
   mutedText: { color: colors.textSecondary, fontSize: 14, lineHeight: 20 },
 
-  errorBox: { backgroundColor: '#FFF1F0', borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.xl },
-  errorText: { color: colors.error, fontSize: 13, lineHeight: 19 },
-  retryText: { color: colors.primary, fontSize: 12, fontWeight: '800', marginTop: 5 },
+  errorState: { marginBottom: spacing.xl },
 
   sectionTitle: {
     color: colors.primaryDark,
