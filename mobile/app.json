@@ -9,7 +9,10 @@
     "userInterfaceStyle": "light",
     "ios": {
       "bundleIdentifier": "com.prayinverses.app",
-      "icon": "./assets/images/PIV-logo.png"
+      "icon": "./assets/images/PIV-logo.png",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.prayinverses.app",
