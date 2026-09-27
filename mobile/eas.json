@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 16.0.0"
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
@@ -25,7 +26,8 @@
     "production": {
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api.prayinverses.com/api"
-      }
+      },
+      "autoIncrement": true
     }
   }
 }

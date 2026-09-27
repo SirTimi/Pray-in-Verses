@@ -6,7 +6,7 @@ Complete the Pray in Verses mobile application in focused, testable slices while
 
 ## Current Status
 
-AWAITING USER TEST
+READY FOR CROSS-PLATFORM RELEASE BUILD
 
 ## Last Accepted Task
 
@@ -15,6 +15,15 @@ The Android preview/offline-first build step is accepted by moving on with no pr
 Previously accepted mobile polish also includes the shared signed-in bottom navigation, justified Prayer Detail Short Insight text, keyboard-safe Add to Journal sheet, Prayer Wall empty/populated creation actions, removal of the Prayer Wall funnel icon, explicit TSX/JSX TypeScript configuration, all three onboarding screens, onboarding transition removal, email/password-only Login, Verse of the Day direct-to-detail navigation, Journal action patterns, Prayer Reminders action simplification, My Prayers, Saved Prayers, notifications, account management, Support + Donation, and the selected `PIV-logo.png` branding asset.
 
 ## Current Implementation
+
+### Cross-platform release versioning
+
+- Production builds now use EAS remote developer-version management with `cli.appVersionSource: "remote"`.
+- The production profile enables `autoIncrement: true`, so each Android production build receives a new `versionCode` and each iOS production build receives a new `buildNumber`.
+- Local seed values are explicitly set to Android `versionCode: 1` and iOS `buildNumber: "1"`, matching the first release generation baseline. With remote auto-increment, the next production build is expected to advance beyond the existing iOS TestFlight build number 1 rather than collide with it.
+- User-facing app version remains `1.0.0` for this release cycle.
+- Android preview/internal builds remain APKs. Android production builds remain the default AAB format required for Google Play.
+- iOS production builds remain IPA/App Store builds suitable for TestFlight/App Store Connect.
 
 ### Unified mobile error presentation
 
@@ -167,12 +176,13 @@ Scrollable content padding that is intentionally used to keep content clear of a
 
 ## Next Tasks
 
-1. Pull `main` and test the new error presentation on Android: auth errors, offline/account action errors, load/retry states, Prayer Wall actions, Prayer Detail save/journal actions, reminders, notifications, account updates, and donation initialization.
-2. Confirm no raw backend/technical text appears and no failed action produces both an inline error and a duplicate native popup.
-3. Add content-version update/sync behavior so online devices can refresh the bundled offline baseline without waiting for a new app binary.
-4. Complete verified Android App Links for password reset.
-5. Implement remote push-token delivery for server notifications.
-6. Complete the remaining iOS functional pass and produce the next native release build.
+1. Pull `main`, run `npm ci` and `npx expo-doctor` from `mobile/`.
+2. Create the new Android production build with `npx eas-cli@latest build --platform android --profile production`; this produces an AAB for Google Play.
+3. Create the new iOS production build with `npx eas-cli@latest build --platform ios --profile production`; this produces the next App Store/TestFlight IPA.
+4. Submit the iOS build to App Store Connect/TestFlight after EAS Build succeeds.
+5. Submit the Android AAB to Google Play once the Play Console app and Google service-account submission credential are confirmed.
+6. Keep the preview APK available separately for direct Android device testing if needed.
+7. After cross-platform build acceptance, continue content-version sync, Android App Links, and remote push delivery.
 
 ## Known Issues
 
@@ -232,4 +242,4 @@ Validation performed in the repository:
 
 ## Last Commit
 
-Current cycle: standardize mobile error translation and presentation across authentication, public content, personal content, community actions, reminders, notifications, account, and donation flows. Status: AWAITING USER TEST.
+Current cycle: prepare EAS production versioning for the next Android and iOS release builds without reusing the existing iOS build number. Status: READY FOR CROSS-PLATFORM RELEASE BUILD.

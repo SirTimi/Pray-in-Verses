@@ -12,7 +12,8 @@
       "icon": "./assets/images/PIV-logo.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "buildNumber": "1"
     },
     "android": {
       "package": "com.prayinverses.app",
@@ -20,7 +21,8 @@
         "backgroundColor": "#FFFEF8",
         "foregroundImage": "./assets/images/PIV-logo.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "versionCode": 1
     },
     "web": {
       "output": "static",
