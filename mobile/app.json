@@ -42,7 +42,8 @@
       "expo-secure-store",
       "expo-notifications",
       "expo-web-browser",
-      "expo-image"
+      "expo-image",
+      "./plugins/with-android-release-optimization"
     ],
     "experiments": {
       "typedRoutes": true,
