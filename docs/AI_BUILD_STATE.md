@@ -6,7 +6,7 @@ Complete the Pray in Verses mobile application in focused, testable slices while
 
 ## Current Status
 
-AWAITING ANDROID RELEASE-OPTIMIZATION BUILD TEST
+AWAITING AUTH KEYBOARD LAYOUT TEST
 
 ## Last Accepted Task
 
@@ -15,6 +15,14 @@ The Android preview/offline-first build step is accepted by moving on with no pr
 Previously accepted mobile polish also includes the shared signed-in bottom navigation, justified Prayer Detail Short Insight text, keyboard-safe Add to Journal sheet, Prayer Wall empty/populated creation actions, removal of the Prayer Wall funnel icon, explicit TSX/JSX TypeScript configuration, all three onboarding screens, onboarding transition removal, email/password-only Login, Verse of the Day direct-to-detail navigation, Journal action patterns, Prayer Reminders action simplification, My Prayers, Saved Prayers, notifications, account management, Support + Donation, and the selected `PIV-logo.png` branding asset.
 
 ## Current Implementation
+
+### Forgot/reset password keyboard layout
+
+- Forgot Password and Reset Password now use keyboard-aware scroll containers instead of vertically centered fixed-height content.
+- On iOS, opening the keyboard no longer compresses the logo, title, form, primary action, and navigation link into each other; the content can scroll naturally above the keyboard.
+- Both password-reset screens now use the current `PIV-logo.png` brand asset instead of the stale `icon.png` asset.
+- The duplicate brand-name/tagline text beneath the logo was removed from these screens because the current logo asset already carries the Pray in Verses identity.
+- The same structural fix was applied to Reset Password proactively because it used the identical keyboard-sensitive layout pattern.
 
 ### Android release optimization
 
@@ -255,4 +263,4 @@ Repository validation performed:
 
 ## Last Commit
 
-Current cycle: enable R8 minification and Android resource shrinking for release builds while deferring large-screen/platform-layout work. Status: AWAITING ANDROID RELEASE-OPTIMIZATION BUILD TEST.
+Current cycle: fix Forgot Password and Reset Password keyboard compression/branding on iOS. Status: AWAITING AUTH KEYBOARD LAYOUT TEST.

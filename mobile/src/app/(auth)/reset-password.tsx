@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -127,16 +128,21 @@ export default function ResetPasswordScreen() {
       <View style={styles.blueCorner} />
       <View style={styles.goldCorner} />
 
-      <KeyboardAvoidingView style={styles.keyboard} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={styles.page}>
+      <KeyboardAvoidingView
+        style={styles.keyboard}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
           <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={styles.backButton}>
             <ArrowLeft size={22} color={colors.primary} />
           </Pressable>
 
           <View style={styles.brandBlock}>
-            <Image source={require('../../../assets/images/icon.png')} resizeMode="contain" style={styles.logo} />
-            <Text style={styles.brandName}>Pray in Verses</Text>
-            <Text style={styles.brandTagline}>Pray the Bible Verse by Verse</Text>
+            <Image source={require('../../../assets/images/PIV-logo.png')} resizeMode="contain" style={styles.logo} />
           </View>
 
           <View style={styles.content}>
@@ -207,7 +213,7 @@ export default function ResetPasswordScreen() {
               />
             </View>
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -216,18 +222,20 @@ export default function ResetPasswordScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.surface },
   keyboard: { flex: 1 },
-  page: { flex: 1, paddingHorizontal: spacing.xl, paddingBottom: spacing.xl },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xl,
+  },
   blueCorner: { position: 'absolute', top: -95, right: -110, width: 250, height: 250, borderRadius: 125, backgroundColor: colors.primarySoft },
   goldCorner: { position: 'absolute', bottom: -125, left: -115, width: 255, height: 255, borderRadius: 128, backgroundColor: colors.goldSoft },
   backButton: { width: 44, height: 44, marginLeft: -10, marginTop: spacing.sm, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  brandBlock: { alignItems: 'center', marginTop: spacing.xl },
-  logo: { width: 82, height: 82 },
-  brandName: { color: colors.primaryDark, fontFamily: SERIF_FONT, fontSize: 23, fontWeight: '700' },
-  brandTagline: { marginTop: 1, color: colors.textMuted, fontSize: 8.5, letterSpacing: 0.3 },
-  content: { flex: 1, justifyContent: 'center', paddingBottom: 28 },
+  brandBlock: { alignItems: 'center', marginTop: spacing.md },
+  logo: { width: 150, height: 112 },
+  content: { marginTop: spacing.xl },
   title: { color: colors.primaryDark, fontFamily: SERIF_FONT, fontSize: 31, lineHeight: 37, fontWeight: '700', textAlign: 'center' },
   subtitle: { maxWidth: 320, alignSelf: 'center', marginTop: spacing.md, color: colors.textSecondary, fontSize: 15, lineHeight: 23, textAlign: 'center' },
-  form: { marginTop: spacing.xxxl },
+  form: { marginTop: spacing.xxl },
   inputShell: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surface, paddingHorizontal: spacing.base },
   inputShellError: { borderColor: colors.error },
   input: { flex: 1, minHeight: 56, color: colors.text, fontSize: 16, paddingVertical: 0 },
