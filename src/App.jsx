@@ -82,6 +82,7 @@ function AppContent() {
     "/login",
     "/signup",
     "/forgot-password",
+    "/reset-password",
     "/donations/thank-you",
     "/admin/login",
     "/admin/accept",

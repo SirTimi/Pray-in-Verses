@@ -36,9 +36,35 @@ export default function ResetPassword() {
     [location.search]
   );
 
+  const mobileResetUrl = useMemo(() => {
+    const query = token ? `?token=${encodeURIComponent(token)}` : "";
+    return `pray-in-verses://reset-password${query}`;
+  }, [token]);
+
+  const isMobileDevice = useMemo(() => {
+    if (typeof navigator === "undefined") return false;
+
+    const userAgentDataMobile = navigator.userAgentData?.mobile;
+    if (typeof userAgentDataMobile === "boolean") {
+      return userAgentDataMobile;
+    }
+
+    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
+  }, []);
+
   const [newPassword, setNewPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isMobileDevice || !token) return;
+
+    const timer = window.setTimeout(() => {
+      window.location.replace(mobileResetUrl);
+    }, 100);
+
+    return () => window.clearTimeout(timer);
+  }, [isMobileDevice, mobileResetUrl, token]);
 
   // lock scroll + set --vh (to match your auth screens)
   useEffect(() => {
@@ -76,6 +102,42 @@ export default function ResetPassword() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (isMobileDevice) {
+    return (
+      <div
+        className="w-full flex items-center justify-center bg-gradient-to-br from-primary to-secondary overflow-hidden px-4 sm:px-6"
+        style={{ height: "calc(var(--vh,1vh)*100)" }}
+      >
+        <div className="bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col items-center justify-center p-6 text-center">
+          <div className="flex justify-center mb-4">
+            <img src={logo} alt="Pray in Verses" className="h-32 w-32 object-contain" />
+          </div>
+
+          <h2 className="text-2xl sm:text-3xl font-bold mb-3">
+            Opening Pray in Verses
+          </h2>
+
+          <p className="text-sm text-slate-600 leading-6">
+            Your secure password reset will continue in the Pray in Verses app.
+          </p>
+
+          {token ? (
+            <a
+              href={mobileResetUrl}
+              className="mt-6 w-full rounded-lg bg-primary px-4 py-3 text-center font-semibold text-white"
+            >
+              Open Pray in Verses
+            </a>
+          ) : (
+            <p className="mt-5 text-sm text-amber-600">
+              This reset link is incomplete. Request a new password reset link from the app.
+            </p>
+          )}
+        </div>
+      </div>
+    );
   }
 
   return (

@@ -6,7 +6,7 @@ Complete the Pray in Verses mobile application in focused, testable slices while
 
 ## Current Status
 
-AWAITING AUTH KEYBOARD LAYOUT TEST
+AWAITING MOBILE RESET-LINK HANDOFF TEST
 
 ## Last Accepted Task
 
@@ -15,6 +15,16 @@ The Android preview/offline-first build step is accepted by moving on with no pr
 Previously accepted mobile polish also includes the shared signed-in bottom navigation, justified Prayer Detail Short Insight text, keyboard-safe Add to Journal sheet, Prayer Wall empty/populated creation actions, removal of the Prayer Wall funnel icon, explicit TSX/JSX TypeScript configuration, all three onboarding screens, onboarding transition removal, email/password-only Login, Verse of the Day direct-to-detail navigation, Journal action patterns, Prayer Reminders action simplification, My Prayers, Saved Prayers, notifications, account management, Support + Donation, and the selected `PIV-logo.png` branding asset.
 
 ## Current Implementation
+
+### Mobile password-reset handoff
+
+- Password-reset emails continue using the HTTPS `/reset-password?token=...` link so email clients receive a normal secure web URL.
+- When that URL is opened on iPhone/iPad/Android, the website immediately hands the token to the installed app through `pray-in-verses://reset-password?token=...`.
+- Mobile visitors no longer receive the website reset form; the web route acts only as a brief app-opening bridge with an explicit **Open Pray in Verses** fallback button if the automatic handoff is blocked.
+- Desktop visitors keep the existing web reset form as a fallback.
+- The reset token is URL-encoded before it is placed in the custom-scheme deep link.
+- `/reset-password` is now included in the website's public-layout routes so authenticated-app header/navigation cannot flash during the mobile handoff.
+- The native Expo Router route already accepts the `token` query parameter and completes the reset through the existing API; no reset-token persistence or validation semantics changed.
 
 ### Forgot/reset password keyboard layout
 
@@ -263,4 +273,4 @@ Repository validation performed:
 
 ## Last Commit
 
-Current cycle: fix Forgot Password and Reset Password keyboard compression/branding on iOS. Status: AWAITING AUTH KEYBOARD LAYOUT TEST.
+Current cycle: route mobile password-reset HTTPS links back into the native app while retaining the desktop web reset fallback. Status: AWAITING MOBILE RESET-LINK HANDOFF TEST.
