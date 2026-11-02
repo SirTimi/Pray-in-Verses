@@ -71,11 +71,11 @@ export class PrayerWallService {
   }
 
   async list(
+    userId: string,
     q?: string,
     category?: string,
     cursor?: string | null,
     limit = 20,
-    userId: string,
   ) {
     const blockedIds = await this.excludedUserIds(userId);
     const where: any = { hidden: false };

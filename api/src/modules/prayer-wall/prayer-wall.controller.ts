@@ -42,11 +42,11 @@ export class PrayerWallController {
     @Query('limit') limit = '20',
   ) {
     return this.service.list(
+      (req as any).user.id,
       q,
       category,
       cursor ?? null,
       Math.min(Number(limit) || 20, 50),
-      (req as any).user.id,
     );
   }
 

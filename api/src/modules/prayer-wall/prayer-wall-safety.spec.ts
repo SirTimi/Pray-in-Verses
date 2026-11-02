@@ -37,7 +37,7 @@ describe('Prayer Wall community safety', () => {
     db.userBlock.findMany.mockResolvedValue([{
       blockerId: 'viewer', blockedId: 'author',
     }]);
-    await service.list(undefined, undefined, undefined, 20, 'viewer');
+    await service.list('viewer', undefined, undefined, undefined, 20);
     const query = db.prayerRequest.findMany.mock.calls[0][0];
     expect(query.where).toEqual({ hidden: false, createdById: { notIn: ['author'] } });
     expect(query.include._count.select.comments.where).toEqual({
