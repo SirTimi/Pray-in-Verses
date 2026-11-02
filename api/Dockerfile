@@ -36,6 +36,20 @@ RUN npm run build
 
 
 # ============================================================
+# One-off migrations: build with --target migrator.
+# Keeps the Prisma CLI, schema and SQL migrations out of the serving image.
+# ============================================================
+FROM builder AS migrator
+
+ENV NODE_ENV=production
+
+RUN chown -R node:node /app
+USER node
+
+CMD ["./node_modules/.bin/prisma", "migrate", "deploy", "--schema=./prisma/schema.prisma"]
+
+
+# ============================================================
 # Production runtime
 # ============================================================
 

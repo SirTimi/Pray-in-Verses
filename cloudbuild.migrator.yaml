@@ -1,0 +1,17 @@
+# Separate, manually invoked Cloud Build configuration for the Prisma migration job.
+# It does not deploy a service or execute migrations.
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--target'
+      - 'migrator'
+      - '-f'
+      - 'api/Dockerfile'
+      - '-t'
+      - 'gcr.io/pray-in-verses/pray-in-verses-api-migrator'
+      - './api'
+images:
+  - 'gcr.io/pray-in-verses/pray-in-verses-api-migrator'
+options:
+  logging: CLOUD_LOGGING_ONLY

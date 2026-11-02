@@ -264,6 +264,14 @@ Scrollable content padding that is intentionally used to keep content clear of a
 - Google Play's edge-to-edge deprecated-API recommendation is also deferred to a later Android platform polish cycle; no platform behavior was changed for it in this release-optimization patch.
 - EAS previously had conflicting root/mobile configuration. The authoritative mobile project has now been confirmed as `@mykiel/pray-in-verses` (`283c8c7d-7fed-4822-ae3e-07d50a2a6d9c`), and the accidental root Expo/EAS configs are removed in the current cycle.
 
+## Cloud Run migration startup investigation — 2026-11-02
+
+- Container logs repeatedly reported `Could not find Prisma Schema that is required for this command` and exit(1). The source repository does contain `api/prisma/schema.prisma`; the serving runtime image intentionally omits the CLI and schema while retaining only the generated client and compiled Nest app.
+- The API serving image should continue running `node dist/main.js`; a Cloud Run service command override or a separate migration Job using the serving image must be distinguished from the logs before touching Cloud Run settings.
+- Added a separate `api/Dockerfile` `migrator` target with Prisma CLI, schema and SQL migrations, plus standalone `cloudbuild.migrator.yaml` to build and push the image without deploying or running migrations.
+- Added `docs/CLOUD_RUN_PRISMA_MIGRATIONS.md` with workload inspection, safe existing-job update, and migration acceptance instructions. No database or Google Cloud resources were modified.
+- Full Docker build, job execution and schema-migration validation remain pending in the user's authorized Google Cloud project.
+
 ## Testing Status
 
 ### Phase 2 — Prayer Wall pagination acceptance hardening (2026-11-02)
