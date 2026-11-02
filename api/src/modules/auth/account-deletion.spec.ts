@@ -47,6 +47,7 @@ describe('AuthService.deleteAccount', () => {
       user: {
         findUnique: jest.fn().mockResolvedValue({
           id: userId,
+          email: 'person@example.com',
           role: 'USER',
           status: 'ACTIVE',
           passwordHash: 'hashed-password',
@@ -103,6 +104,14 @@ describe('AuthService.deleteAccount', () => {
     expect(tx.savedPrayer.deleteMany).toHaveBeenCalledWith({ where: { userId } });
     expect(tx.journal.deleteMany).toHaveBeenCalledWith({ where: { userId } });
     expect(tx.userNotification.deleteMany).toHaveBeenCalledWith({ where: { userId } });
+    expect(tx.adminInvite.deleteMany).toHaveBeenCalledWith({
+      where: {
+        OR: [
+          { invitedBy: userId },
+          { email: { equals: 'person@example.com', mode: 'insensitive' } },
+        ],
+      },
+    });
     expect(tx.user.delete).toHaveBeenCalledWith({ where: { id: userId } });
   });
 

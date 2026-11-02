@@ -20,7 +20,7 @@ Previously accepted mobile polish also includes the shared signed-in bottom navi
 
 - Added authenticated, rate-limited `DELETE /auth/me` requiring the current password plus a literal `DELETE` confirmation; the server clears auth cookies only after the database transaction commits.
 - Added an Account → Delete Account entry, dedicated keyboard-safe confirmation screen, and a final destructive native confirmation dialog.
-- Deletion removes the entire normal USER account and its personal Journal, Saved Prayers, My Prayers, Prayer Wall requests/comments/likes/bookmarks, password reset tokens, notification inbox references, and old admin invite links through an explicit transaction; dependent community interactions on removed posts are also deleted.
+- Deletion removes the entire normal USER account and its personal Journal, Saved Prayers, My Prayers, Prayer Wall requests/comments/likes/bookmarks, password reset tokens, notification inbox references, and legacy admin invite links (including matching recipient email) through an explicit transaction; dependent community interactions on removed posts are also deleted.
 - Preserves published CuratedPrayer records while removing the deleted user's editorial attribution; removes the user's ID from notification target arrays.
 - Privileged staff accounts and accounts with historical admin broadcast ownership are intentionally blocked from self-service deletion pending a reviewed administrative workflow; deleting them could otherwise destroy shared platform records.
 - The normal USER deletion requires no database migration; existing foreign keys remain intact.
@@ -297,4 +297,4 @@ Repository validation performed:
 
 ## Last Commit
 
-Current cycle: implement App Store compliance Phase 1 (secure permanent deletion for normal USER accounts across API and mobile, plus focused mocked tests). Status: AWAITING USER TEST.
+Current cycle: implement App Store compliance Phase 1 (secure permanent deletion for normal USER accounts across API and mobile, plus focused mocked tests); reviewed and corrected legacy invitation email cleanup. Status: AWAITING USER TEST.

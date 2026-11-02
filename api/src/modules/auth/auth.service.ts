@@ -591,6 +591,7 @@ export class AuthService {
       where: { id: userId },
       select: {
         id: true,
+        email: true,
         role: true,
         status: true,
         passwordHash: true,
@@ -683,7 +684,16 @@ export class AuthService {
         await tx.savedPrayer.deleteMany({ where: { userId } });
         await tx.journal.deleteMany({ where: { userId } });
         await tx.userNotification.deleteMany({ where: { userId } });
-        await tx.adminInvite.deleteMany({ where: { invitedBy: userId } });
+        // Legacy invitations store both sender IDs and recipient emails as
+        // plain fields rather than foreign keys.
+        await tx.adminInvite.deleteMany({
+          where: {
+            OR: [
+              { invitedBy: userId },
+              { email: { equals: account.email, mode: 'insensitive' } },
+            ],
+          },
+        });
 
         // Other sessions become invalid automatically because the user
         // lookup in JwtCookieAuthGuard will no longer find this account.
