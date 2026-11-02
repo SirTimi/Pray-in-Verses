@@ -9,6 +9,7 @@ import {
   UserPlus,
   Users,
   Bell,
+  Flag,
   Menu,
   X,
 } from "lucide-react";
@@ -65,6 +66,9 @@ export default function AdminLayout() {
       <ul className="space-y-1">
         <li>{navItem("/admin", "Dashboard", LayoutDashboard, true)}</li>
         <li>{navItem("/admin/curated", "Curated Prayers", ListChecks)}</li>
+        {(role === "SUPER_ADMIN" || role === "MODERATOR") && (
+          <li>{navItem("/admin/reports", "Prayer Wall Reports", Flag)}</li>
+        )
 
         {role === "SUPER_ADMIN" && (
           <li>{navItem("/admin/invites", "Invites", UserPlus)}</li>

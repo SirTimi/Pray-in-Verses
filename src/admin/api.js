@@ -155,6 +155,15 @@ export const api = {
 
   logout: () => request("/auth/logout", { method: "POST" }),
 
+  /* Prayer Wall moderation */
+  listPrayerReports: (status = "PENDING") =>
+    request(`/admin/prayer-wall/reports?status=${encodeURIComponent(status)}`),
+  reviewPrayerReport: (id, status) =>
+    request(`/admin/prayer-wall/reports/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: { status },
+    }),
+
   /* invites / users */
   createInvite: (email, role) =>
     request("/admin/invites", { method: "POST", body: { email, role } }),
