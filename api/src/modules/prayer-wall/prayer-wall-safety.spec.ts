@@ -45,6 +45,30 @@ describe('Prayer Wall community safety', () => {
     });
   });
 
+  it('does not skip a prayer request between paginated feed pages', async () => {
+    const posts = Array.from({ length: 5 }, (_, index) => ({
+      id: `post-${index + 1}`, createdById: 'author', anonymous: false,
+    }));
+    db.prayerRequest.findMany.mockImplementation(async (query: any) => {
+      const start = query.cursor
+        ? posts.findIndex((post) => post.id === query.cursor.id) + query.skip
+        : 0;
+      return posts.slice(start, start + query.take);
+    });
+
+    const first = await service.list('viewer', undefined, undefined, null, 2);
+    expect(first.data.map((post) => post.id)).toEqual(['post-1', 'post-2']);
+    expect(first.nextCursor).toBe('post-2');
+
+    const second = await service.list('viewer', undefined, undefined, first.nextCursor, 2);
+    expect(second.data.map((post) => post.id)).toEqual(['post-3', 'post-4']);
+    expect(second.nextCursor).toBe('post-4');
+
+    const third = await service.list('viewer', undefined, undefined, second.nextCursor, 2);
+    expect(third.data.map((post) => post.id)).toEqual(['post-5']);
+    expect(third.nextCursor).toBeNull();
+  });
+
   it('does not allow blocked authors to be opened directly', async () => {
     db.userBlock.findMany.mockResolvedValue([{
       blockerId: 'viewer', blockedId: 'author',

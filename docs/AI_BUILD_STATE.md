@@ -266,6 +266,13 @@ Scrollable content padding that is intentionally used to keep content clear of a
 
 ## Testing Status
 
+### Phase 2 — Prayer Wall pagination acceptance hardening (2026-11-02)
+
+- Corrected Prayer Wall pagination cursor handling: a page of `take + 1` rows previously used the omitted look-ahead record as `nextCursor`, and the subsequent `skip: 1` silently dropped that record.
+- `nextCursor` now points to the last returned record, matching Prisma cursor pagination semantics; existing search, sorting, and role logic are unchanged.
+- Added a Jest regression test asserting no skipped entries across three pages (2, 2, 1) and terminal null cursor.
+- API Jest and compilation remain pending local `npm` validation because this environment has no installed repository dependencies or network access. The Phase 2 migration and device review are still pending; do not consider Phase 2 accepted yet.
+
 ### Web admin build correction — 2026-11-02
 
 - A user-reported root `npm run build` failed in `src/admin/AdminLayout.jsx` because the new Prayer Wall Reports role condition lacked a closing JSX expression brace (`)}`), causing Vite/esbuild to report `Expected "}" but found "{"` at the following navigation item.

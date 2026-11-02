@@ -154,8 +154,10 @@ export class PrayerWallService {
     let nextCursor: string | null = null;
 
     if (rows.length > take) {
-      const next = rows.pop()!;
-      nextCursor = next.id;
+      // Cursor must point to the last returned row. Pointing to the
+      // look-ahead row would skip that request on the following page.
+      rows.pop();
+      nextCursor = rows[rows.length - 1].id;
     }
 
     return {
