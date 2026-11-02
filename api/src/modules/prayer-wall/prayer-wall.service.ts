@@ -178,7 +178,10 @@ export class PrayerWallService {
           _count: {
             select: {
               likes: true,
-              comments: true,
+              comments: { where: {
+                hidden: false,
+                ...(blockedIds.length ? { userId: { notIn: blockedIds } } : {}),
+              } },
               bookmarks: true,
             },
           },

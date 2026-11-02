@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Bookmark,
@@ -94,10 +94,10 @@ export default function CommunityTab() {
     }
   }, [category]);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     setLoading(true);
     void load();
-  }, [load]);
+  }, [load]));
 
   const visibleRequests = useMemo(() => {
     if (mode === 'urgent') return requests.filter((item) => item.urgent);

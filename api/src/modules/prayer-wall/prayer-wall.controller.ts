@@ -12,6 +12,7 @@ import {
   Req,
 } from '@nestjs/common';
 import { JwtCookieAuthGuard } from '../auth/jwt.guard';
+import { Throttle } from '@nestjs/throttler';
 import { PrayerWallService } from './prayer-wall.service';
 import { CreatePrayerRequestDto, AddCommentDto, ReportPrayerContentDto, BlockPrayerAuthorDto } from './dto';
 import type { Request } from 'express';
@@ -25,6 +26,7 @@ export class PrayerWallController {
     private prisma: PrismaService,
   ) {}
 
+  @Throttle({ default: { limit: 5, ttl: 10 * 60_000 } })
   @Post()
   async create(@Req() req: Request, @Body() dto: CreatePrayerRequestDto) {
     // @ts-ignore
@@ -48,6 +50,7 @@ export class PrayerWallController {
     );
   }
 
+  @Throttle({ default: { limit: 6, ttl: 10 * 60_000 } })
   @Post('reports')
   @HttpCode(200)
   async report(@Req() req: Request, @Body() dto: ReportPrayerContentDto) {
@@ -87,6 +90,7 @@ export class PrayerWallController {
     return this.service.toggleBookmark(req.user.id, id);
   }
 
+  @Throttle({ default: { limit: 12, ttl: 10 * 60_000 } })
   @Post(':id/comments')
   async addComment(
     @Req() req: Request,

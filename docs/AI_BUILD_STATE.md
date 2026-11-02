@@ -6,7 +6,7 @@ Complete the Pray in Verses mobile application in focused, testable slices while
 
 ## Current Status
 
-AWAITING USER TEST — PHASE 1 ACCOUNT DELETION
+AWAITING USER TEST — PHASE 2 PRAYER WALL SAFETY
 
 ## Last Accepted Task
 
@@ -15,6 +15,17 @@ The Android preview/offline-first build step is accepted by moving on with no pr
 Previously accepted mobile polish also includes the shared signed-in bottom navigation, justified Prayer Detail Short Insight text, keyboard-safe Add to Journal sheet, Prayer Wall empty/populated creation actions, removal of the Prayer Wall funnel icon, explicit TSX/JSX TypeScript configuration, all three onboarding screens, onboarding transition removal, email/password-only Login, Verse of the Day direct-to-detail navigation, Journal action patterns, Prayer Reminders action simplification, My Prayers, Saved Prayers, notifications, account management, Support + Donation, and the selected `PIV-logo.png` branding asset.
 
 ## Current Implementation
+
+### App Store compliance — Phase 2: Prayer Wall user safety
+
+- Implemented reporting of prayer requests/comments via an authenticated `POST /prayer-wall/reports` endpoint, structured reasons, optional reviewer context, deduplicated per reporter/item.
+- Implemented author blocking via post/comment ID (including anonymous request authors) and an opaque block-management list with unblock controls; blocked identities are never exposed by the block-list API.
+- Public Prayer Wall list/detail and interaction endpoints exclude hidden posts and authors blocked in either direction, and hide blocked or moderator-hidden comments. The list refreshes on navigation focus.
+- Conservative server-side content filtering for abusive phrases, direct violent threats and promotional URLs, plus limited post/comment submission rates. Human reports remain critical for context and more nuanced abuse.
+- Added moderator/SUPER_ADMIN-only `/admin/prayer-wall/reports` review endpoints and a `/admin/reports` web page allowing authorised roles to hide reported posts/comments or dismiss reports.
+- New PostgreSQL migration `20261102090000_prayer_wall_safety` adds reports, blocks, hidden flags and indexes; **must apply on the target database before deploying the new API code**.
+- Added unit tests for filtering, block privacy and blocked-content visibility; local compilation, Jest execution, actual migration and phone/admin acceptance are pending.
+- Publication rights for Bible translations are separately scoped to Phase 3, with YouVersion Platform API selected as the intended provider; translation-specific grants and offline redistribution/caching conditions must be confirmed before replacing bundled Scripture content.
 
 ### App Store compliance — Phase 1: account deletion
 
@@ -307,4 +318,4 @@ Repository validation performed:
 
 ## Last Commit
 
-Current cycle: fix Phase 1 account-deletion unit test type resolution without changing production TypeScript globals. Status: AWAITING USER TEST — PHASE 1 ACCOUNT DELETION.
+Current cycle: Phase 2 Prayer Wall moderation API, mobile report/block controls, admin moderation queue and unit tests. Status: AWAITING LOCAL TESTS / DEVICE ACCEPTANCE. Phase 3 provider selected: YouVersion Platform API; no migration to YouVersion has been implemented yet.

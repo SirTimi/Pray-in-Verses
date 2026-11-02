@@ -2,15 +2,15 @@ import { IsBoolean, IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'c
 import { PrayerReportReason, PrayerReportTarget, PrayerReportStatus } from '@prisma/client';
 
 export class CreatePrayerRequestDto {
-  @IsString() @MinLength(3) title: string;
-  @IsString() @MinLength(10) description: string;
+  @IsString() @MinLength(3) @MaxLength(120) title: string;
+  @IsString() @MinLength(10) @MaxLength(500) description: string;
   @IsString() category: string;
   @IsOptional() @IsBoolean() urgent?: boolean;
   @IsOptional() @IsBoolean() anonymous?: boolean;
 }
 
 export class AddCommentDto {
-  @IsString() @MinLength(1) body: string;
+  @IsString() @MinLength(1) @MaxLength(500) body: string;
 }
 
 export class ReportPrayerContentDto {
