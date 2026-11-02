@@ -68,7 +68,7 @@ export default function AdminLayout() {
         <li>{navItem("/admin/curated", "Curated Prayers", ListChecks)}</li>
         {(role === "SUPER_ADMIN" || role === "MODERATOR") && (
           <li>{navItem("/admin/reports", "Prayer Wall Reports", Flag)}</li>
-        )
+        )}
 
         {role === "SUPER_ADMIN" && (
           <li>{navItem("/admin/invites", "Invites", UserPlus)}</li>

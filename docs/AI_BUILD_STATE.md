@@ -229,10 +229,11 @@ Scrollable content padding that is intentionally used to keep content clear of a
 
 1. Deploy Phase 1 API and test against a disposable normal USER account with personal prayer and community data; confirm all related data is deleted and old sessions no longer work.
 2. Pull mobile `main`, run `npm ci`, `npx expo-doctor`, and verify the Account → Delete Account flow on a physical iPhone with wrong password, cancel, and successful deletion.
-3. Start Phase 2 Prayer Wall reporting, blocking, and moderation after Phase 1 acceptance.
+3. Validate the implemented Phase 2 Prayer Wall reporting, blocking, moderator queue, and migration on a disposable database/device before acceptance.
 4. Complete Scripture licensing and donation-model compliance checks before App Store resubmission.
 5. Perform release QA and record the Apple App Review walkthrough using a fresh build.
 6. Later release work: content sync, App Links, remote push, and deferred large-screen UI.
+7. Pull the admin web JSX fix, rerun root `npm run build`, then inspect `npm audit` output and plan non-breaking security remediation.
 
 ## Previous Release Tasks
 
@@ -264,6 +265,13 @@ Scrollable content padding that is intentionally used to keep content clear of a
 - EAS previously had conflicting root/mobile configuration. The authoritative mobile project has now been confirmed as `@mykiel/pray-in-verses` (`283c8c7d-7fed-4822-ae3e-07d50a2a6d9c`), and the accidental root Expo/EAS configs are removed in the current cycle.
 
 ## Testing Status
+
+### Web admin build correction — 2026-11-02
+
+- A user-reported root `npm run build` failed in `src/admin/AdminLayout.jsx` because the new Prayer Wall Reports role condition lacked a closing JSX expression brace (`)}`), causing Vite/esbuild to report `Expected "}" but found "{"` at the following navigation item.
+- Corrected the missing brace without altering admin role checks or navigation behavior.
+- A focused TSX parser check of the corrected navigation condition passed; a full repository Vite build could not be run in this environment and remains pending user validation.
+- The same local npm install reported 21 audit advisories (1 low, 6 moderate, 14 high); dependency-level impact remains unassessed. Review `npm audit` and avoid `npm audit fix --force` without evaluating breaking changes.
 
 ### Phase 1 — Account deletion
 
