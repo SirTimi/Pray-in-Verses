@@ -5,6 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  PrayerReportStatus,
+  PrayerReportTarget,
+  type PrayerReportReason,
+} from '@prisma/client';
+import { assertAcceptableWallText } from './content-filter';
 
 @Injectable()
 export class PrayerWallService {
@@ -27,7 +33,30 @@ export class PrayerWallService {
     };
   }
 
+  private async excludedUserIds(userId: string): Promise<string[]> {
+    const blocks = await this.prisma.userBlock.findMany({
+      where: { OR: [{ blockerId: userId }, { blockedId: userId }] },
+      select: { blockerId: true, blockedId: true },
+    });
+    return [...new Set(blocks.map((block) =>
+      block.blockerId === userId ? block.blockedId : block.blockerId,
+    ))];
+  }
+
+  private async visiblePost(requestId: string, userId: string) {
+    const request = await this.prisma.prayerRequest.findUnique({
+      where: { id: requestId },
+      select: { id: true, createdById: true, hidden: true },
+    });
+    if (!request || request.hidden ||
+      (await this.excludedUserIds(userId)).includes(request.createdById)) {
+      throw new NotFoundException('Prayer request not found');
+    }
+    return request;
+  }
+
   async create(userId: string, dto: any) {
+    assertAcceptableWallText(dto.title, dto.description);
     const data =
       await this.prisma.prayerRequest.create({
         data: {
@@ -46,8 +75,13 @@ export class PrayerWallService {
     category?: string,
     cursor?: string | null,
     limit = 20,
+    userId: string,
   ) {
-    const where: any = {};
+    const blockedIds = await this.excludedUserIds(userId);
+    const where: any = { hidden: false };
+    if (blockedIds.length) {
+      where.createdById = { notIn: blockedIds };
+    }
 
     if (q) {
       where.OR = [
@@ -107,7 +141,10 @@ export class PrayerWallService {
           _count: {
             select: {
               likes: true,
-              comments: true,
+              comments: { where: {
+                hidden: false,
+                ...(blockedIds.length ? { userId: { notIn: blockedIds } } : {}),
+              } },
               bookmarks: true,
             },
           },
@@ -129,7 +166,8 @@ export class PrayerWallService {
     };
   }
 
-  async get(id: string) {
+  async get(id: string, userId: string) {
+    const blockedIds = await this.excludedUserIds(userId);
     const row =
       await this.prisma.prayerRequest.findUnique({
         where: {
@@ -146,6 +184,10 @@ export class PrayerWallService {
           },
 
           comments: {
+            where: {
+              hidden: false,
+              ...(blockedIds.length ? { userId: { notIn: blockedIds } } : {}),
+            },
             orderBy: {
               createdAt: 'desc',
             },
@@ -162,7 +204,7 @@ export class PrayerWallService {
         },
       });
 
-    if (!row) {
+    if (!row || row.hidden || blockedIds.includes(row.createdById)) {
       throw new NotFoundException();
     }
 
@@ -175,21 +217,7 @@ export class PrayerWallService {
     userId: string,
     requestId: string,
   ) {
-    const request =
-      await this.prisma.prayerRequest.findUnique({
-        where: {
-          id: requestId,
-        },
-        select: {
-          id: true,
-        },
-      });
-
-    if (!request) {
-      throw new NotFoundException(
-        'Prayer request not found',
-      );
-    }
+    await this.visiblePost(requestId, userId);
 
     const existing =
       await this.prisma.prayerLike.findUnique({
@@ -229,21 +257,7 @@ export class PrayerWallService {
     userId: string,
     requestId: string,
   ) {
-    const request =
-      await this.prisma.prayerRequest.findUnique({
-        where: {
-          id: requestId,
-        },
-        select: {
-          id: true,
-        },
-      });
-
-    if (!request) {
-      throw new NotFoundException(
-        'Prayer request not found',
-      );
-    }
+    await this.visiblePost(requestId, userId);
 
     const existing =
       await this.prisma.prayerBookmark.findUnique({
@@ -287,27 +301,10 @@ export class PrayerWallService {
     const text = (body ?? '').trim();
 
     if (!text) {
-      throw new BadRequestException(
-        'Comment is required',
-      );
+      throw new BadRequestException('Comment is required');
     }
-
-    const request =
-      await this.prisma.prayerRequest.findUnique({
-        where: {
-          id: requestId,
-        },
-
-        select: {
-          id: true,
-        },
-      });
-
-    if (!request) {
-      throw new NotFoundException(
-        'Prayer request not found',
-      );
-    }
+    assertAcceptableWallText(text);
+    await this.visiblePost(requestId, userId);
 
     const data =
       await this.prisma.prayerComment.create({
@@ -330,6 +327,144 @@ export class PrayerWallService {
     return {
       data,
     };
+  }
+
+  async report(userId: string, input: {
+    targetType: PrayerReportTarget;
+    targetId: string;
+    reason: PrayerReportReason;
+    details?: string;
+  }) {
+    const target = input.targetType === PrayerReportTarget.REQUEST
+      ? await this.prisma.prayerRequest.findUnique({
+          where: { id: input.targetId },
+          select: { id: true, hidden: true },
+        })
+      : await this.prisma.prayerComment.findUnique({
+          where: { id: input.targetId },
+          select: { id: true, hidden: true },
+        });
+    if (!target || target.hidden) throw new NotFoundException('Content unavailable');
+
+    const data = await this.prisma.prayerReport.upsert({
+      where: {
+        reporterId_targetType_targetId: {
+          reporterId: userId,
+          targetType: input.targetType,
+          targetId: input.targetId,
+        },
+      },
+      create: {
+        reporterId: userId, targetType: input.targetType,
+        targetId: input.targetId, reason: input.reason,
+        details: input.details?.trim() || null,
+      },
+      update: {
+        reason: input.reason, details: input.details?.trim() || null,
+        status: PrayerReportStatus.PENDING,
+        reviewedById: null, reviewedAt: null,
+      },
+    });
+    return { id: data.id, ok: true };
+  }
+
+  async blockAuthor(userId: string, input: { requestId?: string; commentId?: string }) {
+    if (!!input.requestId === !!input.commentId) {
+      throw new BadRequestException('Choose a prayer request or comment.');
+    }
+
+    const target = input.requestId
+      ? await this.prisma.prayerRequest.findUnique({
+          where: { id: input.requestId },
+          select: { createdById: true },
+        })
+      : await this.prisma.prayerComment.findUnique({
+          where: { id: input.commentId! },
+          select: { userId: true },
+        });
+    if (!target) throw new NotFoundException('Content unavailable');
+    const blockedId = 'createdById' in target ? target.createdById : target.userId;
+    if (blockedId === userId) {
+      throw new BadRequestException('You cannot block yourself.');
+    }
+
+    await this.prisma.userBlock.upsert({
+      where: { blockerId_blockedId: { blockerId: userId, blockedId } },
+      create: { blockerId: userId, blockedId },
+      update: {},
+    });
+    return { ok: true };
+  }
+
+  async listBlocks(userId: string) {
+    const records = await this.prisma.userBlock.findMany({
+      where: { blockerId: userId },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, createdAt: true },
+    });
+    // Do not disclose a blocked author's name or user ID. Blocking an
+    // anonymous request must not deanonymise its author through this list.
+    return { data: records };
+  }
+
+  async unblock(userId: string, blockId: string) {
+    const result = await this.prisma.userBlock.deleteMany({
+      where: { id: blockId, blockerId: userId },
+    });
+    if (!result.count) throw new NotFoundException('Block not found');
+    return { ok: true };
+  }
+
+  async listReports(status: PrayerReportStatus = PrayerReportStatus.PENDING) {
+    const rows = await this.prisma.prayerReport.findMany({
+      where: { status },
+      orderBy: { createdAt: 'asc' },
+      take: 100,
+      include: { reporter: { select: { displayName: true } } },
+    });
+    const data = await Promise.all(rows.map(async (report) => {
+      const content = report.targetType === PrayerReportTarget.REQUEST
+        ? await this.prisma.prayerRequest.findUnique({
+            where: { id: report.targetId },
+            select: { title: true, description: true, createdById: true, hidden: true },
+          })
+        : await this.prisma.prayerComment.findUnique({
+            where: { id: report.targetId },
+            select: { body: true, userId: true, hidden: true },
+          });
+      return { ...report, content };
+    }));
+    return { data };
+  }
+
+  async reviewReport(adminId: string, id: string, status: PrayerReportStatus) {
+    if (status === PrayerReportStatus.PENDING) {
+      throw new BadRequestException('Choose hide or dismiss.');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const report = await tx.prayerReport.findUnique({ where: { id } });
+      if (!report) throw new NotFoundException('Report not found');
+      if (report.status !== PrayerReportStatus.PENDING) {
+        throw new BadRequestException('This report has already been reviewed.');
+      }
+      if (status === PrayerReportStatus.HIDDEN) {
+        if (report.targetType === PrayerReportTarget.REQUEST) {
+          await tx.prayerRequest.updateMany({
+            where: { id: report.targetId }, data: { hidden: true },
+          });
+        } else {
+          await tx.prayerComment.updateMany({
+            where: { id: report.targetId }, data: { hidden: true },
+          });
+        }
+      }
+      await tx.prayerReport.update({
+        where: { id },
+        data: { status, reviewedById: adminId, reviewedAt: new Date() },
+      });
+      return { ok: true };
+    });
   }
 
   async removeComment(

@@ -7,12 +7,13 @@ import {
   Post,
   Query,
   Delete,
+  HttpCode,
   UseGuards,
   Req,
 } from '@nestjs/common';
 import { JwtCookieAuthGuard } from '../auth/jwt.guard';
 import { PrayerWallService } from './prayer-wall.service';
-import { CreatePrayerRequestDto, AddCommentDto } from './dto';
+import { CreatePrayerRequestDto, AddCommentDto, ReportPrayerContentDto, BlockPrayerAuthorDto } from './dto';
 import type { Request } from 'express';
 import { PrismaService } from 'src/prisma/prisma.service';
 
@@ -32,6 +33,7 @@ export class PrayerWallController {
 
   @Get()
   async list(
+    @Req() req: Request,
     @Query('q') q?: string,
     @Query('category') category?: string,
     @Query('cursor') cursor?: string,
@@ -42,12 +44,35 @@ export class PrayerWallController {
       category,
       cursor ?? null,
       Math.min(Number(limit) || 20, 50),
+      (req as any).user.id,
     );
   }
 
+  @Post('reports')
+  @HttpCode(200)
+  async report(@Req() req: Request, @Body() dto: ReportPrayerContentDto) {
+    return this.service.report((req as any).user.id, dto);
+  }
+
+  @Post('blocks')
+  @HttpCode(200)
+  async block(@Req() req: Request, @Body() dto: BlockPrayerAuthorDto) {
+    return this.service.blockAuthor((req as any).user.id, dto);
+  }
+
+  @Get('blocks')
+  async blocks(@Req() req: Request) {
+    return this.service.listBlocks((req as any).user.id);
+  }
+
+  @Delete('blocks/:blockId')
+  async unblock(@Req() req: Request, @Param('blockId') blockId: string) {
+    return this.service.unblock((req as any).user.id, blockId);
+  }
+
   @Get(':id')
-  async get(@Param('id') id: string) {
-    return this.service.get(id);
+  async get(@Param('id') id: string, @Req() req: Request) {
+    return this.service.get(id, (req as any).user.id);
   }
 
   @Post(':id/like')
