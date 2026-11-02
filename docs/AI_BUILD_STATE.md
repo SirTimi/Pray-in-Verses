@@ -254,6 +254,16 @@ Scrollable content padding that is intentionally used to keep content clear of a
 
 ## Testing Status
 
+### Phase 1 — Account deletion
+
+- Windows local pull confirmed at `9991ee1`, `npm ci` completed and Prisma Client v6.19.3 generated.
+- User confirmed `npm run build` passes.
+- First targeted Jest test run failed during TypeScript compilation with `TS2304`/`TS2593` (missing Jest test globals). No test cases executed.
+- Root cause: `api/tsconfig.json` deliberately includes only `node` ambient types. The new test didn't explicitly reference the already-installed `@types/jest` package.
+- Corrected the test file with a file-local Jest type reference, leaving production TypeScript configuration unchanged.
+- Re-run `npm test -- --runInBand account-deletion.spec.ts` and `npm run build` on Windows; test results after this correction have NOT yet been provided.
+- No production account deletion or physical iPhone tests have been performed. Do not delete any non-disposable account yet.
+
 Android release optimization is pushed and awaiting a fresh optimized build/device smoke test.
 
 Required validation before Play production promotion:
@@ -297,4 +307,4 @@ Repository validation performed:
 
 ## Last Commit
 
-Current cycle: implement App Store compliance Phase 1 (secure permanent deletion for normal USER accounts across API and mobile, plus focused mocked tests); reviewed and corrected legacy invitation email cleanup. Status: AWAITING USER TEST.
+Current cycle: fix Phase 1 account-deletion unit test type resolution without changing production TypeScript globals. Status: AWAITING USER TEST — PHASE 1 ACCOUNT DELETION.
