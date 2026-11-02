@@ -138,3 +138,38 @@ export async function lookupDisplayNames(ids: string[]) {
     Object.entries(response.map).map(([id, user]) => [id, user.displayName || 'User']),
   );
 }
+
+export type ReportReason = 'HARASSMENT' | 'HATE' | 'THREATS' | 'SPAM' | 'PRIVACY' | 'OTHER';
+export type ReportTarget = 'REQUEST' | 'COMMENT';
+
+export async function reportPrayerContent(payload: {
+  targetType: ReportTarget;
+  targetId: string;
+  reason: ReportReason;
+  details?: string;
+}) {
+  return apiRequest<{ ok: true; id: string }>('/prayer-wall/reports', {
+    method: 'POST', body: JSON.stringify(payload),
+  });
+}
+
+export async function blockPrayerAuthor(payload: {
+  requestId?: string;
+  commentId?: string;
+}) {
+  return apiRequest<{ ok: true }>('/prayer-wall/blocks', {
+    method: 'POST', body: JSON.stringify(payload),
+  });
+}
+
+export type BlockedAccount = { id: string; createdAt: string };
+
+export async function listBlockedAccounts() {
+  return apiRequest<{ data: BlockedAccount[] }>('/prayer-wall/blocks');
+}
+
+export async function unblockAccount(id: string) {
+  return apiRequest<{ ok: true }>(`/prayer-wall/blocks/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+}

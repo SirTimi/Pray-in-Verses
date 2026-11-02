@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -17,6 +18,8 @@ import {
   Bookmark,
   Heart,
   MessageCircle,
+  Flag,
+  ShieldBan,
   Send,
 } from 'lucide-react-native';
 
@@ -26,6 +29,7 @@ import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/spacing';
 import {
   addPrayerRequestComment,
+  blockPrayerAuthor,
   getPrayerRequest,
   lookupDisplayNames,
   togglePrayerRequestBookmark,
@@ -63,6 +67,7 @@ export default function PrayerRequestDetailScreen() {
   const [actionBusy, setActionBusy] = useState(false);
   const [comment, setComment] = useState('');
   const [commentBusy, setCommentBusy] = useState(false);
+  const [safetyBusy, setSafetyBusy] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) {
@@ -188,6 +193,46 @@ export default function PrayerRequestDetailScreen() {
     }
   }
 
+  function reportContent(targetType: 'REQUEST' | 'COMMENT', targetId: string) {
+    router.push({
+      pathname: '/(app)/prayer-wall/report',
+      params: { targetType, targetId },
+    });
+  }
+
+  function confirmBlock(payload: { requestId?: string; commentId?: string }) {
+    Alert.alert(
+      'Block this user?',
+      'Their posts and comments will be hidden from you. You can undo this from Profile & Settings.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Block User',
+          style: 'destructive',
+          onPress: () => void (async () => {
+            if (safetyBusy) return;
+            setSafetyBusy(true);
+            setActionError('');
+            try {
+              await blockPrayerAuthor(payload);
+              if (payload.requestId) {
+                router.replace('/(app)/(tabs)/community');
+              } else {
+                await load();
+              }
+            } catch (err) {
+              setActionError(getUserFacingError(err, {
+                fallback: 'We couldn’t block this user. Please try again.',
+              }));
+            } finally {
+              setSafetyBusy(false);
+            }
+          })(),
+        },
+      ],
+    );
+  }
+
   if (loading) {
     return (
       <SafeAreaView style={styles.stateScreen}>
@@ -252,6 +297,25 @@ export default function PrayerRequestDetailScreen() {
 
           <Text style={styles.title}>{request.title}</Text>
           <Text style={styles.description}>{request.description}</Text>
+          <View style={styles.safetyActions}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => reportContent('REQUEST', request.id)}
+              style={styles.safetyAction}
+            >
+              <Flag size={15} color={colors.textSecondary} />
+              <Text style={styles.safetyText}>Report request</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              disabled={safetyBusy}
+              onPress={() => confirmBlock({ requestId: request.id })}
+              style={styles.safetyAction}
+            >
+              <ShieldBan size={15} color={colors.textSecondary} />
+              <Text style={styles.safetyText}>Block author</Text>
+            </Pressable>
+          </View>
 
           <View style={styles.badgeRow}>
             <View style={styles.categoryBadge}><Text style={styles.categoryText}>{request.category}</Text></View>
@@ -305,6 +369,25 @@ export default function PrayerRequestDetailScreen() {
                       <Text style={styles.commentTime}>{relativeTime(item.createdAt)}</Text>
                     </View>
                     <Text style={styles.commentText}>{item.body}</Text>
+                    <View style={styles.safetyActions}>
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() => reportContent('COMMENT', item.id)}
+                        style={styles.safetyAction}
+                      >
+                        <Flag size={13} color={colors.textSecondary} />
+                        <Text style={styles.safetyText}>Report</Text>
+                      </Pressable>
+                      <Pressable
+                        accessibilityRole="button"
+                        disabled={safetyBusy}
+                        onPress={() => confirmBlock({ commentId: item.id })}
+                        style={styles.safetyAction}
+                      >
+                        <ShieldBan size={13} color={colors.textSecondary} />
+                        <Text style={styles.safetyText}>Block user</Text>
+                      </Pressable>
+                    </View>
                   </View>
                 </View>
               ))}
@@ -336,6 +419,9 @@ export default function PrayerRequestDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  safetyActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 15, marginTop: 10, marginBottom: 7 },
+  safetyAction: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 5 },
+  safetyText: { fontSize: 11, color: colors.textSecondary, fontWeight: '700' },
   safeArea: { flex: 1, backgroundColor: colors.background },
   keyboard: { flex: 1 },
   topBar: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.base },
