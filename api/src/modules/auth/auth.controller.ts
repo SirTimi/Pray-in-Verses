@@ -3,6 +3,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Patch,
@@ -25,6 +26,7 @@ import type {
 import { AuthService } from './auth.service';
 import {
   ChangePasswordDto,
+  DeleteAccountDto,
   LoginDto,
   SignupDto,
   UpdateProfileDto,
@@ -401,6 +403,30 @@ export class AuthController {
     return {
       user,
     };
+  }
+
+  // =========================================================
+  // Permanent account deletion
+  // =========================================================
+
+  @UseGuards(JwtCookieAuthGuard)
+  @Throttle({
+    default: {
+      limit: 3,
+      ttl: 10 * 60_000,
+    },
+  })
+  @HttpCode(200)
+  @Delete('me')
+  async deleteMe(
+    @Req() req: Request,
+    @Body() dto: DeleteAccountDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    await this.auth.deleteAccount(this.getUserId(req), dto.currentPassword);
+    // Only clear the session after deletion has committed successfully.
+    clearAuthCookies(res);
+    return { ok: true };
   }
 
   // =========================================================

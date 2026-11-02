@@ -1,4 +1,5 @@
 import {
+  Equals,
   IsEmail,
   IsNotEmpty,
   IsOptional,
@@ -47,4 +48,16 @@ export class ChangePasswordDto {
   @IsString()
   @MinLength(8)
   newPassword!: string;
+}
+
+/**
+ * Destructive actions require the current password and explicit confirmation.
+ */
+export class DeleteAccountDto {
+  @IsString()
+  @IsNotEmpty()
+  currentPassword!: string;
+
+  @Equals('DELETE')
+  confirmation!: string;
 }

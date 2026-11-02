@@ -281,6 +281,15 @@ export async function deletePrayerReminder(id: string) {
   await writeIndex(ids.filter((value) => value !== id));
 }
 
+// Prayer reminders belong to the device and must not survive deletion
+// of the account that scheduled them.
+export async function clearAllPrayerReminders() {
+  const ids = await readIndex();
+  for (const id of ids) {
+    await deletePrayerReminder(id);
+  }
+}
+
 export async function sendTestPrayerReminder() {
   const allowed = await requestReminderPermission();
   if (!allowed) {

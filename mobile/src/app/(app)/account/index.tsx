@@ -15,10 +15,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
   CalendarDays,
+  ChevronRight,
   Eye,
   EyeOff,
   LockKeyhole,
   Mail,
+  Trash2,
   Save,
   ShieldCheck,
   UserRound,
@@ -452,6 +454,28 @@ export default function AccountScreen() {
                   </Text>
                 </View>
               </View>
+
+              <View style={styles.sectionCard}>
+                <View style={styles.sectionHeadingRow}>
+                  <View style={[styles.sectionIcon, styles.dangerIcon]}>
+                    <Trash2 size={20} color={colors.error} />
+                  </View>
+                  <View style={styles.sectionHeadingCopy}>
+                    <Text style={styles.sectionTitle}>Delete account</Text>
+                    <Text style={styles.sectionDescription}>
+                      Permanently remove your account and personal prayer data.
+                    </Text>
+                  </View>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => router.push('/(app)/account/delete')}
+                  style={styles.dangerButton}
+                >
+                  <Text style={styles.dangerButtonText}>Delete Account</Text>
+                  <ChevronRight size={18} color={colors.error} />
+                </Pressable>
+              </View>
             </>
           )}
         </ScrollView>
@@ -618,6 +642,23 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primarySoft,
   },
   securityIcon: { backgroundColor: '#ECFDF3' },
+  dangerIcon: { backgroundColor: '#FFF1F0' },
+  dangerButton: {
+    minHeight: 52,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: '#F3C7C2',
+    backgroundColor: '#FFF8F7',
+    paddingHorizontal: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dangerButtonText: {
+    color: colors.error,
+    fontSize: 14,
+    fontWeight: '800',
+  },
   sectionHeadingCopy: { flex: 1 },
   sectionTitle: {
     color: colors.primaryDark,

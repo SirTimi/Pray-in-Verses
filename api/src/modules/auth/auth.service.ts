@@ -2,6 +2,7 @@
 
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -579,6 +580,117 @@ export class AuthService {
           updatedUser.createdAt,
       },
     };
+  }
+
+  // =========================================================
+  // Permanent account deletion
+  // =========================================================
+
+  async deleteAccount(userId: string, currentPassword: string) {
+    const account = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        role: true,
+        status: true,
+        passwordHash: true,
+      },
+    });
+
+    if (!account || account.status !== 'ACTIVE') {
+      throw new UnauthorizedException('Account unavailable');
+    }
+
+    // Public registration only creates USER accounts. Staff accounts can
+    // own shared editorial and broadcast records, so they require
+    // a separate reviewed removal process instead of deleting shared work.
+    if (account.role !== 'USER') {
+      throw new ForbiddenException(
+        'Staff accounts require administrator-assisted removal.',
+      );
+    }
+
+    if (!(await bcrypt.compare(currentPassword, account.passwordHash))) {
+      throw new BadRequestException('Current password is incorrect.');
+    }
+
+    await this.prisma.$transaction(
+      async (tx) => {
+        const current = await tx.user.findUnique({
+          where: { id: userId },
+          select: { role: true, status: true },
+        });
+
+        if (!current || current.role !== 'USER' || current.status !== 'ACTIVE') {
+          throw new UnauthorizedException('Account unavailable');
+        }
+
+        // Do not accidentally delete a platform-wide notification if a
+        // formerly privileged account was converted back to USER.
+        if (await tx.notification.count({ where: { createdById: userId } })) {
+          throw new ForbiddenException(
+            'This account has shared administrative records requiring a reviewed removal.',
+          );
+        }
+
+        // Editorial content remains public, but personal attribution
+        // must not retain the deleted user's identifier.
+        await tx.curatedPrayer.updateMany({
+          where: { createdById: userId },
+          data: { createdById: null },
+        });
+        await tx.curatedPrayer.updateMany({
+          where: { updatedById: userId },
+          data: { updatedById: null },
+        });
+
+        // Recipient targeting is stored as a scalar ID array, not an FK.
+        const targeted = await tx.notification.findMany({
+          where: { targetUserIds: { has: userId } },
+          select: { id: true, targetUserIds: true },
+        });
+        for (const item of targeted) {
+          await tx.notification.update({
+            where: { id: item.id },
+            data: {
+              targetUserIds: item.targetUserIds.filter((id) => id !== userId),
+            },
+          });
+        }
+
+        // Remove reactions and comments made on other people's requests.
+        await tx.prayerComment.deleteMany({ where: { userId } });
+        await tx.prayerLike.deleteMany({ where: { userId } });
+        await tx.prayerBookmark.deleteMany({ where: { userId } });
+
+        // Remove other users' reactions/comments on the deleted user's posts
+        // before deleting the posts (these relations have restrictive FKs).
+        const requests = await tx.prayerRequest.findMany({
+          where: { createdById: userId },
+          select: { id: true },
+        });
+        if (requests.length) {
+          const requestIds = requests.map(({ id }) => id);
+          const where = { requestId: { in: requestIds } };
+          await tx.prayerComment.deleteMany({ where });
+          await tx.prayerLike.deleteMany({ where });
+          await tx.prayerBookmark.deleteMany({ where });
+          await tx.prayerRequest.deleteMany({ where: { createdById: userId } });
+        }
+
+        await tx.prayerPoint.deleteMany({ where: { userId } });
+        await tx.passwordReset.deleteMany({ where: { userId } });
+        await tx.savedPrayer.deleteMany({ where: { userId } });
+        await tx.journal.deleteMany({ where: { userId } });
+        await tx.userNotification.deleteMany({ where: { userId } });
+        await tx.adminInvite.deleteMany({ where: { invitedBy: userId } });
+
+        // Other sessions become invalid automatically because the user
+        // lookup in JwtCookieAuthGuard will no longer find this account.
+        await tx.user.delete({ where: { id: userId } });
+      },
+      { maxWait: 5000, timeout: 20000 },
+    );
   }
 
   // =========================================================

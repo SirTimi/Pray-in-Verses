@@ -100,6 +100,16 @@ export async function changePassword(
   return result.user;
 }
 
+export async function deleteAccount(currentPassword: string) {
+  return apiRequest<{ ok: true }>('/auth/me', {
+    method: 'DELETE',
+    body: JSON.stringify({
+      currentPassword,
+      confirmation: 'DELETE',
+    }),
+  });
+}
+
 export async function logout() {
   await apiRequest<{ ok: true }>(
     '/auth/logout',
